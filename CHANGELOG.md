@@ -5,6 +5,26 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-06-03
+
+### Added
+- Enhanced HTML report generation with modern card-based design
+- Interactive tabbed visualizations in HTML reports
+- Topic similarity heatmap visualization
+- Interactive word cloud visualization
+- CSV export functionality for data tables
+- Enhanced example reports showcasing all new features
+- Comprehensive examples in README for all usage patterns
+
+### Fixed
+- Resolved compatibility issue between html_generator.py and HTMLReportConfig
+- Improved handling of Pydantic models in configuration
+
+### Changed
+- Expanded MenoTopicModeler.generate_report with additional parameters
+- Enhanced HTML template with responsive layout and improved typography
+- Improved organization of example code and sample reports
+
 ## [0.5.0] - 2025-06-03
 
 ### Changed
