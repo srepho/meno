@@ -5,6 +5,31 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-06-03
+
+### Added
+- Time series visualization module with functions for:
+  - Line plots of topic trends over time
+  - Heatmaps of topic intensity over time
+  - Stacked area charts of topic composition
+  - Ridge plots for topic distribution comparison
+  - Calendar heatmaps for specific topics
+- Geospatial visualization module with functions for:
+  - Interactive point maps with topic coloring
+  - Region choropleth maps for geographic distributions
+  - Density heatmaps showing topic concentrations
+  - Postcode-based mapping (with Australia example)
+- Time-space visualization module with functions for:
+  - Animated maps showing topic evolution over time
+  - Space-time heatmaps for regional topic trends
+  - Category-time plots for comparing topic trends across categories
+- New MenoTopicModeler methods:
+  - `visualize_topic_trends()` for time series visualization
+  - `visualize_geospatial_topics()` for location-based maps
+  - `visualize_timespace_topics()` for combined time-space analysis
+- Comprehensive unit tests for all new visualization capabilities
+- Example script demonstrating visualization with Australian insurance data
+
 ## [0.6.0] - 2025-06-03
 
 ### Added

@@ -12,7 +12,17 @@ from datetime import datetime
 from .utils.config import MenoConfig, load_config, merge_configs
 from .preprocessing import TextNormalizer
 from .modeling import DocumentEmbedding, LDAModel, EmbeddingClusterModel, TopicMatcher
-from .visualization import plot_embeddings, plot_topic_distribution, create_umap_projection
+from .visualization import (
+    plot_embeddings, plot_topic_distribution, create_umap_projection,
+    # Time series visualizations
+    create_topic_trend_plot, create_topic_heatmap, create_topic_stacked_area,
+    create_topic_ridge_plot, create_topic_calendar_heatmap,
+    # Geospatial visualizations
+    create_topic_map, create_region_choropleth, create_topic_density_map,
+    create_postcode_map,
+    # Time-space visualizations
+    create_animated_map, create_space_time_heatmap, create_category_time_plot
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -406,6 +416,379 @@ class MenoTopicModeler:
             height=self.config.visualization.plots.height,
             colorscale=self.config.visualization.plots.colorscale,
         )
+        
+        if return_figure:
+            return fig
+        else:
+            fig.show()
+    
+    def visualize_topic_trends(
+        self,
+        time_column: str,
+        value_column: Optional[str] = None,
+        time_interval: str = "M",
+        normalize: bool = False,
+        cumulative: bool = False,
+        top_n_topics: Optional[int] = None,
+        chart_type: str = "line",
+        return_figure: bool = True,
+    ):
+        """Visualize topic trends over time.
+        
+        Parameters
+        ----------
+        time_column : str
+            Name of column containing datetime values
+        value_column : str, optional
+            Name of column containing values to aggregate (if None, counts occurrences)
+        time_interval : str, default "M"
+            Time interval for aggregation: 'D' (daily), 'W' (weekly), 'M' (monthly),
+            'Q' (quarterly), 'Y' (yearly)
+        normalize : bool, default False
+            If True, normalize values to show percentage distribution
+        cumulative : bool, default False
+            If True, show cumulative values over time
+        top_n_topics : int, optional
+            If provided, only show top N topics by overall frequency
+        chart_type : str, default "line"
+            Type of chart to create: "line", "heatmap", "area", "ridge", "calendar"
+        return_figure : bool, optional
+            Whether to return the figure object, by default True
+        
+        Returns
+        -------
+        plotly.graph_objects.Figure or None
+            Plotly figure if return_figure is True, else None
+        """
+        if self.documents is None or "topic" not in self.documents.columns:
+            raise ValueError(
+                "Topic assignment must be performed before visualization"
+            )
+        
+        if time_column not in self.documents.columns:
+            raise ValueError(f"Time column '{time_column}' not found in documents")
+        
+        if value_column is not None and value_column not in self.documents.columns:
+            raise ValueError(f"Value column '{value_column}' not found in documents")
+        
+        logger.info(f"Creating time series visualization with chart type: {chart_type}")
+        
+        # Choose the appropriate visualization based on chart_type
+        if chart_type.lower() == "line":
+            fig = create_topic_trend_plot(
+                df=self.documents,
+                topic_column="topic",
+                time_column=time_column,
+                value_column=value_column,
+                time_interval=time_interval,
+                normalize=normalize,
+                cumulative=cumulative,
+                top_n_topics=top_n_topics,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif chart_type.lower() == "heatmap":
+            fig = create_topic_heatmap(
+                df=self.documents,
+                topic_column="topic",
+                time_column=time_column,
+                value_column=value_column,
+                time_interval=time_interval,
+                normalize=normalize,
+                top_n_topics=top_n_topics,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif chart_type.lower() == "area":
+            fig = create_topic_stacked_area(
+                df=self.documents,
+                topic_column="topic",
+                time_column=time_column,
+                value_column=value_column,
+                time_interval=time_interval,
+                normalize=normalize,
+                top_n_topics=top_n_topics,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif chart_type.lower() == "ridge":
+            fig = create_topic_ridge_plot(
+                df=self.documents,
+                topic_column="topic",
+                time_column=time_column,
+                value_column=value_column,
+                time_interval=time_interval,
+                normalize=normalize,
+                top_n_topics=top_n_topics,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif chart_type.lower() == "calendar":
+            if "topic" not in self.documents.columns:
+                raise ValueError("Need a topic column to create a calendar visualization")
+            
+            # For calendar, we need a specific topic
+            topics = self.documents["topic"].unique()
+            if len(topics) > 0:
+                topic_to_plot = topics[0]  # Default to first topic
+                fig = create_topic_calendar_heatmap(
+                    df=self.documents,
+                    topic_column="topic",
+                    time_column=time_column,
+                    topic_to_plot=topic_to_plot,
+                    value_column=value_column,
+                    height=250,  # Calendar has a specific height ratio
+                    width=self.config.visualization.plots.width,
+                )
+            else:
+                raise ValueError("No topics found to visualize")
+        else:
+            raise ValueError(f"Unsupported chart type: {chart_type}")
+        
+        if return_figure:
+            return fig
+        else:
+            fig.show()
+    
+    def visualize_geospatial_topics(
+        self,
+        lat_column: Optional[str] = "latitude",
+        lon_column: Optional[str] = "longitude",
+        region_column: Optional[str] = None,
+        postcode_column: Optional[str] = None,
+        value_column: Optional[str] = None,
+        map_type: str = "point",
+        color_by_topic: bool = True,
+        geojson: Optional[Any] = None,
+        feature_id_property: Optional[str] = None,
+        return_figure: bool = True,
+    ):
+        """Visualize topics across geographic locations.
+        
+        Parameters
+        ----------
+        lat_column : str, optional
+            Name of column containing latitude values, by default "latitude"
+        lon_column : str, optional
+            Name of column containing longitude values, by default "longitude"
+        region_column : str, optional
+            Name of column containing region identifiers, by default None
+        postcode_column : str, optional
+            Name of column containing postal/zip codes, by default None
+        value_column : str, optional
+            Name of column containing values to aggregate, by default None
+        map_type : str, default "point"
+            Type of map to create: "point", "choropleth", "density", "postcode"
+        color_by_topic : bool, default True
+            If True, color markers by topic; if False, color by value_column
+        geojson : Any, optional
+            GeoJSON object for choropleth maps, by default None
+        feature_id_property : str, optional
+            Property in GeoJSON features that matches region identifiers, by default None
+        return_figure : bool, optional
+            Whether to return the figure object, by default True
+        
+        Returns
+        -------
+        plotly.graph_objects.Figure or None
+            Plotly figure if return_figure is True, else None
+        """
+        if self.documents is None or "topic" not in self.documents.columns:
+            raise ValueError(
+                "Topic assignment must be performed before visualization"
+            )
+        
+        logger.info(f"Creating geospatial visualization with map type: {map_type}")
+        
+        # Choose the appropriate visualization based on map_type
+        if map_type.lower() == "point":
+            # Check if required columns exist
+            for col in [lat_column, lon_column]:
+                if col not in self.documents.columns:
+                    raise ValueError(f"Required column '{col}' not found in documents")
+            
+            fig = create_topic_map(
+                df=self.documents,
+                topic_column="topic",
+                lat_column=lat_column,
+                lon_column=lon_column,
+                value_column=value_column,
+                color_by_topic=color_by_topic,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif map_type.lower() == "choropleth":
+            # Check if required columns and data exist
+            if region_column is None:
+                raise ValueError("Region column must be provided for choropleth maps")
+            if region_column not in self.documents.columns:
+                raise ValueError(f"Region column '{region_column}' not found in documents")
+            if geojson is None:
+                raise ValueError("GeoJSON must be provided for choropleth maps")
+            if feature_id_property is None:
+                raise ValueError("Feature ID property must be provided for choropleth maps")
+            
+            fig = create_region_choropleth(
+                df=self.documents,
+                topic_column="topic",
+                region_column=region_column,
+                geojson=geojson,
+                feature_id_property=feature_id_property,
+                value_column=value_column,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif map_type.lower() == "density":
+            # Check if required columns exist
+            for col in [lat_column, lon_column]:
+                if col not in self.documents.columns:
+                    raise ValueError(f"Required column '{col}' not found in documents")
+            
+            fig = create_topic_density_map(
+                df=self.documents,
+                topic_column="topic",
+                lat_column=lat_column,
+                lon_column=lon_column,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif map_type.lower() == "postcode":
+            # Check if required columns exist
+            if postcode_column is None:
+                raise ValueError("Postcode column must be provided for postcode maps")
+            if postcode_column not in self.documents.columns:
+                raise ValueError(f"Postcode column '{postcode_column}' not found in documents")
+            
+            fig = create_postcode_map(
+                df=self.documents,
+                topic_column="topic",
+                postcode_column=postcode_column,
+                value_column=value_column,
+                color_by_topic=color_by_topic,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        else:
+            raise ValueError(f"Unsupported map type: {map_type}")
+        
+        if return_figure:
+            return fig
+        else:
+            fig.show()
+    
+    def visualize_timespace_topics(
+        self,
+        time_column: str,
+        visualization_type: str = "animated_map",
+        lat_column: Optional[str] = "latitude",
+        lon_column: Optional[str] = "longitude",
+        region_column: Optional[str] = None,
+        category_column: Optional[str] = None,
+        value_column: Optional[str] = None,
+        time_interval: str = "M",
+        normalize: bool = False,
+        plot_type: str = "line",
+        return_figure: bool = True,
+    ):
+        """Visualize topics across both time and space dimensions.
+        
+        Parameters
+        ----------
+        time_column : str
+            Name of column containing datetime values
+        visualization_type : str, default "animated_map"
+            Type of visualization: "animated_map", "space_time_heatmap", "category_time"
+        lat_column : str, optional
+            Name of column containing latitude values, by default "latitude"
+        lon_column : str, optional
+            Name of column containing longitude values, by default "longitude"
+        region_column : str, optional
+            Name of column containing region identifiers, by default None
+        category_column : str, optional
+            Name of column containing category labels, by default None
+        value_column : str, optional
+            Name of column containing values to aggregate, by default None
+        time_interval : str, default "M"
+            Time interval for aggregation: 'D', 'W', 'M', 'Q', 'Y'
+        normalize : bool, default False
+            If True, normalize values to show percentage distribution
+        plot_type : str, default "line"
+            Type of plot for category_time visualization: "line", "area", "bar"
+        return_figure : bool, optional
+            Whether to return the figure object, by default True
+        
+        Returns
+        -------
+        plotly.graph_objects.Figure or None
+            Plotly figure if return_figure is True, else None
+        """
+        if self.documents is None or "topic" not in self.documents.columns:
+            raise ValueError(
+                "Topic assignment must be performed before visualization"
+            )
+        
+        if time_column not in self.documents.columns:
+            raise ValueError(f"Time column '{time_column}' not found in documents")
+        
+        logger.info(f"Creating time-space visualization: {visualization_type}")
+        
+        # Choose the appropriate visualization based on visualization_type
+        if visualization_type.lower() == "animated_map":
+            # Check if required columns exist
+            for col in [lat_column, lon_column]:
+                if col not in self.documents.columns:
+                    raise ValueError(f"Required column '{col}' not found in documents")
+            
+            fig = create_animated_map(
+                df=self.documents,
+                topic_column="topic",
+                time_column=time_column,
+                lat_column=lat_column,
+                lon_column=lon_column,
+                value_column=value_column,
+                time_interval=time_interval,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif visualization_type.lower() == "space_time_heatmap":
+            # Check if required columns exist
+            if region_column is None:
+                raise ValueError("Region column must be provided for space-time heatmaps")
+            if region_column not in self.documents.columns:
+                raise ValueError(f"Region column '{region_column}' not found in documents")
+            
+            fig = create_space_time_heatmap(
+                df=self.documents,
+                topic_column="topic",
+                time_column=time_column,
+                region_column=region_column,
+                value_column=value_column,
+                time_interval=time_interval,
+                normalize=normalize,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        elif visualization_type.lower() == "category_time":
+            # Check if required columns exist
+            if category_column is None:
+                raise ValueError("Category column must be provided for category-time plots")
+            if category_column not in self.documents.columns:
+                raise ValueError(f"Category column '{category_column}' not found in documents")
+            
+            fig = create_category_time_plot(
+                df=self.documents,
+                topic_column="topic",
+                time_column=time_column,
+                category_column=category_column,
+                value_column=value_column,
+                time_interval=time_interval,
+                plot_type=plot_type,
+                normalize=normalize,
+                height=self.config.visualization.plots.height,
+                width=self.config.visualization.plots.width,
+            )
+        else:
+            raise ValueError(f"Unsupported visualization type: {visualization_type}")
         
         if return_figure:
             return fig
