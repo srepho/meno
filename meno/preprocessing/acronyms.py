@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Union, Tuple, Set
 import re
 import pandas as pd
-from fuzzywuzzy import process
+from thefuzz import process
 
 
 class AcronymExpander:
