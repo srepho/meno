@@ -1,6 +1,7 @@
 """Document embedding module using transformer models."""
 
 from typing import List, Dict, Optional, Union, Any
+import os
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
@@ -14,12 +15,16 @@ class DocumentEmbedding:
     Parameters
     ----------
     model_name : str, optional
-        Name of the transformer model to use, by default "sentence-transformers/all-MiniLM-L6-v2"
+        Name of the transformer model to use, by default "answerdotai/ModernBERT-base"
         Supports any model compatible with sentence-transformers or HuggingFace transformers.
     device : str, optional
-        Device to run the model on, by default "cuda" if available else "cpu"
+        Device to run the model on, by default determined by use_gpu setting
     batch_size : int, optional
         Batch size for embedding generation, by default 32
+    use_gpu : bool, optional
+        Whether to use GPU acceleration if available, by default False
+    local_model_path : str, optional
+        Path to locally downloaded model, by default None (will download from HuggingFace)
     
     Attributes
     ----------
@@ -31,22 +36,30 @@ class DocumentEmbedding:
     
     def __init__(
         self,
-        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        model_name: str = "answerdotai/ModernBERT-base",
         device: Optional[str] = None,
         batch_size: int = 32,
+        use_gpu: bool = False,
+        local_model_path: Optional[str] = None,
     ):
         """Initialize the document embedding model."""
         self.model_name = model_name
         self.batch_size = batch_size
+        self.use_gpu = use_gpu
+        self.local_model_path = local_model_path
         
         # Set device
         if device is None:
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.device = "cuda" if (torch.cuda.is_available() and use_gpu) else "cpu"
         else:
             self.device = device
             
         # Load model
-        self.model = SentenceTransformer(model_name, device=self.device)
+        if local_model_path and os.path.exists(local_model_path):
+            self.model = SentenceTransformer(local_model_path, device=self.device)
+        else:
+            self.model = SentenceTransformer(model_name, device=self.device)
+            
         self.embedding_dim = self.model.get_sentence_embedding_dimension()
     
     def embed_documents(

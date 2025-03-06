@@ -53,8 +53,10 @@ class PreprocessingConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     """Configuration for embedding models."""
     
-    model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    model_name: str = "answerdotai/ModernBERT-base"
     batch_size: int = 32
+    use_gpu: bool = False
+    local_model_path: Optional[str] = None
 
 
 class LDAConfig(BaseModel):

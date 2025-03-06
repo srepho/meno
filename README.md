@@ -24,6 +24,9 @@ This Python package, meno, is designed to streamline topic modeling on free text
     *   Tackle messy data challenges (misspellings, unknown acronyms) with integrated cleaning functionalities using NLP libraries (spaCy, fuzzy matching, **context-aware spelling correction, and customizable stop words/lemmatization rules.**). **(See details in Architecture section below)**
 *   **Active Learning with Cleanlab:**
     *   Incorporate active learning loops and fine-tuning of labels using Cleanlab, facilitating hand-labeling and iterative improvements, **with multiple sampling strategies (e.g., uncertainty sampling).**
+*   **Flexible Deployment Options:**
+    *   Support for both CPU and GPU environments with separate installation options.
+    *   Load models from local files for use in environments without internet access or behind firewalls.
 *   **Extensibility & Ease of Use:**
     *   Designed with modularity in mind so that users can plug in new cleaning, modeling, or visualization techniques without deep customization while still maintaining a simple interface.
 
@@ -46,9 +49,10 @@ Handles cleaning tasks such as:
 
 *   **LDA:** Implements Latent Dirichlet Allocation using `gensim`.
 *   **LLM-based Topic Extraction:**
-    *   **Embedding Generation:**  Uses pre-trained LLMs from Hugging Face Transformers (e.g., **Sentence Transformers like `all-MiniLM-L6-v2` as a default, with options for users to specify other models**) to generate document embeddings.
+    *   **Embedding Generation:**  Uses pre-trained LLMs from Hugging Face Transformers (e.g., **`answerdotai/ModernBERT-base` as the default model, with options for users to specify other models or use local model files**) to generate document embeddings.
     *   **Clustering:** Applies clustering algorithms (e.g., HDBSCAN, K-Means) to the embeddings to identify topic clusters.  **Provides options for users to adjust clustering parameters.**
-    *    **Optional LLM Fine-tuning:** *Consider adding this as a later feature.  It would involve allowing users to fine-tune the LLM on their data.*
+    *   **GPU Acceleration:** Optional GPU support for faster embedding generation with large datasets.
+    *   **Optional LLM Fine-tuning:** *Consider adding this as a later feature.  It would involve allowing users to fine-tune the LLM on their data.*
 
 #### Supervised Matching:
 
@@ -91,7 +95,8 @@ Integrates with Cleanlab to facilitate hand-labeling, iterative label fine-tunin
     *   Configuration: `pydantic`, `PyYAML`, `jinja2`
 *   **Optional Libraries** (install based on needs):
     *   Topic Modeling: `gensim` (for LDA)
-    *   Embeddings: `transformers`, `sentence-transformers`
+    *   Embeddings (CPU): `transformers`, `sentence-transformers`, `torch`
+    *   Embeddings (GPU): Additional `accelerate`, `bitsandbytes` 
     *   Dimensionality Reduction: `umap-learn`
     *   Clustering: `hdbscan`
     *   Data Cleaning & NLP: `spaCy`, `python-Levenshtein`
@@ -115,8 +120,11 @@ pip install meno
 Install with specific optional dependencies:
 
 ```bash
-# For embeddings and LLM-based topic modeling
+# For embeddings and LLM-based topic modeling (CPU)
 pip install meno[embeddings]
+
+# For embeddings with GPU acceleration
+pip install meno[embeddings-gpu]
 
 # For LDA topic modeling
 pip install meno[lda]
@@ -130,8 +138,11 @@ pip install meno[nlp]
 # For developers
 pip install meno[dev,test]
 
-# For all features (full installation)
+# For all features (full installation, CPU)
 pip install meno[full]
+
+# For all features with GPU acceleration
+pip install meno[full-gpu]
 ```
 
 ### Development Installation
