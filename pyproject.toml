@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meno"
-version = "0.4.2"
+version = "0.4.3"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -177,3 +177,6 @@ packages = [
 ]
 package-dir = {"" = "."}
 include-package-data = true
+
+[tool.setuptools.package-data]
+meno = ["config/*.yaml"]

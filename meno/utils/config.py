@@ -213,13 +213,26 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> MenoConfig:
         Validated configuration object
     """
     if config_path is None:
-        # Load default config
-        default_config_path = Path(__file__).parent.parent.parent / "config" / "default_config.yaml"
-        config_path = default_config_path
+        # First try to find the default config in the installed package
+        try:
+            import importlib.resources as pkg_resources
+            import meno
+            config_text = pkg_resources.read_text(meno, "default_config.yaml")
+            config_dict = yaml.safe_load(config_text)
+            return MenoConfig(**config_dict)
+        except (ImportError, FileNotFoundError):
+            # Fall back to looking for the file in the repository
+            default_config_path = Path(__file__).parent.parent.parent / "config" / "default_config.yaml"
+            config_path = default_config_path
     
-    # Load YAML config
-    with open(config_path, 'r') as f:
-        config_dict = yaml.safe_load(f)
+    # Load YAML config from file
+    try:
+        with open(config_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+    except FileNotFoundError:
+        # If all else fails, use hardcoded default values from the MenoConfig class
+        print(f"Warning: Config file {config_path} not found. Using default configuration.")
+        return MenoConfig()
     
     # Validate with pydantic
     return MenoConfig(**config_dict)
