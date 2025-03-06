@@ -129,6 +129,32 @@ Example notebooks demonstrating:
 *   **Code of Conduct & Contribution Guide:** Clear instructions for contributing, reporting issues, and submitting pull requests.
 *   **Issue Tracker & Feature Requests:** Guidance on how to report bugs or request new features.
 
+## Examples
+
+### Insurance Complaint Analysis
+
+The package includes an example that demonstrates topic modeling on the Australian Insurance PII Dataset from Hugging Face. This dataset contains over 1,500 insurance complaint letters with various types of insurance issues, making it ideal for testing topic modeling capabilities.
+
+To run the insurance example:
+
+```bash
+# Install required dependencies
+pip install -r requirements_insurance_example.txt
+
+# Run the example script
+python examples/insurance_topic_modeling.py
+```
+
+This example demonstrates:
+- Loading data from Hugging Face Datasets
+- Preprocessing insurance complaint letters
+- Discovering topics using unsupervised clustering
+- Matching documents to predefined insurance-related topics
+- Visualizing topic distributions and document embeddings
+- Generating an interactive HTML report
+
+The results will be saved in the `output` directory.
+
 ## Roadmap & Future Enhancements
 
 *   **Enhanced NLP Cleaning:** Integration of more advanced text normalization and context-aware corrections.
@@ -137,6 +163,5 @@ Example notebooks demonstrating:
 *   **User Feedback Loop:** Streamlined integration with active learning systems for continuous model improvement.
 *   **Scalability:**  **Implement support for larger datasets through techniques like mini-batch processing (for LDA) and potentially distributed processing (e.g., using Dask).**
 *   **Multilingual Support:**  **Extend support beyond English to other languages by leveraging multilingual LLMs and language-specific NLP tools.**
-*   **Fine-tuning LLMs** Allow users to fine-tune LLMs
-
-This expanded document provides a more detailed and actionable plan for your Topic Modeling Toolkit. It incorporates the suggestions and addresses the questions from the previous feedback. It's ready to be used as a foundation for your project's documentation and development. Remember to start with an MVP and iterate!
+*   **Fine-tuning LLMs:** Allow users to fine-tune LLMs for specific domains or datasets.
+*   **Additional Datasets:** Add more example datasets from different domains to showcase the package's versatility.
