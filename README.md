@@ -852,13 +852,52 @@ processed_docs = modeler.preprocess(
 print("Generating document embeddings...")
 embeddings = modeler.embed_documents()
 
-# Discover topics
+# Discover topics with automatic selection
 print("Discovering topics...")
+# Option 1: Let HDBSCAN automatically determine the number of topics
 topics_df = modeler.discover_topics(
     method="embedding_cluster", 
-    num_topics=5,
-    clustering_algorithm="kmeans"  # Use kmeans for more distinct topics
+    clustering_algorithm="hdbscan",  # Will automatically find natural clusters
+    min_cluster_size=10,            # Minimum documents per topic
+    min_samples=5                   # Minimum samples for core points
 )
+
+# Option 2 (alternative): Use elbow method to determine optimal number of topics
+# from sklearn.cluster import KMeans
+# from sklearn.metrics import silhouette_score
+# import numpy as np
+# import matplotlib.pyplot as plt
+#
+# # Find optimal number of topics using silhouette scores
+# range_n_clusters = range(2, 10)
+# silhouette_avg_list = []
+# 
+# for num_clusters in range_n_clusters:
+#     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+#     cluster_labels = kmeans.fit_predict(embeddings)
+#     silhouette_avg = silhouette_score(embeddings, cluster_labels)
+#     silhouette_avg_list.append(silhouette_avg)
+#     print(f"For n_clusters = {num_clusters}, silhouette score = {silhouette_avg:.3f}")
+#
+# # Plot silhouette scores
+# plt.figure(figsize=(10, 6))
+# plt.plot(range_n_clusters, silhouette_avg_list, 'o-')
+# plt.xlabel('Number of Topics')
+# plt.ylabel('Silhouette Score')
+# plt.title('Silhouette Score by Number of Topics')
+# plt.grid(True)
+# plt.show()
+#
+# # Use optimal number of topics (highest silhouette score)
+# optimal_num_topics = range_n_clusters[np.argmax(silhouette_avg_list)]
+# print(f"Optimal number of topics: {optimal_num_topics}")
+# 
+# # Now use the optimal number for kmeans clustering
+# topics_df = modeler.discover_topics(
+#     method="embedding_cluster", 
+#     num_topics=optimal_num_topics,
+#     clustering_algorithm="kmeans"
+# )
 print(f"Discovered {len(topics_df['topic'].unique())} topics")
 
 # Print top documents for each topic
