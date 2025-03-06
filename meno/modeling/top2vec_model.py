@@ -33,6 +33,7 @@ class Top2VecModel(BaseTopicModel):
         Minimum size of topics, by default 10
     use_gpu : bool, optional
         Whether to use GPU acceleration if available, by default False
+        Setting to False (default) ensures CPU-only operation and avoids CUDA dependencies
     umap_args : Optional[Dict], optional
         Arguments for UMAP, by default None
     hdbscan_args : Optional[Dict], optional
@@ -86,7 +87,7 @@ class Top2VecModel(BaseTopicModel):
         
         # Set up embedding model if not provided and using custom embeddings
         if embedding_model is None and use_custom_embeddings:
-            self.embedding_model = DocumentEmbedding(use_gpu=use_gpu)
+            self.embedding_model = DocumentEmbedding(use_gpu=False)  # Default to CPU
         else:
             self.embedding_model = embedding_model
             

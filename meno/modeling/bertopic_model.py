@@ -36,6 +36,7 @@ class BERTopicModel(BaseTopicModel):
         Minimum size of topics, by default 10
     use_gpu : bool, optional
         Whether to use GPU acceleration if available, by default False
+        Setting to False (default) ensures CPU-only operation and avoids CUDA dependencies
     n_neighbors : int, optional
         Number of neighbors for UMAP, by default 15
     n_components : int, optional
@@ -77,9 +78,9 @@ class BERTopicModel(BaseTopicModel):
         self.n_components = n_components
         self.verbose = verbose
         
-        # Set up embedding model if not provided
+        # Set up embedding model if not provided - default to CPU
         if embedding_model is None:
-            self.embedding_model = DocumentEmbedding(use_gpu=use_gpu)
+            self.embedding_model = DocumentEmbedding(use_gpu=False)  # Default to CPU
         else:
             self.embedding_model = embedding_model
             

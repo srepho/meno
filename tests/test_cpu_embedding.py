@@ -47,9 +47,9 @@ class TestCPUEmbedding:
     def embedding_model_cpu_explicit(self):
         """Create embedding model with CPU explicitly specified."""
         return DocumentEmbedding(
-            model_name="all-MiniLM-L6-v2",
+            model_name="all-MiniLM-L6-v2",  # Using small model for test efficiency
             device="cpu",
-            use_gpu=False,
+            use_gpu=False,  # Explicitly disable GPU
             batch_size=32
         )
     
@@ -57,8 +57,8 @@ class TestCPUEmbedding:
     def embedding_model_cpu_implicit(self):
         """Create embedding model with CPU implicitly selected via use_gpu=False."""
         return DocumentEmbedding(
-            model_name="all-MiniLM-L6-v2",
-            use_gpu=False,
+            model_name="all-MiniLM-L6-v2",  # Using small model for test efficiency
+            use_gpu=False,  # Should default to CPU
             batch_size=32
         )
 
@@ -94,12 +94,14 @@ class TestCPUEmbedding:
         model_small_batch = DocumentEmbedding(
             model_name="all-MiniLM-L6-v2", 
             device="cpu",
+            use_gpu=False,  # Ensure CPU usage
             batch_size=2
         )
         
         model_large_batch = DocumentEmbedding(
             model_name="all-MiniLM-L6-v2", 
             device="cpu",
+            use_gpu=False,  # Ensure CPU usage
             batch_size=16
         )
         

@@ -1,4 +1,4 @@
-"""Document embedding module using transformer models."""
+"""Document embedding module using transformer models (CPU-optimized by default)."""
 
 from typing import List, Dict, Optional, Union, Any, Callable, Generator, Iterable
 import os
@@ -29,6 +29,7 @@ class DocumentEmbedding:
         Batch size for embedding generation, by default 32
     use_gpu : bool, optional
         Whether to use GPU acceleration if available, by default False
+        Setting to False (default) ensures CPU-only operation and avoids CUDA dependencies
     local_model_path : str, optional
         Path to locally downloaded model, by default None (will download from HuggingFace)
     
@@ -38,6 +39,8 @@ class DocumentEmbedding:
         Loaded transformer model
     embedding_dim : int
         Dimension of the embeddings
+    device : str
+        Device being used for inference (either "cpu" or "cuda")
     """
     
     def __init__(
@@ -54,8 +57,9 @@ class DocumentEmbedding:
         self.use_gpu = use_gpu
         self.local_model_path = local_model_path
         
-        # Set device
+        # Set device - default to CPU
         if device is None:
+            # Only use CUDA if explicitly requested and available
             self.device = "cuda" if (torch.cuda.is_available() and use_gpu) else "cpu"
         else:
             self.device = device

@@ -25,7 +25,7 @@ This Python package, meno, is designed to streamline topic modeling on free text
 *   **Active Learning with Cleanlab:**
     *   Incorporate active learning loops and fine-tuning of labels using Cleanlab, facilitating hand-labeling and iterative improvements, **with multiple sampling strategies (e.g., uncertainty sampling).**
 *   **Flexible Deployment Options:**
-    *   Support for both CPU and GPU environments with separate installation options.
+    *   CPU-first design with optional GPU acceleration through separate installation options.
     *   Load models from local files for use in environments without internet access or behind firewalls.
 *   **Extensibility & Ease of Use:**
     *   Designed with modularity in mind so that users can plug in new cleaning, modeling, or visualization techniques without deep customization while still maintaining a simple interface.
@@ -121,10 +121,10 @@ pip install meno
 Install with specific optional dependencies:
 
 ```bash
-# For embeddings and LLM-based topic modeling (CPU)
+# For embeddings and LLM-based topic modeling (CPU only - recommended)
 pip install meno[embeddings]
 
-# For embeddings with GPU acceleration
+# For embeddings with GPU acceleration (only if needed)
 pip install meno[embeddings-gpu]
 
 # For additional topic modeling approaches (BERTopic, Top2Vec)
@@ -145,12 +145,14 @@ pip install meno[optimization]
 # For developers
 pip install meno[dev,test]
 
-# For all features (full installation, CPU)
+# For all features (full installation, CPU only - recommended for most users)
 pip install meno[full]
 
-# For all features with GPU acceleration
+# For all features with GPU acceleration (only if needed)
 pip install meno[full-gpu]
 ```
+
+> **Note:** The CPU-only installations (`meno[embeddings]` and `meno[full]`) are recommended for most users as they avoid installing unnecessary NVIDIA/CUDA dependencies while still providing excellent performance for most workloads.
 
 ### Development Installation
 
@@ -167,9 +169,9 @@ pip install -e ".[dev,test]"
 Create a new conda environment:
 
 ```bash
-conda create -n meno python=3.12  # Or any version between 3.8 and 3.13
+conda create -n meno python=3.10  # Primary supported version
 conda activate meno
-pip install meno[full]
+pip install meno[full]  # CPU-only version recommended
 ```
 
 ## Usage in Jupyter
