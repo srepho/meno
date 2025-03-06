@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meno"
-version = "0.4.1"
+version = "0.4.2"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -36,6 +36,7 @@ dependencies = [
     "jinja2>=3.1.2,<4.0.0",
     # Text processing
     "fuzzywuzzy>=0.18.0,<0.19.0",
+    "python-Levenshtein>=0.20.9,<0.21.0",  # Remove warnings from fuzzywuzzy
 ]
 
 [project.optional-dependencies]
