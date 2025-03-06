@@ -78,3 +78,4 @@ disallow_incomplete_defs = true
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
+addopts = "--cov=meno --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch"
