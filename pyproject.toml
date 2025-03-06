@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "Stephen Oates", email = "stephen.oates@example.com"},
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -99,8 +99,8 @@ docs = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/meno"
-"Bug Tracker" = "https://github.com/yourusername/meno/issues"
+"Homepage" = "https://github.com/srepho/meno"
+"Bug Tracker" = "https://github.com/srepho/meno/issues"
 
 [tool.black]
 line-length = 88

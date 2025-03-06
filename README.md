@@ -2,9 +2,9 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/meno.svg)](https://pypi.org/project/meno/)
 [![Python Version](https://img.shields.io/pypi/pyversions/meno.svg)](https://pypi.org/project/meno/)
-[![License](https://img.shields.io/github/license/yourusername/meno.svg)](https://github.com/yourusername/meno/blob/main/LICENSE)
-[![Tests](https://github.com/yourusername/meno/workflows/tests/badge.svg)](https://github.com/yourusername/meno/actions?query=workflow%3Atests)
-[![Downloads](https://static.pepy.tech/badge/meno)](https://pepy.tech/project/meno)
+[![License](https://img.shields.io/github/license/srepho/meno.svg)](https://github.com/srepho/meno/blob/main/LICENSE)
+[![Tests](https://github.com/srepho/meno/workflows/tests/badge.svg)](https://github.com/srepho/meno/actions?query=workflow%3Atests)
+[![Downloads](https://img.shields.io/pypi/dm/meno.svg)](https://pypi.org/project/meno/)
 
 ## Overview
 
@@ -139,7 +139,7 @@ pip install meno[full]
 For development work, clone the repository and install in editable mode:
 
 ```bash
-git clone https://github.com/yourusername/meno.git
+git clone https://github.com/srepho/meno.git
 cd meno
 pip install -e ".[dev,test]"
 ```
