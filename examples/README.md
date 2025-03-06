@@ -16,6 +16,7 @@ This directory contains example scripts and notebooks demonstrating how to use t
 - **[cpu_only_example.py](cpu_only_example.py)** - Demonstrates CPU-optimized topic modeling
 - **[insurance_topic_modeling.py](insurance_topic_modeling.py)** - Topic modeling on insurance complaint dataset
 - **[bertopic_example.py](bertopic_example.py)** - Advanced topic modeling using BERTopic with KeyBERTInspired
+- **[simple_bertopic_example.py](simple_bertopic_example.py)** - Simplified BERTopic example with minimal configuration
 - **[workflow_with_optimizations.py](workflow_with_optimizations.py)** - Optimized workflow for large datasets
 - **[interactive_workflow_demo.py](interactive_workflow_demo.py)** - Step-by-step guided workflow with interactive components
 

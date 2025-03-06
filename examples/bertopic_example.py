@@ -44,6 +44,18 @@ def main():
                 "insure", "insured", "complaint", "email"]
     
     print("\nInitializing models...")
+    # === OPTION 1: Simplified approach with string-based embedding model ===
+    print("\nOption 1: Using simplified BERTopic configuration...")
+    # Simply specify the embedding model name, BERTopic handles the rest
+    simple_topic_model = BERTopic(
+        embedding_model="all-MiniLM-L6-v2",  # BERTopic will load this model automatically
+        nr_topics=12,                        # Target number of topics
+        min_topic_size=10,                   # Minimum size for a topic
+        verbose=True
+    )
+    
+    # === OPTION 2: Advanced configuration for more control ===
+    print("\nOption 2: Using advanced BERTopic configuration...")
     # 1. Initialize sentence transformer model for document embedding
     embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
     
@@ -61,7 +73,7 @@ def main():
     # 4. Initialize KeyBERTInspired representation model for better topic representation
     representation_model = KeyBERTInspired()
     
-    # 5. Create and configure the BERTopic model
+    # 5. Create and configure the BERTopic model with advanced settings
     topic_model = BERTopic(
         embedding_model=embedding_model,      # Model to create document embeddings
         umap_model=umap_model,                # Dimensionality reduction
@@ -71,6 +83,9 @@ def main():
         min_topic_size=10,                    # Minimum size for a topic
         verbose=True
     )
+    
+    # Choose which model to use for this demo
+    # topic_model = simple_topic_model  # Uncomment to use the simplified approach
     
     # Create embeddings and fit topic model
     print("\nFitting topic model...")
