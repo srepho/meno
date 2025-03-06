@@ -31,21 +31,36 @@ Meno is a toolkit for topic modeling on messy text data, featuring an interactiv
 Install the basic package with core dependencies:
 
 ```bash
+# NumPy 1.x is required for compatibility
+pip install "numpy<2.0.0"
 pip install meno
 ```
 
-### CPU-Optimized Installation (Recommended)
+### Minimal Installation (Recommended)
 
-Install with embeddings for CPU-only operation (recommended for most users):
+Install with minimal dependencies for topic modeling:
 
 ```bash
-pip install meno[embeddings]
+# Install NumPy 1.x first for compatibility
+pip install "numpy<2.0.0"
+# Install meno with minimal dependencies
+pip install "meno[minimal]"
+```
+
+### CPU-Optimized Installation
+
+Install with embeddings for CPU-only operation:
+
+```bash
+pip install "numpy<2.0.0"
+pip install "meno[embeddings]"
 ```
 
 For a truly CPU-only version with no NVIDIA packages:
 
 ```bash
-pip install meno[embeddings] -f https://download.pytorch.org/whl/torch_stable.html
+pip install "numpy<2.0.0"
+pip install "meno[embeddings]" -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
 ### Installation with Optional Components
@@ -105,41 +120,41 @@ This will generate interactive HTML reports for acronyms and misspellings in a s
 
 ## Quick Start
 
-### Basic Topic Modeling
+### Basic Topic Modeling with Hugging Face Dataset
 
 ```python
 from meno import MenoTopicModeler
 import pandas as pd
+from datasets import load_dataset
 
-# Load your data
-data = pd.DataFrame({
-    "text": [
-        "Customer's vehicle was damaged in a parking lot by a shopping cart.",
-        "Claimant's home flooded due to heavy rain. Water damage to first floor.",
-        "Vehicle collided with another car at an intersection. Front-end damage.",
-        "Tree fell on roof during storm causing damage to shingles and gutters.",
-        "Insured slipped on ice in parking lot and broke wrist requiring treatment."
-    ]
-})
+# First, install the necessary dependencies
+# pip install "numpy<2.0.0"  # NumPy 1.x is required for compatibility
+# pip install "meno[minimal]"  # Install meno with minimal dependencies for topic modeling
+
+# Load insurance dataset from Hugging Face
+dataset = load_dataset("soates/australian-insurance-pii-dataset-corrected")
+df = pd.DataFrame(dataset["train"])
 
 # Initialize topic modeler
 modeler = MenoTopicModeler()
 
 # Preprocess documents
-processed_docs = modeler.preprocess(data, text_column="text")
+processed_docs = modeler.preprocess(df, text_column="claim_description")
 
 # Generate embeddings
 embeddings = modeler.embed_documents()
 
 # Discover topics
-topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=3)
+topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=5)
+print(f"Discovered {len(topics_df['topic'].unique())} topics")
 
 # Visualize results
 fig = modeler.visualize_embeddings()
-fig.show()
+fig.show()  # Or fig.write_html("insurance_embeddings.html")
 
 # Generate HTML report
-report_path = modeler.generate_report(output_path="topics_report.html")
+report_path = modeler.generate_report(output_path="insurance_topics_report.html")
+print(f"Report generated at: {report_path}")
 ```
 
 ### Interactive Workflow (New in 0.8.0)
@@ -796,21 +811,78 @@ The package includes several example notebooks and scripts:
 - `examples/minimal_sample.py`: Simple script to generate visualizations
 - `examples/sample_reports/`: Directory with pre-generated sample visualizations
 
-### Insurance Complaint Analysis
+### Insurance Complaint Analysis with Hugging Face Dataset
 
-The package includes an example that demonstrates topic modeling on the Australian Insurance PII Dataset from Hugging Face. This dataset contains over 1,500 insurance complaint letters with various types of insurance issues.
+Here's a complete example showing how to analyze the Australian Insurance PII Dataset from Hugging Face:
 
-To run the insurance example:
+```python
+from meno import MenoTopicModeler
+import pandas as pd
+from datasets import load_dataset
+
+# Install dependencies first:
+# pip install "numpy<2.0.0" 
+# pip install "meno[minimal]" 
+# pip install datasets
+
+# Load the dataset
+print("Loading dataset from Hugging Face...")
+dataset = load_dataset("soates/australian-insurance-pii-dataset-corrected")
+df = pd.DataFrame(dataset["train"])
+print(f"Loaded {len(df)} insurance complaint documents")
+
+# Initialize the topic modeler
+modeler = MenoTopicModeler()
+
+# Preprocess documents
+print("Preprocessing documents...")
+processed_docs = modeler.preprocess(df, text_column="claim_description")
+
+# Generate embeddings
+print("Generating document embeddings...")
+embeddings = modeler.embed_documents()
+
+# Discover topics
+print("Discovering topics...")
+topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=5)
+print(f"Discovered {len(topics_df['topic'].unique())} topics")
+
+# Print top documents for each topic
+for topic in sorted(topics_df["topic"].unique()):
+    print(f"\nTop documents for {topic}:")
+    topic_docs = topics_df[topics_df["topic"] == topic].sort_values(
+        by="topic_probability", ascending=False
+    ).head(3)
+    
+    for _, row in topic_docs.iterrows():
+        doc_idx = row.name
+        doc_text = df.iloc[doc_idx]["claim_description"]
+        print(f"- {doc_text[:100]}... (probability: {row['topic_probability']:.2f})")
+
+# Visualize results
+print("\nGenerating visualizations...")
+fig = modeler.visualize_embeddings()
+fig.write_html("insurance_embeddings.html")
+print("Embeddings visualization saved to insurance_embeddings.html")
+
+# Generate HTML report
+report_path = modeler.generate_report(output_path="insurance_topics_report.html")
+print(f"Comprehensive report generated at: {report_path}")
+```
+
+To run this example:
 
 ```bash
 # Install required dependencies
-pip install -r requirements_insurance_example.txt
+pip install "numpy<2.0.0"
+pip install "meno[minimal]" 
+pip install datasets
 
-# Run the example script
-python examples/insurance_topic_modeling.py
+# Save the example to a file
+python insurance_example.py
 ```
 
-The results will be saved in the `output` directory.
+The results will include interactive visualizations and a comprehensive topic report.
 
 ## Architecture & Design
 
