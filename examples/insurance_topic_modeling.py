@@ -127,11 +127,61 @@ def main():
     print("Embedding documents...")
     topic_modeler.embed_documents()
     
+    # Option A: Using built-in topics discovery with embedding clustering
     print("Discovering topics using clustering...")
     unsupervised_results = topic_modeler.discover_topics(
         method="embedding_cluster", 
         num_topics=len(INSURANCE_TOPICS)
     )
+    
+    # Option B: Using BERTopic with KeyBERTInspired representation (commented out by default)
+    """
+    print("Discovering topics using BERTopic with KeyBERTInspired...")
+    try:
+        from bertopic import BERTopic
+        from bertopic.representation import KeyBERTInspired
+        from sentence_transformers import SentenceTransformer
+        
+        # Create embedding model
+        sentence_model = SentenceTransformer("all-MiniLM-L6-v2")
+        
+        # Fine-tune topic representations with KeyBERTInspired
+        representation_model = KeyBERTInspired()
+        
+        # Create and train topic model
+        topic_model = BERTopic(
+            embedding_model=sentence_model,
+            representation_model=representation_model,
+            nr_topics=len(INSURANCE_TOPICS)
+        )
+        
+        # Fit on the preprocessed documents
+        topics, probs = topic_model.fit_transform(
+            processed_docs["text"].tolist()
+        )
+        
+        # Get topic info
+        topic_info = topic_model.get_topic_info()
+        print(f"Discovered {len(topic_info[topic_info['Topic'] != -1])} topics")
+        
+        # Display topics
+        for topic_id, topic_words in topic_model.get_topics().items():
+            if topic_id != -1:  # Skip outlier topic
+                words = [word for word, _ in topic_words[:5]]
+                print(f"Topic {topic_id}: {', '.join(words)}")
+        
+        # Create DataFrame with topic assignments
+        bertopic_df = pd.DataFrame({
+            "text": processed_docs["text"],
+            "topic": [f"Topic_{t}" if t >= 0 else "Outlier" for t in topics],
+            "topic_probability": probs
+        })
+        
+        # Replace unsupervised_results with BERTopic results if desired
+        # unsupervised_results = bertopic_df
+    except ImportError:
+        print("BERTopic not installed. Install with: pip install bertopic")
+    """
     
     print("Top topics discovered:")
     topic_counts = unsupervised_results["topic"].value_counts()
