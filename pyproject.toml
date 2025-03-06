@@ -79,3 +79,16 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--cov=meno --cov-report=term-missing --cov-report=xml:coverage.xml --cov-branch"
+
+[tool.setuptools]
+packages = [
+    "meno",
+    "meno.active_learning",
+    "meno.modeling",
+    "meno.preprocessing",
+    "meno.reporting",
+    "meno.utils",
+    "meno.visualization"
+]
+package-dir = {"" = "."}
+include-package-data = true
