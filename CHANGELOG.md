@@ -5,6 +5,20 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2025-06-03
+
+### Changed
+- Enhanced CPU-first design across all model components
+- Modified DocumentEmbedding to default to CPU operation
+- Updated BERTopicModel and Top2VecModel to explicitly use CPU by default
+- Fixed dependency specifications for CPU-only PyTorch installation
+- Improved documentation with clearer CPU-only installation instructions
+- Added examples demonstrating CPU-only workflows
+
+### Added
+- New tests for CPU-only embedding functionality
+- Installation instructions for CPU-only PyTorch configuration
+
 ## [0.2.0] - 2024-06-03
 
 ### Added
