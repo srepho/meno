@@ -1,5 +1,9 @@
 include config/*.yaml
 recursive-include meno *.py
+include meno/default_config.yaml
+include examples/*.py
+include examples/*.ipynb
+include examples/sample_reports/*.html
 include LICENSE
 include README.md
 include CHANGELOG.md

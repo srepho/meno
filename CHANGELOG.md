@@ -5,6 +5,17 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-06-03
+
+### Changed
+- Updated Python version support to >=3.8,<3.13 (dropped Python 3.13 due to pyarrow compatibility)
+- Reduced minimum pyarrow version to 11.0.0 for better compatibility
+- Restructured README with installation at the top and expanded examples
+- Added sample report generation scripts and visualizations
+
+### Fixed
+- Fixed import issues with fuzzywuzzy by fully transitioning to thefuzz
+
 ## [0.4.5] - 2025-06-03
 
 ### Fixed
