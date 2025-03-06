@@ -43,7 +43,6 @@ dependencies = [
 embeddings = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",
-    "--extra-index-url https://download.pytorch.org/whl/cpu",  # Force CPU-only PyTorch
     "torch>=2.0.0,<3.0.0",
 ]
 # Optional embeddings dependencies with GPU support
@@ -91,7 +90,6 @@ optimization = [
 full = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",
-    "--extra-index-url https://download.pytorch.org/whl/cpu",  # Force CPU-only PyTorch
     "torch>=2.0.0,<3.0.0",
     "gensim>=4.3.0,<5.0.0",
     "plotly>=5.14.0,<6.0.0",

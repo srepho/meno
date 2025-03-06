@@ -152,7 +152,7 @@ pip install meno[full]
 pip install meno[full-gpu]
 ```
 
-> **Note:** The CPU-only installations (`meno[embeddings]` and `meno[full]`) are recommended for most users as they avoid installing unnecessary NVIDIA/CUDA dependencies while still providing excellent performance for most workloads.
+> **Note:** The CPU-only installations (`meno[embeddings]` and `meno[full]`) are recommended for most users and will provide excellent performance for most workloads. To install a truly CPU-only version with no NVIDIA packages, use `pip install meno[embeddings] -f https://download.pytorch.org/whl/torch_stable.html`
 
 ### Development Installation
 
