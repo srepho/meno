@@ -21,6 +21,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Text Processing :: Linguistic",
 ]
@@ -37,10 +39,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Optional embeddings dependencies
+# Optional embeddings dependencies (CPU)
 embeddings = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",
+    "torch>=2.0.0,<3.0.0",
+]
+# Optional embeddings dependencies with GPU support
+embeddings-gpu = [
+    "sentence-transformers>=2.2.2,<3.0.0",
+    "transformers>=4.28.0,<5.0.0",
+    "torch>=2.0.0,<3.0.0",
+    "accelerate>=0.20.0,<1.0.0",
+    "bitsandbytes>=0.41.0,<1.0.0",
 ]
 # Optional LDA dependencies
 lda = [
@@ -64,14 +75,22 @@ nlp = [
 active = [
     "cleanlab>=2.3.0,<3.0.0",
 ]
+# Optional topic modeling approaches
+additional_models = [
+    "bertopic>=0.15.0,<0.16.0",
+    "top2vec>=1.0.27,<2.0.0",
+    "nmf-topic-modeling>=0.2.0,<0.3.0",
+    "contextualized-topic-models>=2.5.0,<3.0.0",
+]
 # Optional optimization for large datasets
 optimization = [
     "polars>=1.11.0,<1.15.0",
 ]
-# Full installation with all optional dependencies
+# Full installation with all optional dependencies (CPU)
 full = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",
+    "torch>=2.0.0,<3.0.0",
     "gensim>=4.3.0,<5.0.0",
     "plotly>=5.14.0,<6.0.0",
     "umap-learn>=0.5.3,<0.6.0",
@@ -80,6 +99,26 @@ full = [
     "python-Levenshtein>=0.20.9,<0.21.0",
     "cleanlab>=2.3.0,<3.0.0",
     "polars>=1.11.0,<1.15.0",
+    "bertopic>=0.15.0,<0.16.0",
+    "top2vec>=1.0.27,<2.0.0",
+]
+# Full installation with GPU support
+full-gpu = [
+    "sentence-transformers>=2.2.2,<3.0.0",
+    "transformers>=4.28.0,<5.0.0",
+    "torch>=2.0.0,<3.0.0",
+    "accelerate>=0.20.0,<1.0.0",
+    "bitsandbytes>=0.41.0,<1.0.0",
+    "gensim>=4.3.0,<5.0.0",
+    "plotly>=5.14.0,<6.0.0",
+    "umap-learn>=0.5.3,<0.6.0",
+    "hdbscan>=0.8.29,<0.9.0",
+    "spacy>=3.5.0,<4.0.0",
+    "python-Levenshtein>=0.20.9,<0.21.0",
+    "cleanlab>=2.3.0,<3.0.0",
+    "polars>=1.11.0,<1.15.0",
+    "bertopic>=0.15.0,<0.16.0",
+    "top2vec>=1.0.27,<2.0.0",
 ]
 # Development dependencies split into logical groups
 dev = [
