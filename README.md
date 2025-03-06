@@ -133,13 +133,16 @@ from datasets import load_dataset
 
 # Load insurance dataset from Hugging Face
 dataset = load_dataset("soates/australian-insurance-pii-dataset-corrected")
-df = pd.DataFrame(dataset["train"])
+df = pd.DataFrame({
+    "text": dataset["train"]["original_text"],
+    "id": dataset["train"]["id"]
+})
 
 # Initialize topic modeler
 modeler = MenoTopicModeler()
 
 # Preprocess documents
-processed_docs = modeler.preprocess(df, text_column="claim_description")
+processed_docs = modeler.preprocess(df, text_column="text")
 
 # Generate embeddings
 embeddings = modeler.embed_documents()
@@ -828,7 +831,10 @@ from datasets import load_dataset
 # Load the dataset
 print("Loading dataset from Hugging Face...")
 dataset = load_dataset("soates/australian-insurance-pii-dataset-corrected")
-df = pd.DataFrame(dataset["train"])
+df = pd.DataFrame({
+    "text": dataset["train"]["original_text"],
+    "id": dataset["train"]["id"]
+})
 print(f"Loaded {len(df)} insurance complaint documents")
 
 # Initialize the topic modeler
@@ -836,7 +842,7 @@ modeler = MenoTopicModeler()
 
 # Preprocess documents
 print("Preprocessing documents...")
-processed_docs = modeler.preprocess(df, text_column="claim_description")
+processed_docs = modeler.preprocess(df, text_column="text")
 
 # Generate embeddings
 print("Generating document embeddings...")
