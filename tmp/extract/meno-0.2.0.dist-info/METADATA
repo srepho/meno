@@ -1,10 +1,70 @@
-# Topic Modeling Toolkit: meno
+Metadata-Version: 2.2
+Name: meno
+Version: 0.2.0
+Summary: Topic modeling toolkit for messy text data
+Author-email: Your Name <your.email@example.com>
+License: MIT License
+        
+        Copyright (c) 2025 Stephen Oates
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/yourusername/meno
+Project-URL: Bug Tracker, https://github.com/yourusername/meno/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Text Processing :: Linguistic
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: gensim>=4.3.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: pyarrow>=12.0.0
+Requires-Dist: transformers>=4.28.0
+Requires-Dist: umap-learn>=0.5.3
+Requires-Dist: spacy>=3.5.0
+Requires-Dist: scikit-learn>=1.2.0
+Requires-Dist: plotly>=5.14.0
+Requires-Dist: cleanlab>=2.3.0
+Requires-Dist: jinja2>=3.1.2
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: sentence-transformers>=2.2.2
+Requires-Dist: hdbscan>=0.8.29
+Requires-Dist: fuzzywuzzy>=0.18.0
+Requires-Dist: python-Levenshtein>=0.20.9
+Requires-Dist: polars>=0.17.0
+Provides-Extra: dev
+Requires-Dist: black>=23.3.0; extra == "dev"
+Requires-Dist: ruff>=0.0.265; extra == "dev"
+Requires-Dist: pytest>=7.3.1; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: jupyter>=1.0.0; extra == "dev"
+Requires-Dist: sphinx>=7.0.0; extra == "dev"
+Requires-Dist: sphinx-rtd-theme>=1.2.0; extra == "dev"
+Requires-Dist: mypy>=1.3.0; extra == "dev"
 
-[![PyPI version](https://img.shields.io/pypi/v/meno.svg)](https://pypi.org/project/meno/)
-[![Python Version](https://img.shields.io/pypi/pyversions/meno.svg)](https://pypi.org/project/meno/)
-[![License](https://img.shields.io/github/license/yourusername/meno.svg)](https://github.com/yourusername/meno/blob/main/LICENSE)
-[![Tests](https://github.com/yourusername/meno/workflows/tests/badge.svg)](https://github.com/yourusername/meno/actions?query=workflow%3Atests)
-[![Downloads](https://static.pepy.tech/badge/meno)](https://pepy.tech/project/meno)
+# Topic Modeling Toolkit: meno
 
 ## Overview
 
@@ -83,76 +143,23 @@ Integrates with Cleanlab to facilitate hand-labeling, iterative label fine-tunin
 
 ## Dependencies & Requirements
 
-*   **Python:** 3.8+
-*   **Core Libraries** (always installed):
-    *   Data Processing: `pandas`, `pyarrow`
-    *   Machine Learning: `scikit-learn`
-    *   Text Processing: `fuzzywuzzy`
-    *   Configuration: `pydantic`, `PyYAML`, `jinja2`
-*   **Optional Libraries** (install based on needs):
-    *   Topic Modeling: `gensim` (for LDA)
-    *   Embeddings: `transformers`, `sentence-transformers`
+*   **Python:** 3.10+
+*   **Key Libraries:**
+    *   Topic Modeling: `gensim`, `Hugging Face Transformers`
     *   Dimensionality Reduction: `umap-learn`
-    *   Clustering: `hdbscan`
-    *   Data Cleaning & NLP: `spaCy`, `python-Levenshtein`
-    *   Visualization: `plotly`
+    *   Data Cleaning & NLP: `spaCy`, `fuzzywuzzy`, **`scikit-learn` (for some NLP tasks and potentially classification)**
+    *   Visualization: `plotly`, `bokeh`
     *   Active Learning: `cleanlab`
-    *   Large Dataset Optimization: `polars`
-*   Development and testing libraries: `pytest`, `hypothesis`, `black`, `ruff`, `mypy`, `sphinx`
+    *   HTML Templating: `jinja2`
+    *   **Configuration:** `PyYAML` or `json5`
+*   Additional libraries for testing, logging, and documentation (e.g., `pytest`, `sphinx`).
 
 ## Installation & Setup
 
-### Basic Installation
-
-Install the basic package with core dependencies:
-
-```bash
-pip install meno
-```
-
-### Installation with Optional Components
-
-Install with specific optional dependencies:
-
-```bash
-# For embeddings and LLM-based topic modeling
-pip install meno[embeddings]
-
-# For LDA topic modeling
-pip install meno[lda]
-
-# For visualization capabilities
-pip install meno[viz]
-
-# For NLP processing capabilities
-pip install meno[nlp]
-
-# For developers
-pip install meno[dev,test]
-
-# For all features (full installation)
-pip install meno[full]
-```
-
-### Development Installation
-
-For development work, clone the repository and install in editable mode:
-
-```bash
-git clone https://github.com/yourusername/meno.git
-cd meno
-pip install -e ".[dev,test]"
-```
-
-### Using with Conda
-
-Create a new conda environment:
-
-```bash
-conda create -n meno python=3.10
-conda activate meno
-pip install meno[full]
-```
+*   Installation via `pip` (with a `setup.py` or `pyproject.toml` file).
+*   **Instructions for installation via Conda.**
+*   Instructions on setting up a virtual environment.
+*   Detailed dependency installation guide in the README.
 
 ## Usage in Jupyter
 
@@ -173,33 +180,9 @@ Example notebooks demonstrating:
 
 ## Testing & Continuous Integration
 
-*   **Unit Tests:** Comprehensive tests for each module using `pytest`:
-    * Mock-based tests for quick validation without heavy dependencies
-    * Functional tests that test actual implementations with real models
-    * Property-based tests using `hypothesis` for robust validation
-*   **Integration Tests:** End-to-end pipelines tested on sample datasets
-*   **Test Organization:** Tests can run at different levels:
-    * Fast tests: Run without optional dependencies
-    * Full tests: Test all functionality including embeddings and visualization
-*   **CI Pipeline:** Automated testing on GitHub Actions for every push and pull request
-
-### Running Tests
-
-Run tests with different configuration levels:
-
-```bash
-# Run basic tests that don't require optional dependencies
-python -m pytest -xvs tests/
-
-# Run full tests including embedding model tests
-python -m pytest -xvs tests/ --run-functional
-
-# Run with coverage reporting
-python -m pytest --cov=meno --cov-report=term
-
-# Run specific test module
-python -m pytest tests/test_preprocessing.py
-```
+*   **Unit Tests:** Comprehensive tests for each module using `pytest`.
+*   **Integration Tests:** Test end-to-end pipelines on sample datasets.
+*   **CI Pipeline:** Automated testing on GitHub Actions for every push and pull request.
 
 ## Documentation & Examples
 
