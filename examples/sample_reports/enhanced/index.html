@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meno Enhanced Report Samples</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --light-bg: #f8f9fa;
+            --dark-bg: #2c3e50;
+            --text-color: #333;
+            --light-text: #f8f9fa;
+            --border-color: #e9ecef;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: var(--text-color);
+            background-color: var(--light-bg);
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            padding: 30px 0;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            color: var(--light-text);
+            margin: 0;
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            color: var(--secondary-color);
+        }
+        
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .report-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .report-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+        }
+        
+        .report-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .report-body {
+            padding: 20px;
+        }
+        
+        .feature-list {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .feature-list li {
+            margin-bottom: 8px;
+            position: relative;
+        }
+        
+        .view-btn {
+            display: block;
+            text-align: center;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            padding: 10px 0;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: background-color 0.2s;
+        }
+        
+        .view-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        footer {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            padding: 20px 0;
+            text-align: center;
+            margin-top: 50px;
+        }
+        
+        @media (max-width: 768px) {
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Meno Enhanced Report Samples</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <h2>Interactive HTML Report Examples</h2>
+        
+        <p>
+            These sample reports demonstrate the enhanced HTML report generation capabilities of the Meno Topic Modeling Toolkit.
+            Each report showcases different combinations of features and visualizations.
+        </p>
+        
+        <div class="report-grid">
+            <div class="report-card">
+                <div class="report-header">
+                    <h3 class="report-title">Comprehensive Report</h3>
+                </div>
+                <div class="report-body">
+                    <p>A complete demonstration of all enhanced features, including:</p>
+                    <ul class="feature-list">
+                        <li>Interactive document embeddings visualization</li>
+                        <li>Topic similarity heatmap</li>
+                        <li>Interactive word clouds</li>
+                        <li>Topic details with examples</li>
+                        <li>Raw data table with CSV export</li>
+                    </ul>
+                    <a href="comprehensive_report.html" class="view-btn" target="_blank">View Report</a>
+                </div>
+            </div>
+            
+            <div class="report-card">
+                <div class="report-header">
+                    <h3 class="report-title">Similarity-Focused Report</h3>
+                </div>
+                <div class="report-body">
+                    <p>Focused on topic relationships with:</p>
+                    <ul class="feature-list">
+                        <li>Interactive document embeddings visualization</li>
+                        <li>Topic similarity heatmap</li>
+                        <li>No word clouds</li>
+                        <li>Fewer example documents per topic</li>
+                    </ul>
+                    <a href="similarity_focused_report.html" class="view-btn" target="_blank">View Report</a>
+                </div>
+            </div>
+            
+            <div class="report-card">
+                <div class="report-header">
+                    <h3 class="report-title">Word Cloud-Focused Report</h3>
+                </div>
+                <div class="report-body">
+                    <p>Focused on topic content with:</p>
+                    <ul class="feature-list">
+                        <li>Interactive document embeddings visualization</li>
+                        <li>No similarity heatmap</li>
+                        <li>Interactive word clouds</li>
+                        <li>Fewer example documents per topic</li>
+                    </ul>
+                    <a href="wordcloud_focused_report.html" class="view-btn" target="_blank">View Report</a>
+                </div>
+            </div>
+            
+            <div class="report-card">
+                <div class="report-header">
+                    <h3 class="report-title">MenoTopicModeler Report</h3>
+                </div>
+                <div class="report-body">
+                    <p>Generated with the MenoTopicModeler class, featuring:</p>
+                    <ul class="feature-list">
+                        <li>All interactive visualizations</li>
+                        <li>Demonstrates integrating with the main class</li>
+                        <li>Topic details with examples</li>
+                        <li>Raw data with export functionality</li>
+                    </ul>
+                    <a href="modeler_enhanced_report.html" class="view-btn" target="_blank">View Report</a>
+                </div>
+            </div>
+        </div>
+        
+        <h2>Implementation Details</h2>
+        <p>
+            These reports showcase the following improvements to the Meno HTML report generation:
+        </p>
+        <ul>
+            <li><strong>Modern Design:</strong> Card-based layout, responsive grid, improved typography</li>
+            <li><strong>Interactive Tabs:</strong> Multiple visualizations in a single view</li>
+            <li><strong>Topic Similarity Analysis:</strong> Heatmap showing relationships between topics</li>
+            <li><strong>Interactive Word Clouds:</strong> Visualize top words for each topic</li>
+            <li><strong>Data Export:</strong> Export raw topic data to CSV</li>
+            <li><strong>Summary Metrics:</strong> Key statistics like document count, topic count, and average words per document</li>
+            <li><strong>Improved Accessibility:</strong> Better color contrast and responsive design for all devices</li>
+        </ul>
+        
+        <p>
+            See the <code>generate_enhanced_report.py</code> script for the code that created these sample reports.
+        </p>
+    </div>
+
+    <footer>
+        <div class="container">
+            Meno Topic Modeling Toolkit
+        </div>
+    </footer>
+</body>
+</html>

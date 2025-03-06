@@ -134,9 +134,12 @@ Meno is designed to streamline topic modeling on free text data, with a special 
 
 ## Example Usage
 
+Meno provides several ways to use the topic modeling functionalities, from simple usage patterns to more advanced configurations. Here are comprehensive examples showing different ways to use the package:
+
 ### Basic Topic Discovery
 
 ```python
+import pandas as pd
 from meno import MenoTopicModeler
 
 # Initialize modeler
@@ -152,46 +155,374 @@ topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=10)
 # Visualize results
 fig = modeler.visualize_embeddings()
 fig.show()
+
+# Generate a simple report
+report_path = modeler.generate_report(output_path="basic_topic_report.html")
+```
+
+### Advanced Topic Discovery with Configuration
+
+```python
+import pandas as pd
+from meno import MenoTopicModeler
+from meno.utils.config import load_config
+
+# Load custom configuration from YAML file
+config = load_config("my_custom_config.yaml")
+
+# Or create configuration programmatically with overrides
+from meno.utils.config import MenoConfig, ClusteringConfig, UMAPConfig
+custom_config = MenoConfig(
+    modeling=ModelingConfig(
+        clustering=ClusteringConfig(
+            algorithm="hdbscan",
+            min_cluster_size=20,
+            min_samples=7
+        )
+    ),
+    visualization=VisualizationConfig(
+        umap=UMAPConfig(
+            n_neighbors=20,
+            min_dist=0.2
+        )
+    )
+)
+
+# Initialize modeler with custom config
+modeler = MenoTopicModeler(config=custom_config)
+
+# Load and preprocess data with custom parameters
+df = pd.read_csv("my_documents.csv")
+processed_docs = modeler.preprocess(
+    df, 
+    text_column="document_text",
+    lowercase=True,
+    remove_punctuation=True,
+    lemmatize=True,
+    custom_stopwords=["specific", "words", "to", "remove"]
+)
+
+# Discover topics with specific method and parameters
+topics_df = modeler.discover_topics(
+    method="embedding_cluster", 
+    num_topics=10,
+    clustering_algorithm="hdbscan",
+    min_cluster_size=20
+)
+
+# Generate detailed embeddings visualization
+fig = modeler.visualize_embeddings(
+    plot_3d=True,
+    include_topic_centers=True,
+    marker_size=7
+)
+fig.show()
 ```
 
 ### Matching Documents to Predefined Topics
 
 ```python
+import pandas as pd
+from meno import MenoTopicModeler
+
+# Initialize modeler
+modeler = MenoTopicModeler()
+
+# Load and preprocess data
+df = pd.read_csv("support_tickets.csv")
+processed_docs = modeler.preprocess(df, text_column="description")
+
 # Define topics and descriptions
 predefined_topics = [
-    "Vehicle Damage",
-    "Water Damage",
-    "Personal Injury",
-    "Property Damage"
+    "Account Access",
+    "Billing Issue",
+    "Technical Problem",
+    "Feature Request",
+    "Product Feedback"
 ]
 
 topic_descriptions = [
-    "Damage to vehicles from collisions, parking incidents, or natural events",
-    "Damage from water including floods, leaks, and burst pipes",
-    "Injuries to people including slips, falls, and accidents",
-    "Damage to property from fire, storms, or other causes"
+    "Issues related to logging in, password resets, or account security",
+    "Problems with payments, invoices, or subscription changes",
+    "Technical issues, bugs, crashes, or performance problems with the product",
+    "Requests for new features or enhancements to existing functionality",
+    "General feedback about the product, including compliments and complaints"
 ]
 
 # Match documents to topics
 matched_df = modeler.match_topics(
     topics=predefined_topics,
     descriptions=topic_descriptions,
-    threshold=0.5
+    threshold=0.6,
+    assign_multiple=True,
+    max_topics_per_doc=2
 )
 
 # View the topic assignments
-print(matched_df[["text", "topic", "topic_probability"]].head())
+print(matched_df[["description", "topic", "topic_probability"]].head())
+
+# Analyze distribution of topics
+import matplotlib.pyplot as plt
+topic_counts = matched_df["topic"].value_counts()
+plt.figure(figsize=(10, 6))
+topic_counts.plot(kind="bar")
+plt.title("Distribution of Support Ticket Topics")
+plt.tight_layout()
+plt.show()
 ```
 
-### Generating Reports
+### Topic Evolution Over Time
 
 ```python
-# Generate an interactive HTML report
+import pandas as pd
+from meno import MenoTopicModeler
+import matplotlib.pyplot as plt
+
+# Initialize modeler
+modeler = MenoTopicModeler()
+
+# Load data with timestamps
+df = pd.read_csv("news_articles.csv")
+df["date"] = pd.to_datetime(df["date"])
+
+# Preprocess and model
+processed_docs = modeler.preprocess(df, text_column="article_text")
+topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=8)
+
+# Get topic distribution over time
+df_with_topics = df.copy()
+df_with_topics["topic"] = topics_df["topic"]
+
+# Convert to monthly data
+monthly_topics = df_with_topics.groupby([pd.Grouper(key="date", freq="M"), "topic"]).size().unstack().fillna(0)
+
+# Plot topic evolution
+plt.figure(figsize=(12, 6))
+monthly_topics.plot(kind="line", stacked=False)
+plt.title("Topic Evolution Over Time")
+plt.xlabel("Date")
+plt.ylabel("Number of Articles")
+plt.legend(title="Topic")
+plt.tight_layout()
+plt.show()
+```
+
+### Generating Enhanced Interactive Reports
+
+```python
+import pandas as pd
+import numpy as np
+from meno import MenoTopicModeler
+
+# Initialize and process data
+modeler = MenoTopicModeler()
+df = pd.read_csv("customer_feedback.csv")
+processed_docs = modeler.preprocess(df, text_column="feedback")
+topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=6)
+
+# Create word frequency dictionaries for each topic
+topic_words = {}
+for topic in topics_df["topic"].unique():
+    # Get documents for this topic
+    topic_docs = df[topics_df["topic"] == topic]["feedback"]
+    
+    # Create a word frequency dictionary
+    words = " ".join(topic_docs).lower().split()
+    word_freq = {}
+    for word in set(words):
+        if len(word) > 3:  # Only include words with more than 3 characters
+            word_freq[word] = words.count(word)
+    
+    topic_words[topic] = word_freq
+
+# Create a similarity matrix between topics
+topic_names = sorted(topics_df["topic"].unique())
+n_topics = len(topic_names)
+similarity_matrix = np.zeros((n_topics, n_topics))
+
+# Fill with random similarities for demonstration
+# In practice, you would calculate actual similarities between topic embeddings
+for i in range(n_topics):
+    for j in range(n_topics):
+        if i == j:
+            similarity_matrix[i, j] = 1.0
+        else:
+            # Random similarity between 0.1 and 0.6
+            similarity_matrix[i, j] = 0.1 + 0.5 * np.random.random()
+
+# Generate enhanced report with all visualizations
 report_path = modeler.generate_report(
-    output_path="topic_analysis.html",
+    output_path="enhanced_report.html",
     include_interactive=True,
-    title="Document Topic Analysis"
+    title="Customer Feedback Analysis",
+    include_raw_data=True,
+    similarity_matrix=similarity_matrix,
+    topic_words=topic_words
 )
+
+print(f"Enhanced report generated at: {report_path}")
+```
+
+### Custom Topic Modeling Pipeline
+
+```python
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import CountVectorizer
+from gensim.models import LdaModel
+from gensim.corpora import Dictionary
+from meno import MenoTopicModeler
+from meno.preprocessing.text_processor import preprocess_text
+
+# Load data
+df = pd.read_csv("scientific_papers.csv")
+
+# Custom preprocessing
+texts = df["abstract"].tolist()
+processed_texts = [preprocess_text(
+    text, 
+    lowercase=True,
+    remove_punctuation=True,
+    remove_numbers=True,
+    lemmatize=True,
+    language="en"
+) for text in texts]
+
+# Create dictionary and corpus for LDA
+dictionary = Dictionary([text.split() for text in processed_texts])
+corpus = [dictionary.doc2bow(text.split()) for text in processed_texts]
+
+# Train LDA model
+lda_model = LdaModel(
+    corpus=corpus,
+    id2word=dictionary,
+    num_topics=10,
+    passes=20,
+    alpha="auto",
+    eta="auto"
+)
+
+# Get topic assignments
+topic_probs = [lda_model.get_document_topics(doc) for doc in corpus]
+primary_topics = [max(probs, key=lambda x: x[1])[0] if probs else -1 for probs in topic_probs]
+topic_probabilities = [max(probs, key=lambda x: x[1])[1] if probs else 0.0 for probs in topic_probs]
+
+# Create dataframe with results
+results_df = pd.DataFrame({
+    "text": df["abstract"],
+    "processed_text": processed_texts,
+    "topic": [f"Topic_{t}" for t in primary_topics],
+    "topic_probability": topic_probabilities
+})
+
+# Get top words for each topic
+topic_words = {}
+for i in range(lda_model.num_topics):
+    topic_name = f"Topic_{i}"
+    words = dict(lda_model.show_topic(i, topn=20))
+    topic_words[topic_name] = words
+
+# Initialize MenoTopicModeler for visualization and reporting
+modeler = MenoTopicModeler()
+
+# Set the documents and topic assignments
+modeler.documents = results_df
+modeler.topic_assignments = results_df[["topic", "topic_probability"]]
+
+# Generate embeddings for visualization
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
+embeddings = model.encode(results_df["text"].tolist())
+modeler.document_embeddings = embeddings
+
+# Generate UMAP projection
+from umap import UMAP
+umap_model = UMAP(n_components=2, random_state=42)
+umap_projection = umap_model.fit_transform(embeddings)
+modeler.umap_projection = umap_projection
+
+# Generate report with custom topic words
+report_path = modeler.generate_report(
+    output_path="scientific_papers_topics.html",
+    title="Scientific Paper Topics Analysis",
+    topic_words=topic_words
+)
+```
+
+### Working with Large Datasets Using Chunking
+
+```python
+import pandas as pd
+from meno import MenoTopicModeler
+from meno.utils.data_chunker import process_in_chunks
+
+# Initialize modeler
+modeler = MenoTopicModeler()
+
+# Load a large dataset
+df = pd.read_csv("large_dataset.csv")  # This could be millions of documents
+
+# Define a function to process chunks
+def process_chunk(chunk_df):
+    # Preprocess the chunk
+    processed = modeler.preprocess(chunk_df, text_column="content")
+    return processed
+
+# Process in chunks
+chunk_size = 10000
+processed_chunks = process_in_chunks(df, process_chunk, chunk_size)
+
+# Combine processed chunks
+processed_df = pd.concat(processed_chunks, ignore_index=True)
+
+# Now discover topics on the combined processed data
+topics_df = modeler.discover_topics(
+    method="embedding_cluster", 
+    num_topics=15,
+    batch_size=5000  # Process embeddings in batches
+)
+
+# Generate report
+report_path = modeler.generate_report(output_path="large_dataset_topics.html")
+```
+
+### Integrating with Active Learning
+
+```python
+import pandas as pd
+import numpy as np
+from meno import MenoTopicModeler
+from meno.active_learning.uncertainty_sampler import UncertaintySampler
+
+# Initialize modeler
+modeler = MenoTopicModeler()
+
+# Load data
+df = pd.read_csv("unlabeled_data.csv")
+processed_docs = modeler.preprocess(df, text_column="text")
+
+# Initial topic discovery
+topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=8)
+
+# Identify uncertain samples for human labeling
+sampler = UncertaintySampler(threshold=0.6)
+uncertain_indices = sampler.get_uncertain_samples(
+    topic_probs=topics_df["topic_probability"],
+    n_samples=20
+)
+
+# Display samples that need human verification
+uncertain_samples = df.iloc[uncertain_indices]
+print("Please label these uncertain samples:")
+for i, (idx, row) in enumerate(uncertain_samples.iterrows()):
+    print(f"{i+1}. Text: {row['text'][:100]}...")
+    print(f"   Current topic: {topics_df.iloc[idx]['topic']}")
+    print(f"   Confidence: {topics_df.iloc[idx]['topic_probability']:.2f}")
+    print("   Suggested topics: ", ", ".join(modeler.get_candidate_topics(idx, top_n=3)))
+    print()
+
+# After human labeling, update the model
+# (This would be part of an interactive loop in a real application)
 ```
 
 ## Documentation

@@ -1,0 +1,11 @@
+doc_id,text,topic,topic_probability
+doc_0_0,Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.,Topic_1,0.7366477562731192
+doc_0_1,Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.,Topic_1,0.6122386227885731
+doc_0_2,"Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.",Topic_1,0.8201059013798645
+doc_0_3,Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.,Topic_1,0.9645164634598381
+doc_0_4,Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.,Topic_1,0.8514671912926494
+doc_0_5,Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.,Topic_1,0.8523755070440227
+doc_0_6,Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.,Topic_1,0.8023611957865695
+doc_0_7,Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.,Topic_1,0.9854753087827329
+doc_0_8,"Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.",Topic_1,0.8829451985787287
+doc_0_9,Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.,Topic_1,0.6961954746587453

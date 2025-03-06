@@ -9,11 +9,16 @@ from pathlib import Path
 import jinja2
 import plotly.graph_objects as go
 
-from ..visualization.static_plots import plot_topic_distribution
-from ..visualization.interactive_plots import plot_embeddings
+from ..visualization.static_plots import plot_topic_distribution, plot_topic_word_clouds
+from ..visualization.interactive_plots import (
+    plot_embeddings, 
+    plot_topic_clusters,
+    plot_topic_similarity_heatmap,
+    plot_interactive_wordcloud
+)
 
 
-# Simple HTML template for reports
+# Enhanced HTML template for reports with modern styling and interactive features
 DEFAULT_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -22,113 +27,475 @@ DEFAULT_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --accent-color: #9b59b6;
+            --light-bg: #f8f9fa;
+            --dark-bg: #2c3e50;
+            --text-color: #333;
+            --light-text: #f8f9fa;
+            --border-color: #e9ecef;
+            --topic-colors: #e74c3c, #3498db, #2ecc71, #f39c12, #9b59b6, #1abc9c;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
             line-height: 1.6;
             margin: 0;
-            padding: 20px;
-            color: #333;
+            padding: 0;
+            color: var(--text-color);
+            background-color: #fff;
         }
+        
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            padding: 0 20px;
         }
-        h1, h2, h3 {
-            color: #2c3e50;
+        
+        header {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            padding: 20px 0;
+            margin-bottom: 30px;
         }
+        
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-meta {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        h1, h2, h3, h4 {
+            color: var(--secondary-color);
+            font-weight: 600;
+            margin-top: 0;
+        }
+        
         h1 {
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
+            font-size: 2.2rem;
+            color: var(--light-text);
+            margin: 0;
         }
+        
+        h2 {
+            font-size: 1.8rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            font-size: 1.4rem;
+        }
+        
+        .card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background-color: var(--light-bg);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .visualization {
+            margin: 20px 0;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .topic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .topic-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        
+        .topic-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .topic-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .topic-name {
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin: 0;
+        }
+        
+        .topic-count {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .topic-body {
+            padding: 15px;
+        }
+        
+        .topic-words {
+            background-color: var(--light-bg);
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+        
+        .example-text {
+            background-color: var(--light-bg);
+            padding: 10px 15px;
+            border-left: 3px solid var(--primary-color);
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-color);
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        
+        .tab.active {
+            opacity: 1;
+            border-bottom: 3px solid var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
         table {
             border-collapse: collapse;
             width: 100%;
             margin-bottom: 20px;
+            font-size: 0.9rem;
         }
+        
         th, td {
             padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-color);
         }
+        
         th {
-            background-color: #f8f9fa;
+            background-color: var(--light-bg);
+            font-weight: 600;
         }
+        
         tr:hover {
             background-color: #f5f5f5;
         }
-        .topic-examples {
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
             margin-bottom: 30px;
         }
-        .example-text {
-            background-color: #f9f9f9;
-            padding: 10px;
-            border-left: 3px solid #2c3e50;
-            margin-bottom: 10px;
+        
+        .summary-card {
+            background-color: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
         }
-        .section {
-            margin-bottom: 40px;
+        
+        .summary-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
         }
-        .visualization {
-            margin: 20px 0;
+        
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+        
+        .export-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        
+        .export-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        footer {
+            background-color: var(--light-bg);
+            padding: 20px 0;
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .topic-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr 1fr;
+            }
         }
     </style>
     {{ plotly_js }}
+    <script>
+        // Add interactive functionality after document loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab functionality
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    tab.classList.add('active');
+                    const contentId = tab.getAttribute('data-tab');
+                    document.getElementById(contentId).classList.add('active');
+                });
+            });
+            
+            // Export table to CSV
+            const exportBtn = document.getElementById('export-csv');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    const table = document.querySelector('.data-table');
+                    if (!table) return;
+                    
+                    let csv = [];
+                    const rows = table.querySelectorAll('tr');
+                    
+                    rows.forEach(row => {
+                        const cols = row.querySelectorAll('td, th');
+                        const rowData = Array.from(cols).map(col => '"' + col.innerText + '"');
+                        csv.push(rowData.join(','));
+                    });
+                    
+                    const csvContent = csv.join('\\n');
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.setAttribute('hidden', '');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', 'topic_data.csv');
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                });
+            }
+        });
+    </script>
 </head>
 <body>
+    <header>
+        <div class="container">
+            <h1>{{ title }}</h1>
+            <div class="header-meta">
+                Generated on {{ generation_date }}
+            </div>
+        </div>
+    </header>
+
     <div class="container">
-        <h1>{{ title }}</h1>
-        
-        <div class="section">
-            <h2>Summary</h2>
-            <p>
-                Analysis of {{ document_count }} documents with {{ topic_count }} topics.
-                Generated on {{ generation_date }}.
-            </p>
+        <div class="card">
+            <div class="card-header">
+                <h2>Summary</h2>
+            </div>
+            <div class="card-body">
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-value">{{ document_count }}</div>
+                        <div class="summary-label">Documents</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">{{ topic_count }}</div>
+                        <div class="summary-label">Topics</div>
+                    </div>
+                    {% if avg_words_per_doc %}
+                    <div class="summary-card">
+                        <div class="summary-value">{{ avg_words_per_doc }}</div>
+                        <div class="summary-label">Avg Words/Doc</div>
+                    </div>
+                    {% endif %}
+                    {% if topic_coherence %}
+                    <div class="summary-card">
+                        <div class="summary-value">{{ topic_coherence }}</div>
+                        <div class="summary-label">Topic Coherence</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
-        <div class="section">
-            <h2>Topic Distribution</h2>
-            <div class="visualization">
-                {{ topic_distribution_plot }}
+        <div class="card">
+            <div class="card-header">
+                <h2>Topic Distribution</h2>
+            </div>
+            <div class="card-body">
+                <div class="visualization">
+                    {{ topic_distribution_plot }}
+                </div>
             </div>
         </div>
 
         {% if umap_plot %}
-        <div class="section">
-            <h2>Document Embeddings</h2>
-            <div class="visualization">
-                {{ umap_plot }}
+        <div class="card">
+            <div class="card-header">
+                <h2>Visualizations</h2>
+            </div>
+            <div class="card-body">
+                <div class="tabs">
+                    <div class="tab active" data-tab="embeddings-tab">Document Embeddings</div>
+                    {% if topic_similarity_plot %}
+                    <div class="tab" data-tab="similarity-tab">Topic Similarity</div>
+                    {% endif %}
+                    {% if topic_wordcloud_plot %}
+                    <div class="tab" data-tab="wordcloud-tab">Word Clouds</div>
+                    {% endif %}
+                </div>
+                
+                <div id="embeddings-tab" class="tab-content active">
+                    <div class="visualization">
+                        {{ umap_plot }}
+                    </div>
+                </div>
+                
+                {% if topic_similarity_plot %}
+                <div id="similarity-tab" class="tab-content">
+                    <div class="visualization">
+                        {{ topic_similarity_plot }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if topic_wordcloud_plot %}
+                <div id="wordcloud-tab" class="tab-content">
+                    <div class="visualization">
+                        {{ topic_wordcloud_plot }}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% endif %}
 
-        <div class="section">
-            <h2>Topic Details</h2>
-            {% for topic in topics %}
-            <div class="topic-examples">
-                <h3>{{ topic.name }} ({{ topic.count }} documents)</h3>
-                
-                {% if topic.top_words %}
-                <p><strong>Top words:</strong> {{ topic.top_words }}</p>
-                {% endif %}
-                
-                <h4>Example Documents:</h4>
-                {% for example in topic.examples %}
-                <div class="example-text">{{ example }}</div>
-                {% endfor %}
+        <div class="card">
+            <div class="card-header">
+                <h2>Topic Details</h2>
             </div>
-            {% endfor %}
+            <div class="card-body">
+                <div class="topic-grid">
+                    {% for topic in topics %}
+                    <div class="topic-card">
+                        <div class="topic-header">
+                            <h3 class="topic-name">{{ topic.name }}</h3>
+                            <span class="topic-count">{{ topic.count }}</span>
+                        </div>
+                        <div class="topic-body">
+                            {% if topic.top_words %}
+                            <div class="topic-words">
+                                <strong>Top words:</strong> {{ topic.top_words }}
+                            </div>
+                            {% endif %}
+                            
+                            <h4>Example Documents:</h4>
+                            {% for example in topic.examples %}
+                            <div class="example-text">{{ example }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
 
         {% if include_raw_data %}
-        <div class="section">
-            <h2>Raw Data</h2>
-            <div id="topic-assignments-table">
-                {{ topic_assignments_table }}
+        <div class="card">
+            <div class="card-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Raw Data</h2>
+                    <button id="export-csv" class="export-btn">Export to CSV</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="topic-assignments-table">
+                    {{ topic_assignments_table }}
+                </div>
             </div>
         </div>
         {% endif %}
     </div>
+    
+    <footer>
+        <div class="container">
+            Generated with Meno Topic Modeling Toolkit
+        </div>
+    </footer>
 </body>
 </html>
 """
@@ -139,8 +506,10 @@ def generate_html_report(
     topic_assignments: pd.DataFrame,
     umap_projection: Optional[np.ndarray] = None,
     output_path: Optional[Union[str, Path]] = None,
-    config: Optional[Dict[str, Any]] = None,
+    config: Optional[Union[Dict[str, Any], "HTMLReportConfig"]] = None,
     template: Optional[str] = None,
+    similarity_matrix: Optional[np.ndarray] = None,
+    topic_words: Optional[Dict[str, Dict[str, float]]] = None,
 ) -> str:
     """Generate an HTML report of topic modeling results.
     
@@ -155,10 +524,14 @@ def generate_html_report(
     output_path : Optional[Union[str, Path]], optional
         Path to save the report, by default None
         If None, creates a file in the current directory
-    config : Optional[Dict[str, Any]], optional
+    config : Optional[Union[Dict[str, Any], HTMLReportConfig]], optional
         Report configuration, by default None
     template : Optional[str], optional
         Custom Jinja2 template, by default None
+    similarity_matrix : Optional[np.ndarray], optional
+        Matrix of topic similarities, shape (n_topics, n_topics), by default None
+    topic_words : Optional[Dict[str, Dict[str, float]]], optional
+        Dictionary mapping topic names to word frequency dictionaries, by default None
     
     Returns
     -------
@@ -172,6 +545,10 @@ def generate_html_report(
         "max_examples_per_topic": 5,
         "include_raw_data": False,
     }
+    
+    # Handle Pydantic model and convert to dict if needed
+    if config is not None and hasattr(config, "dict"):
+        config = config.dict()
     
     # Merge with provided config
     config = {**default_config, **(config or {})}
@@ -198,6 +575,7 @@ def generate_html_report(
     topic_distribution_fig = plot_topic_distribution(
         documents["topic"],
         title="Topic Distribution",
+        sort_by_count=True,
     )
     topic_distribution_plot = topic_distribution_fig.to_html(
         full_html=False,
@@ -218,6 +596,32 @@ def generate_html_report(
             include_plotlyjs=False,
         )
     
+    # Create topic similarity heatmap if similarity matrix provided
+    topic_similarity_plot = None
+    if similarity_matrix is not None and config["include_interactive"]:
+        topic_names = sorted(documents["topic"].unique())
+        similarity_fig = plot_topic_similarity_heatmap(
+            similarity_matrix,
+            topic_names,
+            title="Topic Similarity",
+        )
+        topic_similarity_plot = similarity_fig.to_html(
+            full_html=False,
+            include_plotlyjs=False,
+        )
+    
+    # Create interactive word cloud if topic_words provided
+    topic_wordcloud_plot = None
+    if topic_words is not None and config["include_interactive"]:
+        wordcloud_fig = plot_interactive_wordcloud(
+            topic_words,
+            title="Topic Word Clouds",
+        )
+        topic_wordcloud_plot = wordcloud_fig.to_html(
+            full_html=False,
+            include_plotlyjs=False,
+        )
+    
     # Get topic information
     topics_info = []
     for topic_name, topic_group in documents.groupby("topic"):
@@ -233,6 +637,12 @@ def generate_html_report(
             ]["top_words"].iloc[0]
             if isinstance(top_words_row, str):
                 top_words = top_words_row
+        elif topic_words and topic_name in topic_words:
+            # Use top words from topic_words if available
+            words = topic_words[topic_name]
+            top_words = ", ".join(
+                sorted(words.keys(), key=lambda k: words[k], reverse=True)[:10]
+            )
         
         # Get example documents
         examples = topic_group["text"].head(config["max_examples_per_topic"]).tolist()
@@ -268,9 +678,21 @@ def generate_html_report(
         )
         topic_assignments_table = table_df.to_html(
             index=False,
-            classes="dataframe",
+            classes="dataframe data-table",  # Add data-table class for CSV export
             float_format="%.3f",
         )
+    
+    # Calculate additional metrics
+    avg_words_per_doc = None
+    if "text" in documents.columns:
+        # Calculate average words per document
+        avg_words = documents["text"].str.split().str.len().mean()
+        avg_words_per_doc = f"{avg_words:.1f}"
+    
+    # Topic coherence score (placeholder - would be calculated by modeling)
+    topic_coherence = None
+    if "coherence" in topic_assignments.columns:
+        topic_coherence = f"{topic_assignments['coherence'].mean():.2f}"
     
     # Create context for template
     from datetime import datetime
@@ -282,9 +704,13 @@ def generate_html_report(
         "plotly_js": plotly_js,
         "topic_distribution_plot": topic_distribution_plot,
         "umap_plot": umap_plot,
+        "topic_similarity_plot": topic_similarity_plot,
+        "topic_wordcloud_plot": topic_wordcloud_plot,
         "topics": topics_info,
         "include_raw_data": config["include_raw_data"],
         "topic_assignments_table": topic_assignments_table,
+        "avg_words_per_doc": avg_words_per_doc,
+        "topic_coherence": topic_coherence,
     }
     
     # Render template

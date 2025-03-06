@@ -1,0 +1,3110 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Topic Modeling Report</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --accent-color: #9b59b6;
+            --light-bg: #f8f9fa;
+            --dark-bg: #2c3e50;
+            --text-color: #333;
+            --light-text: #f8f9fa;
+            --border-color: #e9ecef;
+            --topic-colors: #e74c3c, #3498db, #2ecc71, #f39c12, #9b59b6, #1abc9c;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: var(--text-color);
+            background-color: #fff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        header {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+        
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-meta {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        h1, h2, h3, h4 {
+            color: var(--secondary-color);
+            font-weight: 600;
+            margin-top: 0;
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            color: var(--light-text);
+            margin: 0;
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            font-size: 1.4rem;
+        }
+        
+        .card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background-color: var(--light-bg);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .visualization {
+            margin: 20px 0;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .topic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .topic-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        
+        .topic-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .topic-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .topic-name {
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin: 0;
+        }
+        
+        .topic-count {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .topic-body {
+            padding: 15px;
+        }
+        
+        .topic-words {
+            background-color: var(--light-bg);
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+        
+        .example-text {
+            background-color: var(--light-bg);
+            padding: 10px 15px;
+            border-left: 3px solid var(--primary-color);
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-color);
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        
+        .tab.active {
+            opacity: 1;
+            border-bottom: 3px solid var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            background-color: var(--light-bg);
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .summary-card {
+            background-color: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .summary-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+        
+        .export-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        
+        .export-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        footer {
+            background-color: var(--light-bg);
+            padding: 20px 0;
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .topic-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        // Add interactive functionality after document loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab functionality
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    tab.classList.add('active');
+                    const contentId = tab.getAttribute('data-tab');
+                    document.getElementById(contentId).classList.add('active');
+                });
+            });
+            
+            // Export table to CSV
+            const exportBtn = document.getElementById('export-csv');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    const table = document.querySelector('.data-table');
+                    if (!table) return;
+                    
+                    let csv = [];
+                    const rows = table.querySelectorAll('tr');
+                    
+                    rows.forEach(row => {
+                        const cols = row.querySelectorAll('td, th');
+                        const rowData = Array.from(cols).map(col => '"' + col.innerText + '"');
+                        csv.push(rowData.join(','));
+                    });
+                    
+                    const csvContent = csv.join('\n');
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.setAttribute('hidden', '');
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', 'topic_data.csv');
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Enhanced Topic Modeling Report</h1>
+            <div class="header-meta">
+                Generated on 2025-03-06 15:20:00
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h2>Summary</h2>
+            </div>
+            <div class="card-body">
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-value">250</div>
+                        <div class="summary-label">Documents</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-value">5</div>
+                        <div class="summary-label">Topics</div>
+                    </div>
+                    
+                    <div class="summary-card">
+                        <div class="summary-value">14.0</div>
+                        <div class="summary-label">Avg Words/Doc</div>
+                    </div>
+                    
+                    
+                    <div class="summary-card">
+                        <div class="summary-value">0.81</div>
+                        <div class="summary-label">Topic Coherence</div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Topic Distribution</h2>
+            </div>
+            <div class="card-body">
+                <div class="visualization">
+                    <div>                            <div id="eaa89a76-eda8-40e1-8ceb-9fc0b510d3f1" class="plotly-graph-div" style="height:600px; width:900px;"></div>            <script type="text/javascript">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById("eaa89a76-eda8-40e1-8ceb-9fc0b510d3f1")) {                    Plotly.newPlot(                        "eaa89a76-eda8-40e1-8ceb-9fc0b510d3f1",                        [{"marker":{"color":["rgb(68, 1, 84)","rgb(59, 81, 138)","rgb(34, 144, 140)","rgb(96, 200, 96)","rgb(253, 231, 37)"]},"text":[50.0,50.0,50.0,50.0,50.0],"textposition":"auto","x":["Topic_1","Topic_2","Topic_3","Topic_4","Topic_5"],"y":[50,50,50,50,50],"type":"bar"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmapgl":[{"type":"heatmapgl","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"title":{"text":"Topic Distribution"},"xaxis":{"title":{"text":"Topic"}},"yaxis":{"title":{"text":"Document Count"}},"width":900,"height":600},                        {"responsive": true}                    )                };                            </script>        </div>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Visualizations</h2>
+            </div>
+            <div class="card-body">
+                <div class="tabs">
+                    <div class="tab active" data-tab="embeddings-tab">Document Embeddings</div>
+                    
+                    <div class="tab" data-tab="similarity-tab">Topic Similarity</div>
+                    
+                    
+                    <div class="tab" data-tab="wordcloud-tab">Word Clouds</div>
+                    
+                </div>
+                
+                <div id="embeddings-tab" class="tab-content active">
+                    <div class="visualization">
+                        <div>                            <div id="320abd0a-619e-4894-ad4f-bfaffcb6aee4" class="plotly-graph-div" style="height:600px; width:900px;"></div>            <script type="text/javascript">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById("320abd0a-619e-4894-ad4f-bfaffcb6aee4")) {                    Plotly.newPlot(                        "320abd0a-619e-4894-ad4f-bfaffcb6aee4",                        [{"hovertemplate":"\u003cb\u003e%{hovertext}\u003c\u002fb\u003e\u003cbr\u003e\u003cbr\u003etopic=Topic_1\u003cbr\u003ex=%{x}\u003cbr\u003ey=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","hovertext":["Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.","Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.","Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported."],"legendgroup":"Topic_1","marker":{"color":"rgb(127, 60, 141)","symbol":"circle","opacity":0.7,"size":5},"mode":"markers","name":"Topic_1","orientation":"v","showlegend":true,"x":[10.114026272742102,8.401615986699493,8.093342783482575,13.24935691693912,9.495292995747425,6.873618382606686,9.844325605974396,16.38621513568972,8.496417899809632,12.29689141839351,7.123444043365266,8.663711828922011,12.160096131429297,12.562032723470226,11.705547350244439,8.307286690018254,12.059921635162322,9.192703073516007,10.847198131186921,7.864934171491454,12.824441110830858,10.904743592499468,10.856614194415297,11.971459991359726,15.179127284037229,10.651592633164332,9.293667414378623,9.409197179721941,12.63519507121592,12.27975712225809,9.763862946017843,8.784356025811135,9.954263875402235,8.990450157543565,11.093467136402758,9.266351176370625,8.155179631002994,9.355359061577321,13.042632103844902,9.136759374563903,9.951608787218168,10.648718563443206,12.375358776923127,10.402319311745678,9.482190052591845,9.05019268675495,7.308040639506503,13.87785799811657,8.644510058950297,10.359163563879196],"xaxis":"x","y":[-1.2919283582490706,-0.9654870443640649,0.24534063198959105,0.6461585462320582,-0.5836225378310882,1.766219554294318,-0.3609598271812513,0.5975058167313725,-0.8527151924110866,0.22654082107552892,1.838457869150407,3.746595552435091,-0.8946437913175024,0.1357110210548066,0.9694656345889495,-1.287099664634924,-0.6695506642130817,-1.910245158698706,4.12504983848629,0.04843891334551614,-0.1592827824914303,-2.1247870562937594,-0.37428853000909756,2.3747721031295024,1.1592663464271513,0.38876860315467204,0.6769676869233823,0.3369219525392286,-2.0130851305592823,2.6342301346797306,-4.243709798017189,2.5939890931222185,-1.9986044645898215,1.681240053009106,-0.47786419833938865,-0.7835162980876438,3.2307513789388835,2.434317041650993,1.9966217962959207,0.8074601806732189,-1.8074037214602563,-2.358079582319605,-0.9292345945967861,0.5665757430922843,1.1733876029505494,1.7425945949144883,0.25275915909282365,-2.0006626492111494,1.02781569931783,0.7012601985471184],"yaxis":"y","type":"scatter"},{"hovertemplate":"\u003cb\u003e%{hovertext}\u003c\u002fb\u003e\u003cbr\u003e\u003cbr\u003etopic=Topic_2\u003cbr\u003ex=%{x}\u003cbr\u003ey=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","hovertext":["Water heater leak caused damage to utility room and adjacent hallway carpet.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Water heater leak caused damage to utility room and adjacent hallway carpet.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Water heater leak caused damage to utility room and adjacent hallway carpet.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Water heater leak caused damage to utility room and adjacent hallway carpet.","Water heater leak caused damage to utility room and adjacent hallway carpet.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.","Water heater leak caused damage to utility room and adjacent hallway carpet.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Water heater leak caused damage to utility room and adjacent hallway carpet.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Water heater leak caused damage to utility room and adjacent hallway carpet.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.","Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.","Dishwasher malfunction resulted in water damage to kitchen floor and baseboards."],"legendgroup":"Topic_2","marker":{"color":"rgb(17, 165, 121)","symbol":"circle","opacity":0.7,"size":5},"mode":"markers","name":"Topic_2","orientation":"v","showlegend":true,"x":[4.068544204044802,5.30956962766192,2.6076546345123894,6.889933813539906,1.1411113344081916,2.849407615842278,4.785013298050318,2.909103379141153,3.471169303307607,2.219197202609788,2.57107658858164,4.320904911775582,5.262134176099539,4.7062855403117645,6.7665372973397195,2.3915363515130794,2.4838103780809235,-0.14245127312370132,0.9545641005910883,6.511396688913325,2.752526497369453,5.413926548965856,3.5669079092190445,4.092358283629165,5.092262128883757,4.44592058281129,-0.5710958499634393,5.83748703407539,4.995919038155352,5.71999885091757,4.574424925893259,-0.11376168004486242,1.403676753117091,2.7383983188848013,4.19314069583041,6.480272024610981,3.47938485422396,0.4501249213080629,3.0160963496526505,1.7053279840017626,2.923958798492085,4.61028187112868,0.17506694481961338,1.5858571325683082,5.771070835795763,3.320222102044309,4.432850096650406,1.5862312802718364,1.4981182301424965,3.132793241093359],"xaxis":"x","y":[10.780008100075074,10.33020247680856,10.855712565356997,9.245297670186387,11.724726501525481,5.165226070923462,8.439908791043688,10.174525824089564,10.929468797229614,10.5367767593037,10.98818612472654,7.639687758862344,8.438638272723438,10.245139789754216,9.06363319820783,9.471725951176069,11.110448966835635,7.403200324658826,11.411180346898686,9.301666725876592,9.650669489177897,7.655858894570386,11.460960422516393,9.889728396149021,4.10410057695306,8.202413796696687,10.532970362001496,9.235668133696151,12.735121678928826,12.79049422169432,9.66143244075472,9.018440186691638,13.852450597947161,9.756974776520506,9.597770055696442,8.26526643948263,8.025623991555438,8.287026981140963,8.651960713917015,6.697930235607867,6.50112441488953,9.67544466882054,8.892147008851808,10.148914183789895,5.7602202236600455,9.190299571818255,9.936958419426913,8.872457291618298,11.66257944014873,13.312946534457549],"yaxis":"y","type":"scatter"},{"hovertemplate":"\u003cb\u003e%{hovertext}\u003c\u002fb\u003e\u003cbr\u003e\u003cbr\u003etopic=Topic_3\u003cbr\u003ex=%{x}\u003cbr\u003ey=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","hovertext":["Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Workplace injury when lifting heavy equipment. Lower back pain requiring ongoing physical therapy.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Workplace injury when lifting heavy equipment. Lower back pain requiring ongoing physical therapy.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Workplace injury when lifting heavy equipment. Lower back pain requiring ongoing physical therapy.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.","Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.","Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment."],"legendgroup":"Topic_3","marker":{"color":"rgb(57, 105, 172)","symbol":"circle","opacity":0.7,"size":5},"mode":"markers","name":"Topic_3","orientation":"v","showlegend":true,"x":[-8.211491571378714,-11.117598728975127,-11.258441829760452,-7.0727198972896055,-6.300093315597242,-7.796583919778374,-6.296491312018409,-9.872554394580048,-9.528476582234314,-10.064528998051841,-7.936466177831936,-9.390175105396391,-7.206288644610654,-5.268305184256933,-8.052470697859777,-7.62373768122247,-7.515921613345824,-7.3671628933372695,-7.873050532196427,-8.506403658294552,-11.853868034744751,-7.904480141467244,-10.14552022560139,-9.822519640178474,-7.235781220006103,-4.539548158530449,-6.251861596529469,-9.431410361902763,-8.590262972947379,-7.569526266207031,-6.4685533974299085,-11.587233890225834,-11.41515391982082,-5.836759670094306,-8.911798519658642,-8.520012004326944,-6.530848879210793,-5.298802322169561,-8.508613691238528,-9.70191007674185,-4.859004296653009,-9.275098462055261,-7.529847626110259,-7.242047854821293,-8.119074485506031,-8.077325404127597,-8.309389551601134,-8.830192003513728,-4.892875602740039,-8.681130579807794],"xaxis":"x","y":[4.461038989103807,2.2715731704128426,6.4121058249477,2.715471118860466,4.911730419557854,9.10229377943558,5.340791227113068,1.5742217202661228,5.455592045269344,5.615338588740123,5.428140559308575,6.215161866858188,3.6970543680390406,5.680676258356209,7.294281369437847,7.784125790751223,4.6529777736438565,3.590400108283409,5.811392541635811,5.620777500046871,4.78040270744281,6.197565306919533,8.409268204654134,7.816766923978206,4.585397903237126,3.4905788594117726,7.879017159010689,8.66278312305339,6.455239781484447,5.609235039983637,7.464829964029159,8.486533008681038,7.942944931608047,3.6959196624943362,3.6664431859528612,5.26178395455325,8.49847001516395,4.753516469768129,2.510976138482832,7.807555789119648,3.4091547791648886,5.8250410090068785,4.25864548308144,4.9301738287829,6.970421018932132,5.005080741871596,5.701126604514062,5.360260397590528,6.99969141880721,7.2717613319462036],"yaxis":"y","type":"scatter"},{"hovertemplate":"\u003cb\u003e%{hovertext}\u003c\u002fb\u003e\u003cbr\u003e\u003cbr\u003etopic=Topic_4\u003cbr\u003ex=%{x}\u003cbr\u003ey=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","hovertext":["Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.","Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.","Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.","Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home."],"legendgroup":"Topic_4","marker":{"color":"rgb(242, 183, 1)","symbol":"circle","opacity":0.7,"size":5},"mode":"markers","name":"Topic_4","orientation":"v","showlegend":true,"x":[-8.757808923261495,-7.350885559353287,-7.194736092128919,-10.343704881569085,-7.804283754222061,-3.62756965136421,-7.088480993860561,-9.175517543217518,-9.331865140251706,-9.034351099143729,-6.594349431514407,-7.611676215527176,-9.928939126922321,-8.662178387509696,-4.173475035308287,-7.096771497276431,-8.302066652357746,-11.096110600539781,-7.154783600218608,-7.894203636807684,-8.873467078593057,-8.776554494744296,-8.829390615836742,-8.14869557111943,-8.192957390926447,-5.566326942321491,-9.397702621047115,-5.34129375740784,-1.814672876429487,-7.643692115491155,-7.519061794034161,-6.799738771849361,-7.911008581238977,-8.392716511056499,-5.822629750015345,-13.970947213078034,-7.700697554311925,-8.867206849927246,-6.195117019503758,-7.2760653695004045,-10.849406273327336,-6.365382998983957,-7.063999103554888,-7.0578133695195575,-7.226324854401593,-6.581587284122326,-6.673562249347347,-5.94986946711662,-9.85391924620491,-9.579975233362372],"xaxis":"x","y":[-3.5316032477514474,-6.092456810933188,-9.019604827061729,-8.265702535722841,-2.412822523954546,-4.601750320043216,-9.479967991230208,-7.453420026741208,-6.214140160094309,-9.836452143676306,-8.023338574404344,-1.7296871834247831,-10.938427568417389,-3.675933252927588,-8.336951711829563,-6.808473436484837,-0.5891658288906605,-5.3703731999355835,-3.706279873046036,-5.261751443916525,-5.339598640434516,-4.634708743212628,-5.123651735120357,-3.6257520213803938,-9.423917459338494,-7.689317124649968,-7.069175111011714,-10.149200950882122,-3.7657389047926264,-5.987640524157303,-4.835607666166053,-4.766643590917833,-6.272529363539382,-6.267669083630092,-4.6907390783630065,-4.566050969865208,-5.915270035816524,-3.629627082952703,-7.423607858571948,-7.821165992007302,-7.13128697210466,-3.9716024321725567,-4.427660949228736,-7.160815713370635,-4.277033472469365,-3.500025779975444,-5.174956107841564,-5.9308950414228505,-6.203986450812258,-7.228209072873494],"yaxis":"y","type":"scatter"},{"hovertemplate":"\u003cb\u003e%{hovertext}\u003c\u002fb\u003e\u003cbr\u003e\u003cbr\u003etopic=Topic_5\u003cbr\u003ex=%{x}\u003cbr\u003ey=%{y}\u003cextra\u003e\u003c\u002fextra\u003e","hovertext":["Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Package theft from front porch. Delivery confirmed but items missing upon arrival home.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Package theft from front porch. Delivery confirmed but items missing upon arrival home.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Package theft from front porch. Delivery confirmed but items missing upon arrival home.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Package theft from front porch. Delivery confirmed but items missing upon arrival home.","Office break-in with theft of computers and equipment. Forced entry through rear door.","Theft of personal items from vehicle parked in driveway. Window broken to gain access.","Package theft from front porch. Delivery confirmed but items missing upon arrival home.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.","Home break-in through back window. Electronics and jewelry stolen. Police report filed.","Office break-in with theft of computers and equipment. Forced entry through rear door."],"legendgroup":"Topic_5","marker":{"color":"rgb(231, 63, 116)","symbol":"circle","opacity":0.7,"size":5},"mode":"markers","name":"Topic_5","orientation":"v","showlegend":true,"x":[2.801132602318437,2.4742468844713916,3.5167573584953495,1.455992681613091,4.965310219002589,1.5647203866170438,1.210363741531743,2.7025176662038652,-0.9175547850640347,0.6116531540425272,3.6449238196658555,0.47252914551124814,3.457869033256862,5.568062649628347,2.1068975724853773,1.143077544340535,4.1011102620827256,8.609490021571627,2.072242692334475,-0.4479818660287642,2.2716050675232644,3.3948796878169163,5.332231278398416,3.0715693014722434,3.4005513114674306,1.3559095123276717,2.482717886196143,1.4516542243064767,4.838948305174927,3.477349766484561,2.815426366950679,2.88372643788448,1.9246526285263081,2.821611619376864,4.942600748232657,5.562431387361908,3.4848013585606634,2.4580242316953727,5.497938818087105,2.189791414046649,4.292583441607702,-1.502191962525004,0.648745091921155,2.794609306114529,5.9951050126909635,3.691118662971129,0.812503708187934,2.9386413706785524,0.9464554776691614,4.725949259799529],"xaxis":"x","y":[-11.09540500495146,-13.297794496859108,-9.508154212227089,-8.192073826086727,-12.725684891689484,-11.048849862526133,-7.851615479088039,-10.039594845572758,-8.239729102533083,-9.39069990241888,-6.789247971274234,-15.549589474593187,-5.909542799929829,-9.091246332402285,-7.896319969676916,-8.557849624239099,-7.390145347953776,-8.725733228594002,-9.561713787335526,-10.899991425129652,-10.558741958820722,-11.155405027715938,-9.510151033115143,-10.166354595977372,-7.860368633616267,-10.82679814110205,-12.202307009897966,-10.463006910040855,-8.985442504947686,-7.808769238615592,-8.729635463093757,-8.979840464152279,-14.388199479504394,-6.665068890751656,-7.579770193769195,-9.333249981028661,-10.745868953820237,-8.279022863409253,-9.789457714313535,-9.509509245238341,-12.39827479521862,-10.611638861934704,-10.526845558246158,-10.417061980997563,-8.857075633746897,-8.266150874864733,-7.432341588110999,-8.169603928469112,-12.618082694983665,-8.757746110756504],"yaxis":"y","type":"scatter"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmapgl":[{"type":"heatmapgl","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"xaxis":{"anchor":"y","domain":[0.0,1.0],"title":{"text":"Dimension 1"}},"yaxis":{"anchor":"x","domain":[0.0,1.0],"title":{"text":"Dimension 2"}},"legend":{"title":{"text":"Topic"},"tracegroupgap":0},"title":{"text":"Document Embeddings"},"height":600,"width":900},                        {"responsive": true}                    )                };                            </script>        </div>
+                    </div>
+                </div>
+                
+                
+                <div id="similarity-tab" class="tab-content">
+                    <div class="visualization">
+                        <div>                            <div id="78c8bfde-9008-46ab-b370-b883a409ef31" class="plotly-graph-div" style="height:700px; width:700px;"></div>            <script type="text/javascript">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById("78c8bfde-9008-46ab-b370-b883a409ef31")) {                    Plotly.newPlot(                        "78c8bfde-9008-46ab-b370-b883a409ef31",                        [{"colorscale":[[0.0,"#440154"],[0.1111111111111111,"#482878"],[0.2222222222222222,"#3e4989"],[0.3333333333333333,"#31688e"],[0.4444444444444444,"#26828e"],[0.5555555555555556,"#1f9e89"],[0.6666666666666666,"#35b779"],[0.7777777777777778,"#6ece58"],[0.8888888888888888,"#b5de2b"],[1.0,"#fde725"]],"x":["Topic_1","Topic_2","Topic_3","Topic_4","Topic_5"],"y":["Topic_1","Topic_2","Topic_3","Topic_4","Topic_5"],"z":[[1.0,0.726140254186767,0.5684372656236649,0.5355167395977686,0.7604869092388498],[0.7286793116717383,1.0,0.7800784725105947,0.5109784997363825,0.571259040353442],[0.5632214012243847,0.794190804791965,1.0,0.7888487787678724,0.5484138097287672],[0.5732407323272029,0.5164519774257805,0.7985306611345047,1.0,0.7620905951328064],[0.7662654453230908,0.5980672369082398,0.5875631600999489,0.7586357325081365,1.0]],"zmax":1,"zmin":0,"type":"heatmap"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmapgl":[{"type":"heatmapgl","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"title":{"text":"Topic Similarity"},"width":700,"height":700},                        {"responsive": true}                    )                };                            </script>        </div>
+                    </div>
+                </div>
+                
+                
+                
+                <div id="wordcloud-tab" class="tab-content">
+                    <div class="visualization">
+                        <div>                            <div id="108335cf-a754-40ab-a034-bf39aedde58a" class="plotly-graph-div" style="height:700px; width:900px;"></div>            <script type="text/javascript">                                    window.PLOTLYENV=window.PLOTLYENV || {};                                    if (document.getElementById("108335cf-a754-40ab-a034-bf39aedde58a")) {                    Plotly.newPlot(                        "108335cf-a754-40ab-a034-bf39aedde58a",                        [{"mode":"text","name":"Topic_1","text":["insurance word_0_5 word_0_46 word_0_13 claim word_0_42 policy damage word_0_30 word_0_35 vehicle word_0_36 accident word_0_21 word_0_41 car word_0_6 word_0_25 coverage word_0_34 report word_0_8 collision word_0_1 word_0_43 word_0_50 word_0_31 word_0_12 word_0_9 word_0_24 word_0_26 word_0_16 word_0_47 word_0_19 word_0_45 word_0_27 word_0_2 word_0_40 word_0_49 word_0_14 word_0_4 word_0_3 word_0_18 word_0_48 word_0_28 word_0_38 word_0_32 word_0_29 word_0_7 word_0_39"],"textfont":{"size":[78.56461984594587,78.35123167536625,78.27095947167615,77.71976074488019,77.6849321164863,77.09856006893303,76.72032945461068,75.6526497003536,75.33148894992442,75.17210804550277,74.76972362889683,74.55578925522465,74.29719478039138,73.86899552899743,73.80491459809934,73.63028103540465,73.51481082543296,73.32694664178982,73.09918278226516,72.49055497689679,72.34410725718371,72.02460402395708,71.73786103901936,71.71149042355032,70.76948030103219,70.73741693815191,70.50225758271458,70.43186427379858,69.90944543962101,69.57882126170945,69.39031431980494,68.93855875603985,68.75822805618056,67.98669825044563,67.81263112191641,67.18197528131911,67.00085469289492,66.61770964460656,66.339697041448,66.28952733855687,66.22067804827788,66.2205426937498,65.74236562691087,65.6810378973499,65.66343598692258,65.59525425396282,64.94968113097913,64.29266529937294,64.21488528360399,64.12926452791882]},"visible":true,"x":[0.5],"y":[0.5],"type":"scatter"},{"mode":"text","name":"Topic_2","text":["word_1_20 word_1_47 water word_1_32 damage word_1_25 flood pipe word_1_23 leak word_1_6 home word_1_3 basement word_1_35 word_1_50 word_1_40 repair word_1_24 mold property word_1_41 word_1_48 word_1_14 word_1_4 word_1_22 word_1_42 word_1_9 word_1_45 word_1_10 word_1_39 word_1_15 word_1_44 word_1_38 word_1_5 word_1_30 word_1_19 word_1_18 word_1_16 word_1_13 word_1_21 word_1_34 word_1_8 word_1_12 word_1_2 word_1_28 word_1_43 word_1_7 word_1_46 word_1_33"],"textfont":{"size":[82.8591740157278,79.88796045926337,78.66933284461882,78.18969691924684,77.91221462726186,77.36445963615434,77.09304340258298,76.20073206530355,75.84850163830178,75.51080335043405,74.78820980735867,74.76972362889683,74.45647560766812,73.96929655216147,73.811261550402,73.64157777357367,73.607685318797,73.45636360828595,73.41442560346248,72.9156913955832,72.34410725718371,71.88419026906857,71.55398742221197,71.0684716719596,70.53559905836033,70.34073514822882,70.30792788407928,70.30170851428316,70.27976913383588,70.04832097263048,70.03981129719428,70.02287586900098,69.8385814747716,69.4885540647719,68.83411989197626,68.61787029391733,68.55438060200241,67.88534809651134,67.50916006416051,66.81535754843648,66.56313278465713,65.48689409266176,65.43953975433149,64.6422275707281,63.92897387235935,63.349067789815166,62.29911555158537,62.091426881609294,61.9748468786831,61.31318866320824]},"visible":false,"x":[0.5],"y":[0.5],"type":"scatter"},{"mode":"text","name":"Topic_3","text":["word_2_34 injury medical word_2_8 pain treatment word_2_37 hospital word_2_25 word_2_26 doctor word_2_1 word_2_30 word_2_47 accident therapy word_2_14 word_2_39 word_2_31 recovery word_2_9 diagnosis word_2_29 word_2_27 word_2_28 word_2_46 word_2_12 word_2_15 word_2_2 word_2_6 word_2_19 word_2_43 word_2_22 word_2_23 word_2_40 word_2_7 word_2_16 word_2_5 word_2_45 word_2_13 word_2_33 word_2_3 word_2_36 word_2_48 word_2_41 word_2_49 word_2_38 word_2_4 word_2_32 word_2_44"],"textfont":{"size":[82.14729877801398,78.66933284461882,77.79921907472252,77.65160588067855,76.97034247666484,76.06650186198215,75.52454406582652,75.51080335043405,75.48885517771322,75.31127867681013,74.76972362889683,74.75554478290508,74.69733904300287,74.14380597358358,74.13458957167357,73.63028103540465,73.1673576668374,72.94150726005465,72.75505759977577,72.72877006546167,72.5840020674961,72.14608098422191,71.83709532219444,71.83701041544558,71.82846787526594,71.76823556969573,71.61355460518305,71.54987864188895,71.12964377477917,70.62400970011765,69.70557888859722,69.50201059276952,69.25915531585764,68.53895801341517,68.44236721331603,68.19197345276292,67.52192807604449,67.48817786342059,67.18925488465227,66.3085510601176,66.19856138180273,66.1277756184424,64.19321616934383,64.16662338310104,62.56499998713964,62.548894956419076,61.9658008596798,61.59842743175243,61.4142704987932,61.22307037770053]},"visible":false,"x":[0.5],"y":[0.5],"type":"scatter"},{"mode":"text","name":"Topic_4","text":["word_3_2 word_3_40 word_3_9 fire word_3_17 home word_3_11 damage word_3_35 word_3_4 property word_3_41 smoke kitchen word_3_3 word_3_45 word_3_1 electrical word_3_25 word_3_24 word_3_33 word_3_34 alarm word_3_42 word_3_7 flames emergency word_3_20 word_3_31 word_3_14 word_3_6 word_3_47 word_3_37 word_3_26 word_3_21 word_3_49 word_3_30 word_3_15 word_3_36 word_3_43 word_3_29 word_3_38 word_3_46 word_3_19 word_3_32 word_3_16 word_3_50 word_3_28 word_3_48 word_3_23"],"textfont":{"size":[81.19914883087984,81.0498124778955,78.64253059671624,78.56461984594587,78.38864646280732,77.79921907472252,77.58247109715771,77.21425700790644,76.80592080469508,76.58165347866148,76.4639051484773,75.93980186149038,75.79251212010101,75.22092798170152,75.18107332388676,74.82830221180396,74.471882874509,74.45719819385579,74.35730831294572,74.04136927737852,73.88733569716871,73.81121301925347,73.80122536899765,73.67103556022434,73.56131791988332,73.09918278226516,72.53828811575474,72.33388670460106,72.0554156876681,71.47292602127285,71.34612777816662,71.13069743535966,70.50284643878186,70.38204436055466,70.19264964590482,69.93134028570454,68.9867500348443,68.62729995948546,68.25368538801258,67.99641650820618,67.9290883976411,67.06601967224849,66.93013894868572,66.89204869506689,66.48288948927534,64.94769147492093,63.88278778637307,63.40451036680812,63.3724039314368,63.13905816822759]},"visible":false,"x":[0.5],"y":[0.5],"type":"scatter"},{"mode":"text","name":"Topic_5","text":["word_4_21 word_4_19 word_4_46 word_4_26 word_4_30 word_4_47 theft word_4_44 stolen property word_4_49 word_4_33 word_4_43 break-in word_4_35 word_4_31 burglary word_4_50 items home word_4_7 security police word_4_48 word_4_39 report word_4_41 word_4_18 word_4_28 word_4_14 word_4_25 word_4_11 word_4_2 word_4_15 word_4_40 word_4_45 word_4_37 word_4_17 word_4_16 word_4_36 word_4_9 word_4_13 word_4_34 word_4_8 word_4_6 word_4_10 word_4_38 word_4_32 word_4_1 word_4_24"],"textfont":{"size":[81.53576118152243,81.35400553817563,80.89027392287002,79.94225926066736,79.70803256367381,79.30502909889363,78.77296071497429,78.19643185730924,78.02394763324311,77.21425700790644,77.16956604429097,77.08497378429803,76.64442371986715,76.59293919683637,76.41135331220623,76.06671756508968,75.79251212010101,75.33941224070969,75.07277712385012,74.45719819385579,74.09251071465633,73.80122536899765,73.09918278226516,72.71514509535697,72.56520777856352,72.53828811575474,71.83293244490358,71.72030533294154,71.67855257652512,71.05206001041337,70.6283092133063,70.49249625817953,69.83709241439749,69.77888208384294,69.0090576582217,68.97432174417446,68.4531505298081,68.28068667052219,68.18881199448747,68.132019954909,67.94768393603387,67.23692242618552,67.19082416211654,66.82624424296867,66.39076938364241,65.7677795908169,64.38547789866622,64.21751833723386,64.20109705101258,63.714656013648266]},"visible":false,"x":[0.5],"y":[0.5],"type":"scatter"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmapgl":[{"type":"heatmapgl","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"updatemenus":[{"buttons":[{"args":[{"visible":[true,false,false,false,false]},{"title":"Topic Word Clouds: Topic_1"}],"label":"Topic_1","method":"update"},{"args":[{"visible":[false,true,false,false,false]},{"title":"Topic Word Clouds: Topic_2"}],"label":"Topic_2","method":"update"},{"args":[{"visible":[false,false,true,false,false]},{"title":"Topic Word Clouds: Topic_3"}],"label":"Topic_3","method":"update"},{"args":[{"visible":[false,false,false,true,false]},{"title":"Topic Word Clouds: Topic_4"}],"label":"Topic_4","method":"update"},{"args":[{"visible":[false,false,false,false,true]},{"title":"Topic Word Clouds: Topic_5"}],"label":"Topic_5","method":"update"}],"direction":"down","showactive":true,"x":0.1,"y":1.15}],"xaxis":{"visible":false},"yaxis":{"visible":false},"title":{"text":"Topic Word Clouds: Topic_1"},"width":900,"height":700},                        {"responsive": true}                    )                };                            </script>        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Topic Details</h2>
+            </div>
+            <div class="card-body">
+                <div class="topic-grid">
+                    
+                    <div class="topic-card">
+                        <div class="topic-header">
+                            <h3 class="topic-name">Topic_1</h3>
+                            <span class="topic-count">50</span>
+                        </div>
+                        <div class="topic-body">
+                            
+                            <div class="topic-words">
+                                <strong>Top words:</strong> insurance, word_0_5, word_0_46, word_0_13, claim, word_0_42, policy, damage, word_0_30, word_0_35
+                            </div>
+                            
+                            
+                            <h4>Example Documents:</h4>
+                            
+                            <div class="example-text">Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</div>
+                            
+                            <div class="example-text">Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</div>
+                            
+                            <div class="example-text">Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</div>
+                            
+                            <div class="example-text">Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</div>
+                            
+                            <div class="example-text">Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</div>
+                            
+                        </div>
+                    </div>
+                    
+                    <div class="topic-card">
+                        <div class="topic-header">
+                            <h3 class="topic-name">Topic_2</h3>
+                            <span class="topic-count">50</span>
+                        </div>
+                        <div class="topic-body">
+                            
+                            <div class="topic-words">
+                                <strong>Top words:</strong> word_1_20, word_1_47, water, word_1_32, damage, word_1_25, flood, pipe, word_1_23, leak
+                            </div>
+                            
+                            
+                            <h4>Example Documents:</h4>
+                            
+                            <div class="example-text">Water heater leak caused damage to utility room and adjacent hallway carpet.</div>
+                            
+                            <div class="example-text">Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</div>
+                            
+                            <div class="example-text">Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</div>
+                            
+                            <div class="example-text">Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</div>
+                            
+                            <div class="example-text">Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</div>
+                            
+                        </div>
+                    </div>
+                    
+                    <div class="topic-card">
+                        <div class="topic-header">
+                            <h3 class="topic-name">Topic_3</h3>
+                            <span class="topic-count">50</span>
+                        </div>
+                        <div class="topic-body">
+                            
+                            <div class="topic-words">
+                                <strong>Top words:</strong> word_2_34, injury, medical, word_2_8, pain, treatment, word_2_37, hospital, word_2_25, word_2_26
+                            </div>
+                            
+                            
+                            <h4>Example Documents:</h4>
+                            
+                            <div class="example-text">Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</div>
+                            
+                            <div class="example-text">Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</div>
+                            
+                            <div class="example-text">Workplace injury when lifting heavy equipment. Lower back pain requiring ongoing physical therapy.</div>
+                            
+                            <div class="example-text">Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</div>
+                            
+                            <div class="example-text">Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</div>
+                            
+                        </div>
+                    </div>
+                    
+                    <div class="topic-card">
+                        <div class="topic-header">
+                            <h3 class="topic-name">Topic_4</h3>
+                            <span class="topic-count">50</span>
+                        </div>
+                        <div class="topic-body">
+                            
+                            <div class="topic-words">
+                                <strong>Top words:</strong> word_3_2, word_3_40, word_3_9, fire, word_3_17, home, word_3_11, damage, word_3_35, word_3_4
+                            </div>
+                            
+                            
+                            <h4>Example Documents:</h4>
+                            
+                            <div class="example-text">Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</div>
+                            
+                            <div class="example-text">Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</div>
+                            
+                            <div class="example-text">Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</div>
+                            
+                            <div class="example-text">Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</div>
+                            
+                            <div class="example-text">Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</div>
+                            
+                        </div>
+                    </div>
+                    
+                    <div class="topic-card">
+                        <div class="topic-header">
+                            <h3 class="topic-name">Topic_5</h3>
+                            <span class="topic-count">50</span>
+                        </div>
+                        <div class="topic-body">
+                            
+                            <div class="topic-words">
+                                <strong>Top words:</strong> word_4_21, word_4_19, word_4_46, word_4_26, word_4_30, word_4_47, theft, word_4_44, stolen, property
+                            </div>
+                            
+                            
+                            <h4>Example Documents:</h4>
+                            
+                            <div class="example-text">Home break-in through back window. Electronics and jewelry stolen. Police report filed.</div>
+                            
+                            <div class="example-text">Theft of personal items from vehicle parked in driveway. Window broken to gain access.</div>
+                            
+                            <div class="example-text">Home break-in through back window. Electronics and jewelry stolen. Police report filed.</div>
+                            
+                            <div class="example-text">Office break-in with theft of computers and equipment. Forced entry through rear door.</div>
+                            
+                            <div class="example-text">Theft of personal items from vehicle parked in driveway. Window broken to gain access.</div>
+                            
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="card">
+            <div class="card-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Raw Data</h2>
+                    <button id="export-csv" class="export-btn">Export to CSV</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="topic-assignments-table">
+                    <table border="1" class="dataframe dataframe data-table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>text</th>
+      <th>topic</th>
+      <th>topic_probability</th>
+      <th>Topic_1_similarity</th>
+      <th>Topic_2_similarity</th>
+      <th>Topic_3_similarity</th>
+      <th>Topic_4_similarity</th>
+      <th>Topic_5_similarity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.737</td>
+      <td>0.737</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.612</td>
+      <td>0.612</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.820</td>
+      <td>0.820</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.965</td>
+      <td>0.965</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.851</td>
+      <td>0.851</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.852</td>
+      <td>0.852</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.802</td>
+      <td>0.802</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.985</td>
+      <td>0.985</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.883</td>
+      <td>0.883</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.696</td>
+      <td>0.696</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.587</td>
+      <td>0.587</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.937</td>
+      <td>0.937</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.959</td>
+      <td>0.959</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.817</td>
+      <td>0.817</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.577</td>
+      <td>0.577</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.</td>
+      <td>Topic_1</td>
+      <td>0.768</td>
+      <td>0.768</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.944</td>
+      <td>0.944</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.895</td>
+      <td>0.895</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.844</td>
+      <td>0.844</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.</td>
+      <td>Topic_1</td>
+      <td>0.715</td>
+      <td>0.715</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.685</td>
+      <td>0.685</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.757</td>
+      <td>0.757</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.958</td>
+      <td>0.958</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.902</td>
+      <td>0.902</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.</td>
+      <td>Topic_1</td>
+      <td>0.776</td>
+      <td>0.776</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.636</td>
+      <td>0.636</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.761</td>
+      <td>0.761</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.720</td>
+      <td>0.720</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.879</td>
+      <td>0.879</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.751</td>
+      <td>0.751</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.981</td>
+      <td>0.981</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.707</td>
+      <td>0.707</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.953</td>
+      <td>0.953</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.704</td>
+      <td>0.704</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.748</td>
+      <td>0.748</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.850</td>
+      <td>0.850</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.695</td>
+      <td>0.695</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's vehicle was damaged in a collision at an intersection. Front bumper and headlight need replacement.</td>
+      <td>Topic_1</td>
+      <td>0.785</td>
+      <td>0.785</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.960</td>
+      <td>0.960</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.507</td>
+      <td>0.507</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.</td>
+      <td>Topic_1</td>
+      <td>0.918</td>
+      <td>0.918</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.452</td>
+      <td>0.452</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer's parked car was hit by another vehicle in a parking lot. Passenger side damage visible.</td>
+      <td>Topic_1</td>
+      <td>0.852</td>
+      <td>0.852</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.804</td>
+      <td>0.804</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.853</td>
+      <td>0.853</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.757</td>
+      <td>0.757</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.767</td>
+      <td>0.767</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Policyholder reported a car accident where their vehicle was struck from behind, causing rear damage.</td>
+      <td>Topic_1</td>
+      <td>0.681</td>
+      <td>0.681</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant's car sustained hail damage during the storm last week. Multiple dents on hood and roof.</td>
+      <td>Topic_1</td>
+      <td>0.484</td>
+      <td>0.484</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Vehicle slid on ice and hit a guardrail. Damage to driver's side door and panel. No injuries reported.</td>
+      <td>Topic_1</td>
+      <td>0.679</td>
+      <td>0.679</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.786</td>
+      <td>0.077</td>
+      <td>0.786</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.861</td>
+      <td>0.077</td>
+      <td>0.861</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.942</td>
+      <td>0.077</td>
+      <td>0.942</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.810</td>
+      <td>0.077</td>
+      <td>0.810</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.736</td>
+      <td>0.077</td>
+      <td>0.736</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.841</td>
+      <td>0.077</td>
+      <td>0.841</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.718</td>
+      <td>0.077</td>
+      <td>0.718</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.951</td>
+      <td>0.077</td>
+      <td>0.951</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.927</td>
+      <td>0.077</td>
+      <td>0.927</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.978</td>
+      <td>0.077</td>
+      <td>0.978</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.613</td>
+      <td>0.077</td>
+      <td>0.613</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.868</td>
+      <td>0.077</td>
+      <td>0.868</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.836</td>
+      <td>0.077</td>
+      <td>0.836</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.720</td>
+      <td>0.077</td>
+      <td>0.720</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.733</td>
+      <td>0.077</td>
+      <td>0.733</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.739</td>
+      <td>0.077</td>
+      <td>0.739</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.911</td>
+      <td>0.077</td>
+      <td>0.911</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.777</td>
+      <td>0.077</td>
+      <td>0.777</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.890</td>
+      <td>0.077</td>
+      <td>0.890</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.920</td>
+      <td>0.077</td>
+      <td>0.920</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.354</td>
+      <td>0.077</td>
+      <td>0.354</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.771</td>
+      <td>0.077</td>
+      <td>0.771</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.732</td>
+      <td>0.077</td>
+      <td>0.732</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.613</td>
+      <td>0.077</td>
+      <td>0.613</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.762</td>
+      <td>0.077</td>
+      <td>0.762</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.774</td>
+      <td>0.077</td>
+      <td>0.774</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.767</td>
+      <td>0.077</td>
+      <td>0.767</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.846</td>
+      <td>0.077</td>
+      <td>0.846</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.814</td>
+      <td>0.077</td>
+      <td>0.814</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.676</td>
+      <td>0.077</td>
+      <td>0.676</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.823</td>
+      <td>0.077</td>
+      <td>0.823</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.790</td>
+      <td>0.077</td>
+      <td>0.790</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.843</td>
+      <td>0.077</td>
+      <td>0.843</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.850</td>
+      <td>0.077</td>
+      <td>0.850</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.468</td>
+      <td>0.077</td>
+      <td>0.468</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.935</td>
+      <td>0.077</td>
+      <td>0.935</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.893</td>
+      <td>0.077</td>
+      <td>0.893</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water damage in basement due to broken pipe. Carpet and drywall affected. Mold starting to form.</td>
+      <td>Topic_2</td>
+      <td>0.864</td>
+      <td>0.077</td>
+      <td>0.864</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.777</td>
+      <td>0.077</td>
+      <td>0.777</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.705</td>
+      <td>0.077</td>
+      <td>0.705</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.863</td>
+      <td>0.077</td>
+      <td>0.863</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.922</td>
+      <td>0.077</td>
+      <td>0.922</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.774</td>
+      <td>0.077</td>
+      <td>0.774</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.747</td>
+      <td>0.077</td>
+      <td>0.747</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Water heater leak caused damage to utility room and adjacent hallway carpet.</td>
+      <td>Topic_2</td>
+      <td>0.884</td>
+      <td>0.077</td>
+      <td>0.884</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.936</td>
+      <td>0.077</td>
+      <td>0.936</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Flooding from heavy rain entered first floor of home. Hardwood floors and furniture damaged.</td>
+      <td>Topic_2</td>
+      <td>0.756</td>
+      <td>0.077</td>
+      <td>0.756</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.843</td>
+      <td>0.077</td>
+      <td>0.843</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen sink pipe burst while homeowner was away. Significant water damage to cabinets and floor.</td>
+      <td>Topic_2</td>
+      <td>0.780</td>
+      <td>0.077</td>
+      <td>0.780</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Dishwasher malfunction resulted in water damage to kitchen floor and baseboards.</td>
+      <td>Topic_2</td>
+      <td>0.761</td>
+      <td>0.077</td>
+      <td>0.761</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.897</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.897</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.712</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.712</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Workplace injury when lifting heavy equipment. Lower back pain requiring ongoing physical therapy.</td>
+      <td>Topic_3</td>
+      <td>0.799</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.799</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.956</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.956</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.810</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.810</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.784</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.784</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.686</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.686</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.890</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.890</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.759</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.759</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Workplace injury when lifting heavy equipment. Lower back pain requiring ongoing physical therapy.</td>
+      <td>Topic_3</td>
+      <td>0.766</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.766</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.818</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.818</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Workplace injury when lifting heavy equipment. Lower back pain requiring ongoing physical therapy.</td>
+      <td>Topic_3</td>
+      <td>0.604</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.604</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.521</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.521</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.794</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.794</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.749</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.749</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.940</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.940</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.914</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.914</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.447</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.447</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.767</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.767</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.667</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.667</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.979</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.979</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.677</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.677</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.794</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.794</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.730</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.730</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.911</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.911</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.786</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.786</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.843</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.843</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.403</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.403</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.810</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.810</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.551</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.551</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.922</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.922</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.877</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.877</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.700</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.700</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.844</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.844</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.869</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.869</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.886</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.886</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.976</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.976</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.970</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.970</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.941</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.941</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.891</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.891</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.530</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.530</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.867</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.867</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.850</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.850</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.880</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.880</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Pedestrian hit by bicycle sustaining minor injuries including bruising and sprained ankle.</td>
+      <td>Topic_3</td>
+      <td>0.830</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.830</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.910</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.910</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Customer fell down stairs and injured wrist. X-ray confirmed fracture. Treatment and therapy needed.</td>
+      <td>Topic_3</td>
+      <td>0.522</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.522</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Repetitive strain injury from computer work affecting wrists and hands. Diagnosis of carpal tunnel.</td>
+      <td>Topic_3</td>
+      <td>0.849</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.849</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.706</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.706</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Claimant slipped on wet floor at grocery store resulting in back injury. Seeking medical treatment.</td>
+      <td>Topic_3</td>
+      <td>0.949</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.949</td>
+      <td>0.057</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.907</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.907</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.801</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.801</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.683</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.683</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.712</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.712</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.810</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.810</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.939</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.939</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.798</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.798</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.856</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.856</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.933</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.933</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.873</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.873</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.812</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.812</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.</td>
+      <td>Topic_4</td>
+      <td>0.959</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.959</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.621</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.621</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.496</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.496</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.637</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.637</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.837</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.837</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.819</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.819</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.911</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.911</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.653</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.653</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.566</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.566</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.809</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.809</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.952</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.952</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.491</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.491</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.801</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.801</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.662</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.662</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.836</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.836</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.959</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.959</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.762</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.762</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.786</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.786</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.879</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.879</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.603</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.603</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.795</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.795</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Fire damage to detached garage from malfunctioning space heater. Vehicle inside also damaged.</td>
+      <td>Topic_4</td>
+      <td>0.878</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.878</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.920</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.920</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.600</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.600</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.893</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.893</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.837</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.837</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.887</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.887</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.925</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.925</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Electrical fire in living room wall. Fire department responded. Smoke and water damage to room.</td>
+      <td>Topic_4</td>
+      <td>0.554</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.554</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.941</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.941</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.</td>
+      <td>Topic_4</td>
+      <td>0.748</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.748</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.976</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.976</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.</td>
+      <td>Topic_4</td>
+      <td>0.931</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.931</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.792</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.792</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.839</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.839</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Small grease fire on stove damaged range hood and caused smoke damage to kitchen ceiling.</td>
+      <td>Topic_4</td>
+      <td>0.763</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.763</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.</td>
+      <td>Topic_4</td>
+      <td>0.569</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.569</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Lightning strike caused attic fire. Roof damage and smoke damage to upstairs bedrooms.</td>
+      <td>Topic_4</td>
+      <td>0.940</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.940</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Kitchen fire damaged cabinets and appliances. Smoke damage throughout first floor of home.</td>
+      <td>Topic_4</td>
+      <td>0.899</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.899</td>
+      <td>0.004</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.872</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.872</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.763</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.763</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.839</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.839</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.603</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.603</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.897</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.897</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.749</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.749</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.899</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.899</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.802</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.802</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.866</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.866</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.818</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.818</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.925</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.925</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.726</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.726</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.655</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.655</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.921</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.921</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.963</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.963</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.937</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.937</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.778</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.778</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.938</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.938</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.902</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.902</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.534</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.534</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.972</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.972</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.877</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.877</td>
+    </tr>
+    <tr>
+      <td>Package theft from front porch. Delivery confirmed but items missing upon arrival home.</td>
+      <td>Topic_5</td>
+      <td>0.900</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.900</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.890</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.890</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.812</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.812</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.959</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.959</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.889</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.889</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.957</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.957</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.518</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.518</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.903</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.903</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.798</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.798</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.637</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.637</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.643</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.643</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.602</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.602</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.489</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.489</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.586</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.586</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.914</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.914</td>
+    </tr>
+    <tr>
+      <td>Package theft from front porch. Delivery confirmed but items missing upon arrival home.</td>
+      <td>Topic_5</td>
+      <td>0.525</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.525</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.896</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.896</td>
+    </tr>
+    <tr>
+      <td>Package theft from front porch. Delivery confirmed but items missing upon arrival home.</td>
+      <td>Topic_5</td>
+      <td>0.814</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.814</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.714</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.714</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.766</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.766</td>
+    </tr>
+    <tr>
+      <td>Package theft from front porch. Delivery confirmed but items missing upon arrival home.</td>
+      <td>Topic_5</td>
+      <td>0.927</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.927</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.762</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.762</td>
+    </tr>
+    <tr>
+      <td>Theft of personal items from vehicle parked in driveway. Window broken to gain access.</td>
+      <td>Topic_5</td>
+      <td>0.882</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.882</td>
+    </tr>
+    <tr>
+      <td>Package theft from front porch. Delivery confirmed but items missing upon arrival home.</td>
+      <td>Topic_5</td>
+      <td>0.857</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.857</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.951</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.951</td>
+    </tr>
+    <tr>
+      <td>Bicycle stolen from garage. Door was unlocked. Security camera captured suspect image.</td>
+      <td>Topic_5</td>
+      <td>0.902</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.902</td>
+    </tr>
+    <tr>
+      <td>Home break-in through back window. Electronics and jewelry stolen. Police report filed.</td>
+      <td>Topic_5</td>
+      <td>0.876</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.876</td>
+    </tr>
+    <tr>
+      <td>Office break-in with theft of computers and equipment. Forced entry through rear door.</td>
+      <td>Topic_5</td>
+      <td>0.856</td>
+      <td>0.077</td>
+      <td>0.024</td>
+      <td>0.185</td>
+      <td>0.057</td>
+      <td>0.856</td>
+    </tr>
+  </tbody>
+</table>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <footer>
+        <div class="container">
+            Generated with Meno Topic Modeling Toolkit
+        </div>
+    </footer>
+</body>
+</html>

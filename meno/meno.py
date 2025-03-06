@@ -416,6 +416,11 @@ class MenoTopicModeler:
         self,
         output_path: Optional[Union[str, Path]] = None,
         include_interactive: Optional[bool] = None,
+        title: Optional[str] = None,
+        include_raw_data: Optional[bool] = None,
+        max_examples_per_topic: Optional[int] = None,
+        similarity_matrix: Optional[np.ndarray] = None,
+        topic_words: Optional[Dict[str, Dict[str, float]]] = None,
     ) -> str:
         """Generate an HTML report of the topic modeling results.
         
@@ -427,6 +432,19 @@ class MenoTopicModeler:
         include_interactive : Optional[bool], optional
             Whether to include interactive visualizations, by default None
             If None, uses the value from config
+        title : Optional[str], optional
+            Title for the report, by default None
+            If None, uses the value from config
+        include_raw_data : Optional[bool], optional
+            Whether to include raw data table in the report, by default None
+            If None, uses the value from config
+        max_examples_per_topic : Optional[int], optional
+            Maximum number of example documents per topic, by default None
+            If None, uses the value from config
+        similarity_matrix : Optional[np.ndarray], optional
+            Matrix of topic similarities, shape (n_topics, n_topics), by default None
+        topic_words : Optional[Dict[str, Dict[str, float]]], optional
+            Dictionary mapping topic names to word frequency dictionaries, by default None
         
         Returns
         -------
@@ -440,9 +458,18 @@ class MenoTopicModeler:
                 "Topic assignment must be performed before report generation"
             )
         
-        # Set include_interactive from config if not provided
-        if include_interactive is None:
-            include_interactive = self.config.reporting.html.include_interactive
+        # Build report config from parameters and default config
+        report_config = self.config.reporting.html.dict()
+        
+        # Override with provided parameters
+        if include_interactive is not None:
+            report_config["include_interactive"] = include_interactive
+        if title is not None:
+            report_config["title"] = title
+        if include_raw_data is not None:
+            report_config["include_raw_data"] = include_raw_data
+        if max_examples_per_topic is not None:
+            report_config["max_examples_per_topic"] = max_examples_per_topic
         
         # Create output path if not provided
         if output_path is None:
@@ -463,13 +490,32 @@ class MenoTopicModeler:
                 metric=self.config.visualization.umap.metric,
             )
         
+        # Generate topic words if not provided but we have processed texts
+        if topic_words is None and "processed_text" in self.documents.columns:
+            logger.info("Generating topic word frequencies for the report")
+            topic_words = {}
+            for topic in self.documents["topic"].unique():
+                # Get documents for this topic
+                topic_docs = self.documents[self.documents["topic"] == topic]["processed_text"]
+                
+                # Create a word frequency dictionary
+                words = " ".join(topic_docs).lower().split()
+                word_freq = {}
+                for word in set(words):
+                    if len(word) > 3:  # Only include words with more than 3 characters
+                        word_freq[word] = words.count(word)
+                
+                topic_words[topic] = word_freq
+        
         # Call the report generator with all the data
         report_path = generate_html_report(
             documents=self.documents,
             topic_assignments=self.topic_assignments,
-            umap_projection=self.umap_projection if include_interactive else None,
+            umap_projection=self.umap_projection if report_config["include_interactive"] else None,
             output_path=output_path,
-            config=self.config.reporting.html,
+            config=report_config,
+            similarity_matrix=similarity_matrix,
+            topic_words=topic_words,
         )
         
         logger.info(f"Report generated at {report_path}")
