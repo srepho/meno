@@ -1,0 +1,138 @@
+# Configuration for Meno Workflow
+
+# Workflow settings
+workflow:
+  # Feature toggles
+  features:
+    acronym_detection: true
+    spelling_correction: true
+    interactive_reports: true
+    auto_open_browser: true
+  
+  # Default paths for reports
+  report_paths:
+    acronym_report: "meno_acronym_report.html"
+    spelling_report: "meno_spelling_report.html"
+    comprehensive_report: "meno_topic_report.html"
+    
+  # Interactive report settings
+  interactive:
+    max_acronyms: 30
+    min_acronym_length: 2
+    min_acronym_count: 3
+    max_misspellings: 30
+    min_word_length: 4
+    min_word_count: 3
+
+# Preprocessing settings
+preprocessing:
+  # Acronym expansion
+  acronyms:
+    enabled: true
+    custom_mappings:
+      # General business acronyms
+      CEO: "Chief Executive Officer"
+      CFO: "Chief Financial Officer"
+      CTO: "Chief Technology Officer"
+      COO: "Chief Operating Officer"
+      HR: "Human Resources"
+      IT: "Information Technology"
+      AI: "Artificial Intelligence"
+      ML: "Machine Learning"
+      NLP: "Natural Language Processing"
+      KPI: "Key Performance Indicator"
+      ROI: "Return On Investment"
+      CRM: "Customer Relationship Management"
+      ERP: "Enterprise Resource Planning"
+      API: "Application Programming Interface"
+      SaaS: "Software as a Service"
+      
+      # Insurance-specific acronyms
+      P&C: "Property and Casualty"
+      UW: "Underwriting"
+      NB: "New Business"
+      CM: "Claims Management"
+      DOL: "Date of Loss"
+      POL: "Policy"
+      PH: "Policyholder"
+      BI: "Bodily Injury"
+      PD: "Property Damage"
+      LOB: "Line of Business"
+      
+      # Tech acronyms
+      UI: "User Interface"
+      UX: "User Experience"
+      DB: "Database"
+      QA: "Quality Assurance"
+      CI: "Continuous Integration"
+      CD: "Continuous Deployment"
+      SDK: "Software Development Kit"
+      API: "Application Programming Interface"
+    
+  # Spelling correction
+  spelling:
+    enabled: true
+    max_distance: 2
+    min_word_length: 4
+    custom_dictionary:
+      # Common misspellings
+      recieve: "receive"
+      seperate: "separate"
+      definately: "definitely"
+      accomodate: "accommodate"
+      occured: "occurred"
+      neccessary: "necessary"
+      buisness: "business"
+      calender: "calendar"
+      collegue: "colleague"
+      commited: "committed"
+      
+      # Domain-specific corrections
+      insured: "insured"
+      claimant: "claimant"
+      vehical: "vehicle"
+      damaage: "damage"
+      adjstar: "adjuster"
+      polcy: "policy"
+      premiumns: "premiums"
+
+# Model settings
+modeling:
+  # Default method
+  default_method: "embedding_cluster"
+  default_num_topics: 10
+  
+  # Embedding model settings
+  embeddings:
+    model_name: "sentence-transformers/all-MiniLM-L6-v2"
+    batch_size: 32
+    use_gpu: false
+    # Path to local model files (if offline)
+    local_model_path: null
+    # CPU optimization settings
+    quantize: true
+    low_memory: true
+
+# Visualization settings
+visualization:
+  # Default settings for different plot types
+  defaults:
+    plot_type: "embeddings"
+    map_type: "point_map"
+    trend_type: "line"
+    
+  # Time-based visualization
+  time:
+    date_format: "%Y-%m-%d"
+    resample_freq: "W"  # Weekly, options: "D", "W", "M", "Q", "Y"
+    
+  # Geospatial visualization
+  geo:
+    map_style: "carto-positron"
+    zoom: 4
+    center: {"lat": -25.2744, "lon": 133.7751}  # Australia center
+    
+  # Category visualization
+  category:
+    max_categories: 8
+    color_palette: "rainbow"

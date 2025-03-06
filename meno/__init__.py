@@ -1,3 +1,30 @@
-"""Topic modeling toolkit for messy text data."""
+"""Meno - Topic Modeling Toolkit.
 
-__version__ = "0.7.0"
+A toolkit for topic modeling with both traditional (LDA) and
+modern embedding-based approaches, visualization, and reporting.
+"""
+
+__version__ = "0.8.0"
+
+# Import key components for easy access
+from .meno import MenoTopicModeler
+from .workflow import (
+    MenoWorkflow, create_workflow, 
+    load_workflow_config, save_workflow_config
+)
+from .utils.config import WorkflowMenoConfig
+
+# Re-export key functions
+from .preprocessing import correct_spelling, expand_acronyms, normalize_text
+
+__all__ = [
+    "MenoTopicModeler",
+    "MenoWorkflow",
+    "create_workflow",
+    "load_workflow_config",
+    "save_workflow_config",
+    "WorkflowMenoConfig",
+    "correct_spelling",
+    "expand_acronyms",
+    "normalize_text",
+]

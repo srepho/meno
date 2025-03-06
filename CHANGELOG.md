@@ -5,6 +5,20 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-06-03
+
+### Added
+- New `MenoWorkflow` class that provides an interactive, guided workflow for topic modeling
+- Interactive acronym detection and expansion with HTML reports
+- Interactive spelling correction with HTML reports
+- Complete workflow that guides users from data loading to visualization
+- Example script demonstrating the interactive workflow
+- Re-exports of key functions in the package's top-level namespace
+
+### Changed
+- Updated package docstrings
+- Improved metadata in `__init__.py`
+
 ## [0.7.0] - 2025-06-03
 
 ### Added

@@ -190,6 +190,135 @@ class ReportingConfig(BaseModel):
     export: ExportConfig = Field(default_factory=ExportConfig)
 
 
+class WorkflowFeaturesConfig(BaseModel):
+    """Configuration for workflow feature toggles."""
+    
+    acronym_detection: bool = True
+    spelling_correction: bool = True
+    interactive_reports: bool = True
+    auto_open_browser: bool = True
+
+
+class WorkflowReportPathsConfig(BaseModel):
+    """Configuration for default report paths."""
+    
+    acronym_report: str = "meno_acronym_report.html"
+    spelling_report: str = "meno_spelling_report.html"
+    comprehensive_report: str = "meno_topic_report.html"
+
+
+class WorkflowInteractiveConfig(BaseModel):
+    """Configuration for interactive report settings."""
+    
+    max_acronyms: int = 30
+    min_acronym_length: int = 2
+    min_acronym_count: int = 3
+    max_misspellings: int = 30
+    min_word_length: int = 4
+    min_word_count: int = 3
+
+
+class WorkflowConfig(BaseModel):
+    """Configuration for workflow behavior."""
+    
+    features: WorkflowFeaturesConfig = Field(default_factory=WorkflowFeaturesConfig)
+    report_paths: WorkflowReportPathsConfig = Field(default_factory=WorkflowReportPathsConfig)
+    interactive: WorkflowInteractiveConfig = Field(default_factory=WorkflowInteractiveConfig)
+
+
+class VisualizationDefaultsConfig(BaseModel):
+    """Configuration for default visualization types."""
+    
+    plot_type: str = "embeddings"
+    map_type: str = "point_map"
+    trend_type: str = "line"
+    
+    @validator("plot_type")
+    def validate_plot_type(cls, v):
+        allowed = ["embeddings", "distribution", "trends", "map", "timespace"]
+        if v not in allowed:
+            raise ValueError(f"plot_type must be one of {allowed}")
+        return v
+    
+    @validator("map_type")
+    def validate_map_type(cls, v):
+        allowed = ["point_map", "choropleth", "density_map", "postcode_map"]
+        if v not in allowed:
+            raise ValueError(f"map_type must be one of {allowed}")
+        return v
+    
+    @validator("trend_type")
+    def validate_trend_type(cls, v):
+        allowed = ["line", "heatmap", "stacked_area", "ridge", "calendar"]
+        if v not in allowed:
+            raise ValueError(f"trend_type must be one of {allowed}")
+        return v
+
+
+class TimeVisualizationConfig(BaseModel):
+    """Configuration for time-based visualizations."""
+    
+    date_format: str = "%Y-%m-%d"
+    resample_freq: str = "W"  # Weekly
+    
+    @validator("resample_freq")
+    def validate_resample_freq(cls, v):
+        allowed = ["D", "W", "M", "Q", "Y"]
+        if v not in allowed:
+            raise ValueError(f"resample_freq must be one of {allowed}")
+        return v
+
+
+class GeoVisualizationConfig(BaseModel):
+    """Configuration for geospatial visualizations."""
+    
+    map_style: str = "carto-positron"
+    zoom: int = 4
+    center: Dict[str, float] = Field(default_factory=lambda: {"lat": -25.2744, "lon": 133.7751})
+
+
+class CategoryVisualizationConfig(BaseModel):
+    """Configuration for category-based visualizations."""
+    
+    max_categories: int = 8
+    color_palette: str = "rainbow"
+
+
+class ExtendedVisualizationConfig(VisualizationConfig):
+    """Extended visualization configuration with workflow-specific settings."""
+    
+    defaults: VisualizationDefaultsConfig = Field(default_factory=VisualizationDefaultsConfig)
+    time: TimeVisualizationConfig = Field(default_factory=TimeVisualizationConfig)
+    geo: GeoVisualizationConfig = Field(default_factory=GeoVisualizationConfig)
+    category: CategoryVisualizationConfig = Field(default_factory=CategoryVisualizationConfig)
+
+
+class ExtendedModelingConfig(ModelingConfig):
+    """Extended modeling configuration with workflow-specific settings."""
+    
+    default_method: str = "embedding_cluster"
+    default_num_topics: int = 10
+    
+    @validator("default_method")
+    def validate_default_method(cls, v):
+        allowed = ["embedding_cluster", "lda"]
+        if v not in allowed:
+            raise ValueError(f"default_method must be one of {allowed}")
+        return v
+    
+    # Update the embeddings config to include additional fields
+    @validator("embeddings", pre=True)
+    def update_embeddings_config(cls, v):
+        # Add quantize and low_memory if they don't exist in embeddings
+        if isinstance(v, EmbeddingConfig):
+            embeddings_dict = v.dict()
+            embeddings_dict.setdefault("use_gpu", False)
+            embeddings_dict.setdefault("quantize", True)
+            embeddings_dict.setdefault("low_memory", True)
+            return EmbeddingConfig(**embeddings_dict)
+        return v
+
+
 class MenoConfig(BaseModel):
     """Complete configuration for meno."""
     
@@ -199,7 +328,20 @@ class MenoConfig(BaseModel):
     reporting: ReportingConfig = Field(default_factory=ReportingConfig)
 
 
-def load_config(config_path: Optional[Union[str, Path]] = None) -> MenoConfig:
+class WorkflowMenoConfig(BaseModel):
+    """Complete configuration for meno with workflow-specific settings."""
+    
+    workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
+    preprocessing: PreprocessingConfig = Field(default_factory=PreprocessingConfig)
+    modeling: ExtendedModelingConfig = Field(default_factory=ExtendedModelingConfig)
+    visualization: ExtendedVisualizationConfig = Field(default_factory=ExtendedVisualizationConfig)
+    reporting: ReportingConfig = Field(default_factory=ReportingConfig)
+
+
+def load_config(
+    config_path: Optional[Union[str, Path]] = None,
+    config_type: str = "standard"
+) -> Union[MenoConfig, WorkflowMenoConfig]:
     """Load and validate configuration from a YAML file.
     
     Parameters
@@ -207,10 +349,13 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> MenoConfig:
     config_path : Optional[Union[str, Path]], optional
         Path to the configuration file, by default None
         If None, loads the default configuration
+    config_type : str, optional
+        Type of configuration to load, by default "standard"
+        Options: "standard", "workflow"
     
     Returns
     -------
-    MenoConfig
+    Union[MenoConfig, WorkflowMenoConfig]
         Validated configuration object
     """
     if config_path is None:
@@ -218,43 +363,82 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> MenoConfig:
         try:
             import importlib.resources as pkg_resources
             import meno
-            config_text = pkg_resources.read_text(meno, "default_config.yaml")
-            config_dict = yaml.safe_load(config_text)
-            return MenoConfig(**config_dict)
-        except (ImportError, FileNotFoundError):
+            
+            if config_type == "workflow":
+                filename = "workflow_config.yaml"
+            else:
+                filename = "default_config.yaml"
+                
+            try:
+                config_text = pkg_resources.read_text(meno, filename)
+                config_dict = yaml.safe_load(config_text)
+            except FileNotFoundError:
+                # Try to load from config directory
+                config_text = pkg_resources.read_text(meno.config, filename)
+                config_dict = yaml.safe_load(config_text)
+                
+        except (ImportError, FileNotFoundError, AttributeError):
             # Fall back to looking for the file in the repository
-            default_config_path = Path(__file__).parent.parent.parent / "config" / "default_config.yaml"
+            if config_type == "workflow":
+                default_config_path = Path(__file__).parent.parent.parent / "config" / "workflow_config.yaml"
+            else:
+                default_config_path = Path(__file__).parent.parent.parent / "config" / "default_config.yaml"
+                
             config_path = default_config_path
-    
-    # Load YAML config from file
-    try:
-        with open(config_path, 'r') as f:
-            config_dict = yaml.safe_load(f)
-    except FileNotFoundError:
-        # If all else fails, use hardcoded default values from the MenoConfig class
-        print(f"Warning: Config file {config_path} not found. Using default configuration.")
-        return MenoConfig()
+            
+            # Try to load YAML config from file
+            try:
+                with open(config_path, 'r') as f:
+                    config_dict = yaml.safe_load(f)
+            except FileNotFoundError:
+                # If all else fails, use hardcoded default values
+                print(f"Warning: Config file {config_path} not found. Using default configuration.")
+                if config_type == "workflow":
+                    return WorkflowMenoConfig()
+                else:
+                    return MenoConfig()
+    else:
+        # Try to load YAML config from specified file
+        try:
+            with open(config_path, 'r') as f:
+                config_dict = yaml.safe_load(f)
+        except FileNotFoundError:
+            # If file not found, use hardcoded default values
+            print(f"Warning: Config file {config_path} not found. Using default configuration.")
+            if config_type == "workflow":
+                return WorkflowMenoConfig()
+            else:
+                return MenoConfig()
     
     # Validate with pydantic
-    return MenoConfig(**config_dict)
+    if config_type == "workflow":
+        # Check if workflow section exists, if not, add it
+        if "workflow" not in config_dict:
+            config_dict["workflow"] = WorkflowConfig().dict()
+        return WorkflowMenoConfig(**config_dict)
+    else:
+        return MenoConfig(**config_dict)
 
 
-def merge_configs(base_config: MenoConfig, override_config: Dict[str, Any]) -> MenoConfig:
+def merge_configs(
+    base_config: Union[MenoConfig, WorkflowMenoConfig],
+    override_config: Dict[str, Any]
+) -> Union[MenoConfig, WorkflowMenoConfig]:
     """Merge a base configuration with override values.
     
     Parameters
     ----------
-    base_config : MenoConfig
+    base_config : Union[MenoConfig, WorkflowMenoConfig]
         Base configuration to start with
     override_config : Dict[str, Any]
         Dictionary of override values
     
     Returns
     -------
-    MenoConfig
+    Union[MenoConfig, WorkflowMenoConfig]
         Merged configuration
     """
-    # Convert to dict, update, and convert back to MenoConfig
+    # Convert to dict, update, and convert back
     config_dict = base_config.dict()
     
     # Recursively update the config
@@ -267,4 +451,30 @@ def merge_configs(base_config: MenoConfig, override_config: Dict[str, Any]) -> M
         return d
     
     updated_dict = update_dict(config_dict, override_config)
-    return MenoConfig(**updated_dict)
+    
+    # Determine config type and return appropriate class
+    if isinstance(base_config, WorkflowMenoConfig):
+        return WorkflowMenoConfig(**updated_dict)
+    else:
+        return MenoConfig(**updated_dict)
+
+
+def save_config(
+    config: Union[MenoConfig, WorkflowMenoConfig],
+    output_path: Union[str, Path]
+) -> None:
+    """Save a configuration to a YAML file.
+    
+    Parameters
+    ----------
+    config : Union[MenoConfig, WorkflowMenoConfig]
+        Configuration to save
+    output_path : Union[str, Path]
+        Path to save the configuration to
+    """
+    # Convert to dict
+    config_dict = config.dict()
+    
+    # Save to YAML
+    with open(output_path, 'w') as f:
+        yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)

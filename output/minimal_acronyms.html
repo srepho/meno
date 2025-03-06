@@ -1,0 +1,182 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Simple Acronym Detection Report</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                margin: 0;
+                padding: 20px;
+                color: #333;
+            }
+            h1 {
+                color: #2c3e50;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 10px;
+            }
+            h2 {
+                color: #3498db;
+                margin-top: 30px;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-bottom: 30px;
+            }
+            th, td {
+                text-align: left;
+                padding: 12px;
+                border-bottom: 1px solid #ddd;
+            }
+            th {
+                background-color: #f2f2f2;
+                color: #2c3e50;
+            }
+            tr:hover {
+                background-color: #f5f5f5;
+            }
+            .context {
+                font-style: italic;
+                color: #7f8c8d;
+                margin-bottom: 5px;
+                font-size: 0.9em;
+            }
+            .count {
+                font-weight: bold;
+                color: #e74c3c;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Simple Acronym Detection Report</h1>
+        
+        <h2>Detected Acronyms</h2>
+        <p>Found 19 potential acronyms in the dataset.</p>
+        
+        <table>
+            <tr>
+                <th>Acronym</th>
+                <th>Count</th>
+                <th>Sample Contexts</th>
+            </tr>
+    
+            <tr>
+                <td>CEO</td>
+                <td class="count">1</td>
+                <td><div class="context">Our CEO instructed the CFO to review all P&amp;C claims this quarter.</div></td>
+            </tr>
+        
+            <tr>
+                <td>CFO</td>
+                <td class="count">1</td>
+                <td><div class="context">Our CEO instructed the CFO to review all P&amp;C claims this quarter.</div></td>
+            </tr>
+        
+            <tr>
+                <td>P&amp;C</td>
+                <td class="count">1</td>
+                <td><div class="context">Our CEO instructed the CFO to review all P&amp;C claims this quarter.</div></td>
+            </tr>
+        
+            <tr>
+                <td>EBITDA</td>
+                <td class="count">1</td>
+                <td><div class="context">Our EBITDA has improved despite higher CAC in our insurance vertical.</div></td>
+            </tr>
+        
+            <tr>
+                <td>CAC</td>
+                <td class="count">1</td>
+                <td><div class="context">Our EBITDA has improved despite higher CAC in our insurance vertical.</div></td>
+            </tr>
+        
+            <tr>
+                <td>CTP</td>
+                <td class="count">1</td>
+                <td><div class="context">The CTP insurance should cover the TPD claim according to our PDS.</div></td>
+            </tr>
+        
+            <tr>
+                <td>TPD</td>
+                <td class="count">1</td>
+                <td><div class="context">The CTP insurance should cover the TPD claim according to our PDS.</div></td>
+            </tr>
+        
+            <tr>
+                <td>PDS</td>
+                <td class="count">1</td>
+                <td><div class="context">The CTP insurance should cover the TPD claim according to our PDS.</div></td>
+            </tr>
+        
+            <tr>
+                <td>UW</td>
+                <td class="count">1</td>
+                <td><div class="context">The UW department rejected the application due to insuficient data.</div></td>
+            </tr>
+        
+            <tr>
+                <td>CSR</td>
+                <td class="count">1</td>
+                <td><div class="context">The CSR processed the NCD for the customer&#x27;s auto policy renewal.</div></td>
+            </tr>
+        
+            <tr>
+                <td>NCD</td>
+                <td class="count">1</td>
+                <td><div class="context">The CSR processed the NCD for the customer&#x27;s auto policy renewal.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ROI</td>
+                <td class="count">1</td>
+                <td><div class="context">The ROI on this premium has been declining according to our KPI metrics.</div></td>
+            </tr>
+        
+            <tr>
+                <td>KPI</td>
+                <td class="count">1</td>
+                <td><div class="context">The ROI on this premium has been declining according to our KPI metrics.</div></td>
+            </tr>
+        
+            <tr>
+                <td>MOB</td>
+                <td class="count">1</td>
+                <td><div class="context">Please check the MOB and YOB figures for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>YOB</td>
+                <td class="count">1</td>
+                <td><div class="context">Please check the MOB and YOB figures for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>LOB</td>
+                <td class="count">1</td>
+                <td><div class="context">Please check the MOB and YOB figures for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>IT</td>
+                <td class="count">1</td>
+                <td><div class="context">The IT department is upgrading our CRM system for better customer management.</div></td>
+            </tr>
+        
+            <tr>
+                <td>CRM</td>
+                <td class="count">1</td>
+                <td><div class="context">The IT department is upgrading our CRM system for better customer management.</div></td>
+            </tr>
+        
+            <tr>
+                <td>EOB</td>
+                <td class="count">1</td>
+                <td><div class="context">The insured requested an EOB for their medical claim.</div></td>
+            </tr>
+        
+        </table>
+    </body>
+    </html>
+    

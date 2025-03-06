@@ -6,6 +6,16 @@
 [![Tests](https://github.com/srepho/meno/workflows/tests/badge.svg)](https://github.com/srepho/meno/actions?query=workflow%3Atests)
 [![Downloads](https://img.shields.io/pypi/dm/meno.svg)](https://pypi.org/project/meno/)
 
+Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization.
+
+## What's New in v0.8.0
+
+- **Interactive Guided Workflow** - Step-by-step analysis flow with interactive reports
+- **Acronym Detection & Expansion** - Find and expand domain-specific acronyms
+- **Spelling Correction** - Detect and fix misspellings with contextual examples
+- **Team Configuration System** - Share domain knowledge across your organization
+- **Minimal Dependencies Mode** - Core features work without full ML dependencies
+
 ## Installation
 
 ### Basic Installation
@@ -71,7 +81,23 @@ cd meno
 pip install -e ".[dev,test]"
 ```
 
+### Quick Test
+
+To quickly check if the core functionality works, run the minimal test:
+
+```bash
+# Create output directory
+mkdir -p output
+
+# Run the minimal test script
+python examples/minimal_test.py
+```
+
+This will generate interactive HTML reports for acronyms and misspellings in a synthetic insurance dataset.
+
 ## Quick Start
+
+### Basic Topic Modeling
 
 ```python
 from meno import MenoTopicModeler
@@ -108,18 +134,99 @@ fig.show()
 report_path = modeler.generate_report(output_path="topics_report.html")
 ```
 
+### Interactive Workflow (New in 0.8.0)
+
+```python
+from meno import MenoWorkflow
+import pandas as pd
+
+# Load your data
+data = pd.DataFrame({
+    "text": [
+        "The CEO and CFO met to discuss the AI implementation in our CRM system.",
+        "Customer submitted a claim for their vehical accident on HWY 101.",
+        "The CTO presented the ML strategy for improving cust retention.",
+        "Policyholder recieved the EOB and was confused about the CPT codes."
+    ],
+    "date": pd.date_range(start="2023-01-01", periods=4, freq="W"),
+    "department": ["Executive", "Claims", "Technology", "Claims"],
+    "region": ["North", "West", "North", "East"]
+})
+
+# Initialize the workflow
+workflow = MenoWorkflow()
+
+# 1. Load the data with column mappings
+workflow.load_data(
+    data=data,
+    text_column="text",
+    time_column="date",
+    category_column="department", 
+    geo_column="region"
+)
+
+# 2. Generate interactive acronym report
+acronym_report_path = workflow.generate_acronym_report(
+    output_path="acronym_report.html",
+    open_browser=True  # Opens in your default browser
+)
+
+# 3. Apply acronym expansions with custom mappings
+workflow.expand_acronyms({
+    "CRM": "Customer Relationship Management",
+    "HWY": "Highway",
+    "EOB": "Explanation of Benefits",
+    "CPT": "Current Procedural Terminology"
+})
+
+# 4. Generate interactive misspelling report
+misspelling_report_path = workflow.generate_misspelling_report(
+    output_path="misspelling_report.html",
+    open_browser=True
+)
+
+# 5. Apply spelling corrections
+workflow.correct_spelling({
+    "vehical": "vehicle",
+    "cust": "customer",
+    "recieved": "received"
+})
+
+# 6. Preprocess and model
+workflow.preprocess_documents()
+workflow.discover_topics(num_topics=3)
+
+# 7. Generate visualizations
+workflow.visualize_topics(plot_type="embeddings").write_html("topic_embeddings.html")
+workflow.visualize_topics(plot_type="trends").write_html("topic_trends.html")
+
+# 8. Create comprehensive report
+report_path = workflow.generate_comprehensive_report(
+    output_path="topic_report.html",
+    include_interactive=True,
+    open_browser=True
+)
+```
+
 ## Overview
 
 Meno is designed to streamline topic modeling on free text data, with a special focus on messy datasets such as insurance claims notes and customer correspondence. The package combines classical methods like Latent Dirichlet Allocation (LDA) with modern techniques leveraging large language models (LLMs) via Hugging Face, dimensionality reduction with UMAP, and advanced visualizations. It is built to be primarily used in Jupyter environments while also being flexible enough for other settings.
 
 ## Key Features
 
+*   **Interactive Workflow (New in v0.8.0):**
+    *   Guided workflow that takes users from raw data to final visualization
+    *   Interactive reporting of potential acronyms with expansion suggestions
+    *   Spelling detection and correction with context examples
+    *   Seamless connection to visualization and reporting
+    
 *   **Unsupervised Topic Modeling:**
     *   Automatically discover topics when no pre-existing topics are available using LDA and LLM-based embedding and clustering techniques.
 *   **Supervised Topic Matching:**
     *   Match free text against a user-provided list of topics using semantic similarity and classification techniques.
 *   **Advanced Visualization:**
     *   Create interactive and static visualizations including topic distributions, embeddings (UMAP projections), cluster analyses, and topic coherence metrics (e.g., word clouds per topic).
+    *   Time series, geospatial, and combined time-space visualizations for deeper analysis.
 *   **Interactive HTML Reports:**
     *   Generate standalone, interactive HTML reports to present topic analysis to less technical stakeholders, with options for customization and data export.
 *   **Robust Data Preprocessing:**

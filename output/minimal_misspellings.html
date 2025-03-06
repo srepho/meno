@@ -1,0 +1,922 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Simple Misspelling Detection Report</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                margin: 0;
+                padding: 20px;
+                color: #333;
+            }
+            h1 {
+                color: #2c3e50;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 10px;
+            }
+            h2 {
+                color: #3498db;
+                margin-top: 30px;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-bottom: 30px;
+            }
+            th, td {
+                text-align: left;
+                padding: 12px;
+                border-bottom: 1px solid #ddd;
+            }
+            th {
+                background-color: #f2f2f2;
+                color: #2c3e50;
+            }
+            tr:hover {
+                background-color: #f5f5f5;
+            }
+            .context {
+                font-style: italic;
+                color: #7f8c8d;
+                margin-bottom: 5px;
+                font-size: 0.9em;
+            }
+            .misspelled {
+                font-weight: bold;
+                color: #e74c3c;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Simple Misspelling Detection Report</h1>
+        
+        <h2>Detected Potential Misspellings</h2>
+        <p>Found 171 potential misspellings in the dataset.</p>
+        
+        <table>
+            <tr>
+                <th>Potential Misspelling</th>
+                <th>Sample Contexts</th>
+            </tr>
+    
+            <tr>
+                <td>requiring</td>
+                <td><div class="context">Kitchen fire damaged cabinets and appliances. Smoke damage throughout home <span class="misspelled">requiring</span> professional cleaning.</div><div class="context">Dog bit visitor to home <span class="misspelled">requiring</span> stitches. Medical payments coverage being requested.</div><div class="context">Claimant&#x27;s home flooded due to heavy rain. Water damage to first floor <span class="misspelled">requiring</span> extensive repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>was</td>
+                <td><div class="context">Policyholder&#x27;s laptop <span class="misspelled">was</span> stolen from car while parked at shopping mall. Filed police report.</div><div class="context">Customer&#x27;s vehicle <span class="misspelled">was</span> damaged in a parking lot by a shopping cart. The policy covers this type of incident.</div><div class="context">Jewelry <span class="misspelled">was</span> stolen during home burglary. Items include engagement ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>claims</td>
+                <td><div class="context">Our CEO instructed the CFO to review all P&amp;C <span class="misspelled">claims</span> this quarter.</div><div class="context">Hail storm damaged roof and vehicle. Multiple <span class="misspelled">claims</span> being filed for same incident.</div><div class="context">Hail damage to roof of insured property. Multiple similar <span class="misspelled">claims</span> in neighborhood after storm.</div></td>
+            </tr>
+        
+            <tr>
+                <td>damaged</td>
+                <td><div class="context">Hail storm <span class="misspelled">damaged</span> roof and vehicle. Multiple claims being filed for same incident.</div><div class="context">Kitchen fire <span class="misspelled">damaged</span> cabinets and appliances. Smoke damage throughout home requiring professional cleaning.</div><div class="context">Customer&#x27;s vehicle was <span class="misspelled">damaged</span> in a parking lot by a shopping cart. The policy covers this type of incident.</div></td>
+            </tr>
+        
+            <tr>
+                <td>roof</td>
+                <td><div class="context">Hail storm damaged <span class="misspelled">roof</span> and vehicle. Multiple claims being filed for same incident.</div><div class="context">Tree fell on <span class="misspelled">roof</span> during storm causing damage to shingles and gutters. No interior water damage reported.</div><div class="context">Hail damage to <span class="misspelled">roof</span> of insured property. Multiple similar claims in neighborhood after storm.</div></td>
+            </tr>
+        
+            <tr>
+                <td>according</td>
+                <td><div class="context">The CTP insurance should cover the TPD claim <span class="misspelled">according</span> to our PDS.</div><div class="context">The ROI on this premium has been declining <span class="misspelled">according</span> to our KPI metrics.</div><div class="context">Theft of bicycle from garage. Door was left unlocked overnight <span class="misspelled">according</span> to insured.</div></td>
+            </tr>
+        
+            <tr>
+                <td>parking</td>
+                <td><div class="context">Customer&#x27;s vehicle was damaged in a <span class="misspelled">parking</span> lot by a shopping cart. The policy covers this type of incident.</div><div class="context">Insured slipped on ice in <span class="misspelled">parking</span> lot and broke wrist requiring treatment at hospital.</div><div class="context">Customer backed into pole in <span class="misspelled">parking</span> garage. Rear bumper and taillight damage on vehicle.</div></td>
+            </tr>
+        
+            <tr>
+                <td>hail</td>
+                <td><div class="context"><span class="misspelled">hail</span> storm damaged roof and vehicle. Multiple claims being filed for same incident.</div><div class="context"><span class="misspelled">hail</span> damage to roof of insured property. Multiple similar claims in neighborhood after storm.</div></td>
+            </tr>
+        
+            <tr>
+                <td>multiple</td>
+                <td><div class="context">Hail storm damaged roof and vehicle. <span class="misspelled">multiple</span> claims being filed for same incident.</div><div class="context">Hail damage to roof of insured property. <span class="misspelled">multiple</span> similar claims in neighborhood after storm.</div></td>
+            </tr>
+        
+            <tr>
+                <td>being</td>
+                <td><div class="context">Hail storm damaged roof and vehicle. Multiple claims <span class="misspelled">being</span> filed for same incident.</div><div class="context">Dog bit visitor to home requiring stitches. Medical payments coverage <span class="misspelled">being</span> requested.</div></td>
+            </tr>
+        
+            <tr>
+                <td>filed</td>
+                <td><div class="context">Hail storm damaged roof and vehicle. Multiple claims being <span class="misspelled">filed</span> for same incident.</div><div class="context">Policyholder&#x27;s laptop was stolen from car while parked at shopping mall. <span class="misspelled">filed</span> police report.</div></td>
+            </tr>
+        
+            <tr>
+                <td>incident</td>
+                <td><div class="context">Hail storm damaged roof and vehicle. Multiple claims being filed for same <span class="misspelled">incident</span>.</div><div class="context">Customer&#x27;s vehicle was damaged in a parking lot by a shopping cart. The policy covers this type of <span class="misspelled">incident</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>has</td>
+                <td><div class="context">Our EBITDA <span class="misspelled">has</span> improved despite higher CAC in our insurance vertical.</div><div class="context">The ROI on this premium <span class="misspelled">has</span> been declining according to our KPI metrics.</div></td>
+            </tr>
+        
+            <tr>
+                <td>car</td>
+                <td><div class="context">Vehicle collided with another <span class="misspelled">car</span> at an intersection. Front-end damage and possible injury to driver.</div><div class="context">Policyholder&#x27;s laptop was stolen from <span class="misspelled">car</span> while parked at shopping mall. Filed police report.</div></td>
+            </tr>
+        
+            <tr>
+                <td>end</td>
+                <td><div class="context">Vehicle collided with another car at an intersection. Front-<span class="misspelled">end</span> damage and possible injury to driver.</div><div class="context">Rear-<span class="misspelled">end</span> collision at stop light. Customer not at fault. Other driver cited by police.</div></td>
+            </tr>
+        
+            <tr>
+                <td>driver</td>
+                <td><div class="context">Vehicle collided with another car at an intersection. Front-end damage and possible injury to <span class="misspelled">driver</span>.</div><div class="context">Rear-end collision at stop light. Customer not at fault. Other <span class="misspelled">driver</span> cited by police.</div></td>
+            </tr>
+        
+            <tr>
+                <td>during</td>
+                <td><div class="context">Tree fell on roof <span class="misspelled">during</span> storm causing damage to shingles and gutters. No interior water damage reported.</div><div class="context">Jewelry was stolen <span class="misspelled">during</span> home burglary. Items include engagement ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>causing</td>
+                <td><div class="context">Tree fell on roof during storm <span class="misspelled">causing</span> damage to shingles and gutters. No interior water damage reported.</div><div class="context">Customer reports water leak from upstairs bathroom <span class="misspelled">causing</span> ceiling damage in living room below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>stolen</td>
+                <td><div class="context">Policyholder&#x27;s laptop was <span class="misspelled">stolen</span> from car while parked at shopping mall. Filed police report.</div><div class="context">Jewelry was <span class="misspelled">stolen</span> during home burglary. Items include engagement ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>shopping</td>
+                <td><div class="context">Policyholder&#x27;s laptop was stolen from car while parked at <span class="misspelled">shopping</span> mall. Filed police report.</div><div class="context">Customer&#x27;s vehicle was damaged in a parking lot by a <span class="misspelled">shopping</span> cart. The policy covers this type of incident.</div></td>
+            </tr>
+        
+            <tr>
+                <td>police</td>
+                <td><div class="context">Policyholder&#x27;s laptop was stolen from car while parked at shopping mall. Filed <span class="misspelled">police</span> report.</div><div class="context">Rear-end collision at stop light. Customer not at fault. Other driver cited by <span class="misspelled">police</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>due</td>
+                <td><div class="context">The UW department rejected the application <span class="misspelled">due</span> to insuficient data.</div><div class="context">Claimant&#x27;s home flooded <span class="misspelled">due</span> to heavy rain. Water damage to first floor requiring extensive repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>rear</td>
+                <td><div class="context"><span class="misspelled">rear</span>-end collision at stop light. Customer not at fault. Other driver cited by police.</div><div class="context">Customer backed into pole in parking garage. <span class="misspelled">rear</span> bumper and taillight damage on vehicle.</div></td>
+            </tr>
+        
+            <tr>
+                <td>requested</td>
+                <td><div class="context">Dog bit visitor to home requiring stitches. Medical payments coverage being <span class="misspelled">requested</span>.</div><div class="context">The insured <span class="misspelled">requested</span> an EOB for their medical claim.</div></td>
+            </tr>
+        
+            <tr>
+                <td>lot</td>
+                <td><div class="context">Customer&#x27;s vehicle was damaged in a parking <span class="misspelled">lot</span> by a shopping cart. The policy covers this type of incident.</div><div class="context">Insured slipped on ice in parking <span class="misspelled">lot</span> and broke wrist requiring treatment at hospital.</div></td>
+            </tr>
+        
+            <tr>
+                <td>garage</td>
+                <td><div class="context">Theft of bicycle from <span class="misspelled">garage</span>. Door was left unlocked overnight according to insured.</div><div class="context">Customer backed into pole in parking <span class="misspelled">garage</span>. Rear bumper and taillight damage on vehicle.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ceo</td>
+                <td><div class="context">Our <span class="misspelled">ceo</span> instructed the CFO to review all P&amp;C claims this quarter.</div></td>
+            </tr>
+        
+            <tr>
+                <td>instructed</td>
+                <td><div class="context">Our CEO <span class="misspelled">instructed</span> the CFO to review all P&amp;C claims this quarter.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cfo</td>
+                <td><div class="context">Our CEO instructed the <span class="misspelled">cfo</span> to review all P&amp;C claims this quarter.</div></td>
+            </tr>
+        
+            <tr>
+                <td>review</td>
+                <td><div class="context">Our CEO instructed the CFO to <span class="misspelled">review</span> all P&amp;C claims this quarter.</div></td>
+            </tr>
+        
+            <tr>
+                <td>quarter</td>
+                <td><div class="context">Our CEO instructed the CFO to review all P&amp;C claims this <span class="misspelled">quarter</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>same</td>
+                <td><div class="context">Hail storm damaged roof and vehicle. Multiple claims being filed for <span class="misspelled">same</span> incident.</div></td>
+            </tr>
+        
+            <tr>
+                <td>policyhlder</td>
+                <td><div class="context">The <span class="misspelled">policyhlder</span> recieved a premiume notice for their vehical insurance.</div></td>
+            </tr>
+        
+            <tr>
+                <td>recieved</td>
+                <td><div class="context">The policyhlder <span class="misspelled">recieved</span> a premiume notice for their vehical insurance.</div></td>
+            </tr>
+        
+            <tr>
+                <td>premiume</td>
+                <td><div class="context">The policyhlder recieved a <span class="misspelled">premiume</span> notice for their vehical insurance.</div></td>
+            </tr>
+        
+            <tr>
+                <td>notice</td>
+                <td><div class="context">The policyhlder recieved a premiume <span class="misspelled">notice</span> for their vehical insurance.</div></td>
+            </tr>
+        
+            <tr>
+                <td>vehical</td>
+                <td><div class="context">The policyhlder recieved a premiume notice for their <span class="misspelled">vehical</span> insurance.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ebitda</td>
+                <td><div class="context">Our <span class="misspelled">ebitda</span> has improved despite higher CAC in our insurance vertical.</div></td>
+            </tr>
+        
+            <tr>
+                <td>improved</td>
+                <td><div class="context">Our EBITDA has <span class="misspelled">improved</span> despite higher CAC in our insurance vertical.</div></td>
+            </tr>
+        
+            <tr>
+                <td>despite</td>
+                <td><div class="context">Our EBITDA has improved <span class="misspelled">despite</span> higher CAC in our insurance vertical.</div></td>
+            </tr>
+        
+            <tr>
+                <td>higher</td>
+                <td><div class="context">Our EBITDA has improved despite <span class="misspelled">higher</span> CAC in our insurance vertical.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cac</td>
+                <td><div class="context">Our EBITDA has improved despite higher <span class="misspelled">cac</span> in our insurance vertical.</div></td>
+            </tr>
+        
+            <tr>
+                <td>vertical</td>
+                <td><div class="context">Our EBITDA has improved despite higher CAC in our insurance <span class="misspelled">vertical</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>collided</td>
+                <td><div class="context">Vehicle <span class="misspelled">collided</span> with another car at an intersection. Front-end damage and possible injury to driver.</div></td>
+            </tr>
+        
+            <tr>
+                <td>another</td>
+                <td><div class="context">Vehicle collided with <span class="misspelled">another</span> car at an intersection. Front-end damage and possible injury to driver.</div></td>
+            </tr>
+        
+            <tr>
+                <td>intersection</td>
+                <td><div class="context">Vehicle collided with another car at an <span class="misspelled">intersection</span>. Front-end damage and possible injury to driver.</div></td>
+            </tr>
+        
+            <tr>
+                <td>front</td>
+                <td><div class="context">Vehicle collided with another car at an intersection. <span class="misspelled">front</span>-end damage and possible injury to driver.</div></td>
+            </tr>
+        
+            <tr>
+                <td>possible</td>
+                <td><div class="context">Vehicle collided with another car at an intersection. Front-end damage and <span class="misspelled">possible</span> injury to driver.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ctp</td>
+                <td><div class="context">The <span class="misspelled">ctp</span> insurance should cover the TPD claim according to our PDS.</div></td>
+            </tr>
+        
+            <tr>
+                <td>should</td>
+                <td><div class="context">The CTP insurance <span class="misspelled">should</span> cover the TPD claim according to our PDS.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cover</td>
+                <td><div class="context">The CTP insurance should <span class="misspelled">cover</span> the TPD claim according to our PDS.</div></td>
+            </tr>
+        
+            <tr>
+                <td>tpd</td>
+                <td><div class="context">The CTP insurance should cover the <span class="misspelled">tpd</span> claim according to our PDS.</div></td>
+            </tr>
+        
+            <tr>
+                <td>pds</td>
+                <td><div class="context">The CTP insurance should cover the TPD claim according to our <span class="misspelled">pds</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>kitchen</td>
+                <td><div class="context"><span class="misspelled">kitchen</span> fire damaged cabinets and appliances. Smoke damage throughout home requiring professional cleaning.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cabinets</td>
+                <td><div class="context">Kitchen fire damaged <span class="misspelled">cabinets</span> and appliances. Smoke damage throughout home requiring professional cleaning.</div></td>
+            </tr>
+        
+            <tr>
+                <td>appliances</td>
+                <td><div class="context">Kitchen fire damaged cabinets and <span class="misspelled">appliances</span>. Smoke damage throughout home requiring professional cleaning.</div></td>
+            </tr>
+        
+            <tr>
+                <td>smoke</td>
+                <td><div class="context">Kitchen fire damaged cabinets and appliances. <span class="misspelled">smoke</span> damage throughout home requiring professional cleaning.</div></td>
+            </tr>
+        
+            <tr>
+                <td>throughout</td>
+                <td><div class="context">Kitchen fire damaged cabinets and appliances. Smoke damage <span class="misspelled">throughout</span> home requiring professional cleaning.</div></td>
+            </tr>
+        
+            <tr>
+                <td>professional</td>
+                <td><div class="context">Kitchen fire damaged cabinets and appliances. Smoke damage throughout home requiring <span class="misspelled">professional</span> cleaning.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cleaning</td>
+                <td><div class="context">Kitchen fire damaged cabinets and appliances. Smoke damage throughout home requiring professional <span class="misspelled">cleaning</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>tree</td>
+                <td><div class="context"><span class="misspelled">tree</span> fell on roof during storm causing damage to shingles and gutters. No interior water damage reported.</div></td>
+            </tr>
+        
+            <tr>
+                <td>fell</td>
+                <td><div class="context">Tree <span class="misspelled">fell</span> on roof during storm causing damage to shingles and gutters. No interior water damage reported.</div></td>
+            </tr>
+        
+            <tr>
+                <td>shingles</td>
+                <td><div class="context">Tree fell on roof during storm causing damage to <span class="misspelled">shingles</span> and gutters. No interior water damage reported.</div></td>
+            </tr>
+        
+            <tr>
+                <td>gutters</td>
+                <td><div class="context">Tree fell on roof during storm causing damage to shingles and <span class="misspelled">gutters</span>. No interior water damage reported.</div></td>
+            </tr>
+        
+            <tr>
+                <td>interior</td>
+                <td><div class="context">Tree fell on roof during storm causing damage to shingles and gutters. No <span class="misspelled">interior</span> water damage reported.</div></td>
+            </tr>
+        
+            <tr>
+                <td>reported</td>
+                <td><div class="context">Tree fell on roof during storm causing damage to shingles and gutters. No interior water damage <span class="misspelled">reported</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>policyholder</td>
+                <td><div class="context"><span class="misspelled">policyholder</span>&#x27;s laptop was stolen from car while parked at shopping mall. Filed police report.</div></td>
+            </tr>
+        
+            <tr>
+                <td>laptop</td>
+                <td><div class="context">Policyholder&#x27;s <span class="misspelled">laptop</span> was stolen from car while parked at shopping mall. Filed police report.</div></td>
+            </tr>
+        
+            <tr>
+                <td>while</td>
+                <td><div class="context">Policyholder&#x27;s laptop was stolen from car <span class="misspelled">while</span> parked at shopping mall. Filed police report.</div></td>
+            </tr>
+        
+            <tr>
+                <td>parked</td>
+                <td><div class="context">Policyholder&#x27;s laptop was stolen from car while <span class="misspelled">parked</span> at shopping mall. Filed police report.</div></td>
+            </tr>
+        
+            <tr>
+                <td>mall</td>
+                <td><div class="context">Policyholder&#x27;s laptop was stolen from car while parked at shopping <span class="misspelled">mall</span>. Filed police report.</div></td>
+            </tr>
+        
+            <tr>
+                <td>rejected</td>
+                <td><div class="context">The UW department <span class="misspelled">rejected</span> the application due to insuficient data.</div></td>
+            </tr>
+        
+            <tr>
+                <td>insuficient</td>
+                <td><div class="context">The UW department rejected the application due to <span class="misspelled">insuficient</span> data.</div></td>
+            </tr>
+        
+            <tr>
+                <td>stop</td>
+                <td><div class="context">Rear-end collision at <span class="misspelled">stop</span> light. Customer not at fault. Other driver cited by police.</div></td>
+            </tr>
+        
+            <tr>
+                <td>light</td>
+                <td><div class="context">Rear-end collision at stop <span class="misspelled">light</span>. Customer not at fault. Other driver cited by police.</div></td>
+            </tr>
+        
+            <tr>
+                <td>fault</td>
+                <td><div class="context">Rear-end collision at stop light. Customer not at <span class="misspelled">fault</span>. Other driver cited by police.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cited</td>
+                <td><div class="context">Rear-end collision at stop light. Customer not at fault. Other driver <span class="misspelled">cited</span> by police.</div></td>
+            </tr>
+        
+            <tr>
+                <td>policey</td>
+                <td><div class="context">The <span class="misspelled">policey</span> includes protection for personall property and liabiltiy.</div></td>
+            </tr>
+        
+            <tr>
+                <td>includes</td>
+                <td><div class="context">The policey <span class="misspelled">includes</span> protection for personall property and liabiltiy.</div></td>
+            </tr>
+        
+            <tr>
+                <td>protection</td>
+                <td><div class="context">The policey includes <span class="misspelled">protection</span> for personall property and liabiltiy.</div></td>
+            </tr>
+        
+            <tr>
+                <td>personall</td>
+                <td><div class="context">The policey includes protection for <span class="misspelled">personall</span> property and liabiltiy.</div></td>
+            </tr>
+        
+            <tr>
+                <td>liabiltiy</td>
+                <td><div class="context">The policey includes protection for personall property and <span class="misspelled">liabiltiy</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>dog</td>
+                <td><div class="context"><span class="misspelled">dog</span> bit visitor to home requiring stitches. Medical payments coverage being requested.</div></td>
+            </tr>
+        
+            <tr>
+                <td>bit</td>
+                <td><div class="context">Dog <span class="misspelled">bit</span> visitor to home requiring stitches. Medical payments coverage being requested.</div></td>
+            </tr>
+        
+            <tr>
+                <td>visitor</td>
+                <td><div class="context">Dog bit <span class="misspelled">visitor</span> to home requiring stitches. Medical payments coverage being requested.</div></td>
+            </tr>
+        
+            <tr>
+                <td>stitches</td>
+                <td><div class="context">Dog bit visitor to home requiring <span class="misspelled">stitches</span>. Medical payments coverage being requested.</div></td>
+            </tr>
+        
+            <tr>
+                <td>payments</td>
+                <td><div class="context">Dog bit visitor to home requiring stitches. Medical <span class="misspelled">payments</span> coverage being requested.</div></td>
+            </tr>
+        
+            <tr>
+                <td>custmer</td>
+                <td><div class="context">The <span class="misspelled">custmer</span> filled a cliam for water damaage to their property.</div></td>
+            </tr>
+        
+            <tr>
+                <td>filled</td>
+                <td><div class="context">The custmer <span class="misspelled">filled</span> a cliam for water damaage to their property.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cliam</td>
+                <td><div class="context">The custmer filled a <span class="misspelled">cliam</span> for water damaage to their property.</div></td>
+            </tr>
+        
+            <tr>
+                <td>damaage</td>
+                <td><div class="context">The custmer filled a cliam for water <span class="misspelled">damaage</span> to their property.</div></td>
+            </tr>
+        
+            <tr>
+                <td>wind</td>
+                <td><div class="context"><span class="misspelled">wind</span> storm blew down fence on property line. Neighbors disputing responsibility for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>blew</td>
+                <td><div class="context">Wind storm <span class="misspelled">blew</span> down fence on property line. Neighbors disputing responsibility for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>down</td>
+                <td><div class="context">Wind storm blew <span class="misspelled">down</span> fence on property line. Neighbors disputing responsibility for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>fence</td>
+                <td><div class="context">Wind storm blew down <span class="misspelled">fence</span> on property line. Neighbors disputing responsibility for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>line</td>
+                <td><div class="context">Wind storm blew down fence on property <span class="misspelled">line</span>. Neighbors disputing responsibility for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>neighbors</td>
+                <td><div class="context">Wind storm blew down fence on property line. <span class="misspelled">neighbors</span> disputing responsibility for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>disputing</td>
+                <td><div class="context">Wind storm blew down fence on property line. Neighbors <span class="misspelled">disputing</span> responsibility for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>responsibility</td>
+                <td><div class="context">Wind storm blew down fence on property line. Neighbors disputing <span class="misspelled">responsibility</span> for replacement.</div></td>
+            </tr>
+        
+            <tr>
+                <td>replacement</td>
+                <td><div class="context">Wind storm blew down fence on property line. Neighbors disputing responsibility for <span class="misspelled">replacement</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>forgott</td>
+                <td><div class="context">The agent <span class="misspelled">forgott</span> to proccess the covrage extension request.</div></td>
+            </tr>
+        
+            <tr>
+                <td>proccess</td>
+                <td><div class="context">The agent forgott to <span class="misspelled">proccess</span> the covrage extension request.</div></td>
+            </tr>
+        
+            <tr>
+                <td>covrage</td>
+                <td><div class="context">The agent forgott to proccess the <span class="misspelled">covrage</span> extension request.</div></td>
+            </tr>
+        
+            <tr>
+                <td>extension</td>
+                <td><div class="context">The agent forgott to proccess the covrage <span class="misspelled">extension</span> request.</div></td>
+            </tr>
+        
+            <tr>
+                <td>request</td>
+                <td><div class="context">The agent forgott to proccess the covrage extension <span class="misspelled">request</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>csr</td>
+                <td><div class="context">The <span class="misspelled">csr</span> processed the NCD for the customer&#x27;s auto policy renewal.</div></td>
+            </tr>
+        
+            <tr>
+                <td>processed</td>
+                <td><div class="context">The CSR <span class="misspelled">processed</span> the NCD for the customer&#x27;s auto policy renewal.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ncd</td>
+                <td><div class="context">The CSR processed the <span class="misspelled">ncd</span> for the customer&#x27;s auto policy renewal.</div></td>
+            </tr>
+        
+            <tr>
+                <td>roi</td>
+                <td><div class="context">The <span class="misspelled">roi</span> on this premium has been declining according to our KPI metrics.</div></td>
+            </tr>
+        
+            <tr>
+                <td>been</td>
+                <td><div class="context">The ROI on this premium has <span class="misspelled">been</span> declining according to our KPI metrics.</div></td>
+            </tr>
+        
+            <tr>
+                <td>declining</td>
+                <td><div class="context">The ROI on this premium has been <span class="misspelled">declining</span> according to our KPI metrics.</div></td>
+            </tr>
+        
+            <tr>
+                <td>kpi</td>
+                <td><div class="context">The ROI on this premium has been declining according to our <span class="misspelled">kpi</span> metrics.</div></td>
+            </tr>
+        
+            <tr>
+                <td>metrics</td>
+                <td><div class="context">The ROI on this premium has been declining according to our KPI <span class="misspelled">metrics</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>adjstar</td>
+                <td><div class="context">The <span class="misspelled">adjstar</span> calculated the decuction incorrectly on the claimform.</div></td>
+            </tr>
+        
+            <tr>
+                <td>calculated</td>
+                <td><div class="context">The adjstar <span class="misspelled">calculated</span> the decuction incorrectly on the claimform.</div></td>
+            </tr>
+        
+            <tr>
+                <td>decuction</td>
+                <td><div class="context">The adjstar calculated the <span class="misspelled">decuction</span> incorrectly on the claimform.</div></td>
+            </tr>
+        
+            <tr>
+                <td>incorrectly</td>
+                <td><div class="context">The adjstar calculated the decuction <span class="misspelled">incorrectly</span> on the claimform.</div></td>
+            </tr>
+        
+            <tr>
+                <td>claimform</td>
+                <td><div class="context">The adjstar calculated the decuction incorrectly on the <span class="misspelled">claimform</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>please</td>
+                <td><div class="context"><span class="misspelled">please</span> check the MOB and YOB figures for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>check</td>
+                <td><div class="context">Please <span class="misspelled">check</span> the MOB and YOB figures for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>mob</td>
+                <td><div class="context">Please check the <span class="misspelled">mob</span> and YOB figures for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>yob</td>
+                <td><div class="context">Please check the MOB and <span class="misspelled">yob</span> figures for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>figures</td>
+                <td><div class="context">Please check the MOB and YOB <span class="misspelled">figures</span> for this LOB segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>lob</td>
+                <td><div class="context">Please check the MOB and YOB figures for this <span class="misspelled">lob</span> segment.</div></td>
+            </tr>
+        
+            <tr>
+                <td>segment</td>
+                <td><div class="context">Please check the MOB and YOB figures for this LOB <span class="misspelled">segment</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>cart</td>
+                <td><div class="context">Customer&#x27;s vehicle was damaged in a parking lot by a shopping <span class="misspelled">cart</span>. The policy covers this type of incident.</div></td>
+            </tr>
+        
+            <tr>
+                <td>covers</td>
+                <td><div class="context">Customer&#x27;s vehicle was damaged in a parking lot by a shopping cart. The policy <span class="misspelled">covers</span> this type of incident.</div></td>
+            </tr>
+        
+            <tr>
+                <td>type</td>
+                <td><div class="context">Customer&#x27;s vehicle was damaged in a parking lot by a shopping cart. The policy covers this <span class="misspelled">type</span> of incident.</div></td>
+            </tr>
+        
+            <tr>
+                <td>reports</td>
+                <td><div class="context">Customer <span class="misspelled">reports</span> water leak from upstairs bathroom causing ceiling damage in living room below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>leak</td>
+                <td><div class="context">Customer reports water <span class="misspelled">leak</span> from upstairs bathroom causing ceiling damage in living room below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>upstairs</td>
+                <td><div class="context">Customer reports water leak from <span class="misspelled">upstairs</span> bathroom causing ceiling damage in living room below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>bathroom</td>
+                <td><div class="context">Customer reports water leak from upstairs <span class="misspelled">bathroom</span> causing ceiling damage in living room below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ceiling</td>
+                <td><div class="context">Customer reports water leak from upstairs bathroom causing <span class="misspelled">ceiling</span> damage in living room below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>living</td>
+                <td><div class="context">Customer reports water leak from upstairs bathroom causing ceiling damage in <span class="misspelled">living</span> room below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>room</td>
+                <td><div class="context">Customer reports water leak from upstairs bathroom causing ceiling damage in living <span class="misspelled">room</span> below.</div></td>
+            </tr>
+        
+            <tr>
+                <td>below</td>
+                <td><div class="context">Customer reports water leak from upstairs bathroom causing ceiling damage in living room <span class="misspelled">below</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>claimant</td>
+                <td><div class="context"><span class="misspelled">claimant</span>&#x27;s home flooded due to heavy rain. Water damage to first floor requiring extensive repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>flooded</td>
+                <td><div class="context">Claimant&#x27;s home <span class="misspelled">flooded</span> due to heavy rain. Water damage to first floor requiring extensive repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>heavy</td>
+                <td><div class="context">Claimant&#x27;s home flooded due to <span class="misspelled">heavy</span> rain. Water damage to first floor requiring extensive repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>rain</td>
+                <td><div class="context">Claimant&#x27;s home flooded due to heavy <span class="misspelled">rain</span>. Water damage to first floor requiring extensive repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>floor</td>
+                <td><div class="context">Claimant&#x27;s home flooded due to heavy rain. Water damage to first <span class="misspelled">floor</span> requiring extensive repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>extensive</td>
+                <td><div class="context">Claimant&#x27;s home flooded due to heavy rain. Water damage to first floor requiring <span class="misspelled">extensive</span> repairs.</div></td>
+            </tr>
+        
+            <tr>
+                <td>repairs</td>
+                <td><div class="context">Claimant&#x27;s home flooded due to heavy rain. Water damage to first floor requiring extensive <span class="misspelled">repairs</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>slipped</td>
+                <td><div class="context">Insured <span class="misspelled">slipped</span> on ice in parking lot and broke wrist requiring treatment at hospital.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ice</td>
+                <td><div class="context">Insured slipped on <span class="misspelled">ice</span> in parking lot and broke wrist requiring treatment at hospital.</div></td>
+            </tr>
+        
+            <tr>
+                <td>broke</td>
+                <td><div class="context">Insured slipped on ice in parking lot and <span class="misspelled">broke</span> wrist requiring treatment at hospital.</div></td>
+            </tr>
+        
+            <tr>
+                <td>wrist</td>
+                <td><div class="context">Insured slipped on ice in parking lot and broke <span class="misspelled">wrist</span> requiring treatment at hospital.</div></td>
+            </tr>
+        
+            <tr>
+                <td>treatment</td>
+                <td><div class="context">Insured slipped on ice in parking lot and broke wrist requiring <span class="misspelled">treatment</span> at hospital.</div></td>
+            </tr>
+        
+            <tr>
+                <td>hospital</td>
+                <td><div class="context">Insured slipped on ice in parking lot and broke wrist requiring treatment at <span class="misspelled">hospital</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>jewelry</td>
+                <td><div class="context"><span class="misspelled">jewelry</span> was stolen during home burglary. Items include engagement ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>burglary</td>
+                <td><div class="context">Jewelry was stolen during home <span class="misspelled">burglary</span>. Items include engagement ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>items</td>
+                <td><div class="context">Jewelry was stolen during home burglary. <span class="misspelled">items</span> include engagement ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>include</td>
+                <td><div class="context">Jewelry was stolen during home burglary. Items <span class="misspelled">include</span> engagement ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>engagement</td>
+                <td><div class="context">Jewelry was stolen during home burglary. Items include <span class="misspelled">engagement</span> ring (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>ring</td>
+                <td><div class="context">Jewelry was stolen during home burglary. Items include engagement <span class="misspelled">ring</span> (insured) and watch.</div></td>
+            </tr>
+        
+            <tr>
+                <td>watch</td>
+                <td><div class="context">Jewelry was stolen during home burglary. Items include engagement ring (insured) and <span class="misspelled">watch</span>.</div></td>
+            </tr>
+        
+            <tr>
+                <td>bicycle</td>
+                <td><div class="context">Theft of <span class="misspelled">bicycle</span> from garage. Door was left unlocked overnight according to insured.</div></td>
+            </tr>
+        
+            <tr>
+                <td>door</td>
+                <td><div class="context">Theft of bicycle from garage. <span class="misspelled">door</span> was left unlocked overnight according to insured.</div></td>
+            </tr>
+        
+            <tr>
+                <td>left</td>
+                <td><div class="context">Theft of bicycle from garage. Door was <span class="misspelled">left</span> unlocked overnight according to insured.</div></td>
+            </tr>
+        
+            <tr>
+                <td>unlocked</td>
+                <td><div class="context">Theft of bicycle from garage. Door was left <span class="misspelled">unlocked</span> overnight according to insured.</div></td>
+            </tr>
+        
+            <tr>
+                <td>overnight</td>
+                <td><div class="context">Theft of bicycle from garage. Door was left unlocked <span class="misspelled">overnight</span> according to insured.</div></td>
+            </tr>
+        
+            <tr>
+                <td>backed</td>
+                <td><div class="context">Customer <span class="misspelled">backed</span> into pole in parking garage. Rear bumper and taillight damage on vehicle.</div></td>
+            </tr>
+        
+            <tr>
+                <td>pole</td>
+                <td><div class="context">Customer backed into <span class="misspelled">pole</span> in parking garage. Rear bumper and taillight damage on vehicle.</div></td>
+            </tr>
+        
+            <tr>
+                <td>bumper</td>
+                <td><div class="context">Customer backed into pole in parking garage. Rear <span class="misspelled">bumper</span> and taillight damage on vehicle.</div></td>
+            </tr>
+        
+            <tr>
+                <td>taillight</td>
+                <td><div class="context">Customer backed into pole in parking garage. Rear bumper and <span class="misspelled">taillight</span> damage on vehicle.</div></td>
+            </tr>
+        
+            <tr>
+                <td>upgrading</td>
+                <td><div class="context">The IT department is <span class="misspelled">upgrading</span> our CRM system for better customer management.</div></td>
+            </tr>
+        
+            <tr>
+                <td>crm</td>
+                <td><div class="context">The IT department is upgrading our <span class="misspelled">crm</span> system for better customer management.</div></td>
+            </tr>
+        
+            <tr>
+                <td>better</td>
+                <td><div class="context">The IT department is upgrading our CRM system for <span class="misspelled">better</span> customer management.</div></td>
+            </tr>
+        
+            <tr>
+                <td>similar</td>
+                <td><div class="context">Hail damage to roof of insured property. Multiple <span class="misspelled">similar</span> claims in neighborhood after storm.</div></td>
+            </tr>
+        
+            <tr>
+                <td>neighborhood</td>
+                <td><div class="context">Hail damage to roof of insured property. Multiple similar claims in <span class="misspelled">neighborhood</span> after storm.</div></td>
+            </tr>
+        
+            <tr>
+                <td>eob</td>
+                <td><div class="context">The insured requested an <span class="misspelled">eob</span> for their medical claim.</div></td>
+            </tr>
+        
+        </table>
+    </body>
+    </html>
+    
