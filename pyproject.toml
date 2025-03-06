@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meno"
-version = "0.8.0"
+version = "0.9.0"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
-requires-python = ">=3.8,<3.13"
+requires-python = ">=3.8,<3.14"
 license = {file = "LICENSE"}
 authors = [
     {name = "Stephen Oates", email = "stephen.oates@example.com"},
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Text Processing :: Linguistic",
 ]
@@ -35,6 +36,8 @@ dependencies = [
     "jinja2>=3.1.2,<4.0.0",
     # Text processing
     "thefuzz>=0.20.0,<0.21.0",  # Fork of fuzzywuzzy that includes Levenshtein by default
+    # CLI support
+    "argparse>=1.4.0,<2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -83,6 +86,13 @@ additional_models = [
 # Optional optimization for large datasets
 optimization = [
     "polars>=1.11.0,<1.15.0",
+    "pyarrow>=11.0.0,<15.0.0",
+]
+
+# Memory-efficient embeddings
+memory_efficient = [
+    "optimum>=1.15.0,<2.0.0",  # For model quantization
+    "bitsandbytes>=0.41.0,<1.0.0",  # For 8-bit optimization
 ]
 # Full installation with all optional dependencies (CPU)
 full = [
@@ -137,6 +147,9 @@ docs = [
 "Homepage" = "https://github.com/srepho/meno"
 "Bug Tracker" = "https://github.com/srepho/meno/issues"
 
+[project.scripts]
+meno-config = "meno.cli.team_config_cli:main"
+
 [tool.black]
 line-length = 88
 target-version = ["py310"]
@@ -164,6 +177,7 @@ addopts = ""
 packages = [
     "meno",
     "meno.active_learning",
+    "meno.cli",
     "meno.modeling",
     "meno.preprocessing",
     "meno.reporting",

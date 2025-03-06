@@ -8,6 +8,14 @@
 
 Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization.
 
+## What's New in v0.9.0
+
+- **Enhanced Team Configuration System** - Share domain knowledge across organizations
+- **Performance Optimizations** - Process larger datasets with less memory
+- **CLI for Team Configuration** - Manage domain-specific dictionaries via command line
+- **Polars Integration** - Faster data processing for large datasets
+- **Quantized Model Support** - Reduced memory usage without sacrificing quality
+
 ## What's New in v0.8.0
 
 - **Interactive Guided Workflow** - Step-by-step analysis flow with interactive reports
@@ -214,6 +222,20 @@ Meno is designed to streamline topic modeling on free text data, with a special 
 
 ## Key Features
 
+*   **Team Configuration System (New in v0.9.0):**
+    *   Share domain-specific dictionaries across teams and organizations
+    *   Import/export terminology in standard formats (JSON, YAML)
+    *   Compare and merge configurations from different teams
+    *   Track sources and versioning of domain knowledge
+    *   CLI tools for managing configurations
+
+*   **Performance Optimizations (New in v0.9.0):**
+    *   Memory-efficient processing for large datasets
+    *   Quantized embedding models for reduced resource usage
+    *   Polars integration for faster data processing
+    *   Streaming processing for larger-than-memory datasets
+    *   Graceful fallbacks when optional dependencies are missing
+
 *   **Interactive Workflow (New in v0.8.0):**
     *   Guided workflow that takes users from raw data to final visualization
     *   Interactive reporting of potential acronyms with expansion suggestions
@@ -242,6 +264,134 @@ Meno is designed to streamline topic modeling on free text data, with a special 
 ## Example Usage
 
 Meno provides several ways to use the topic modeling functionalities, from simple usage patterns to more advanced configurations. Here are comprehensive examples showing different ways to use the package:
+
+### Team Configuration Management
+
+```python
+from meno.utils.team_config import create_team_config, update_team_config, merge_team_configs
+
+# Create a new finance team configuration
+finance_config = create_team_config(
+    team_name="Finance",
+    acronyms={
+        "ROI": "Return on Investment",
+        "EBITDA": "Earnings Before Interest, Taxes, Depreciation, and Amortization",
+        "P&L": "Profit and Loss",
+        "YOY": "Year Over Year",
+        "CAGR": "Compound Annual Growth Rate"
+    },
+    spelling_corrections={
+        "proffit": "profit",
+        "expence": "expense",
+        "ballance": "balance",
+        "recievable": "receivable"
+    },
+    output_path="finance_team_config.yaml"
+)
+
+# Create another team configuration
+accounting_config = create_team_config(
+    team_name="Accounting",
+    acronyms={
+        "AR": "Accounts Receivable",
+        "AP": "Accounts Payable",
+        "CAPEX": "Capital Expenditure",
+        "OPEX": "Operating Expenditure",
+        "COGS": "Cost of Goods Sold"
+    },
+    spelling_corrections={
+        "ledgar": "ledger",
+        "recievable": "receivable",
+        "payement": "payment"
+    },
+    output_path="accounting_team_config.yaml"
+)
+
+# Merge the configurations
+merged_config = merge_team_configs(
+    configs=["finance_team_config.yaml", "accounting_team_config.yaml"],
+    team_name="Finance & Accounting",
+    output_path="finance_accounting_config.yaml"
+)
+
+# Use the configuration in a workflow
+from meno import MenoWorkflow
+workflow = MenoWorkflow(config_path="finance_accounting_config.yaml")
+```
+
+### Using the Team Configuration CLI
+
+```bash
+# Create a new team configuration
+meno-config create "Healthcare" \
+    --acronyms-file healthcare_acronyms.json \
+    --corrections-file medical_spelling.json \
+    --output-path healthcare_config.yaml
+
+# Update an existing configuration with new terms
+meno-config update healthcare_config.yaml \
+    --acronyms-file new_medical_acronyms.json
+
+# Compare configurations from different teams
+meno-config compare healthcare_config.yaml insurance_config.yaml \
+    --output-path comparison.json
+
+# Export acronyms for sharing with other teams
+meno-config export-acronyms healthcare_config.yaml \
+    --output-path healthcare_acronyms.json
+
+# Get statistics about a configuration
+meno-config stats healthcare_config.yaml
+```
+
+### Optimized Workflow for Large Datasets
+
+```python
+import pandas as pd
+from meno import MenoWorkflow
+
+# Create optimized configuration
+config_overrides = {
+    "modeling": {
+        "embeddings": {
+            "model_name": "sentence-transformers/all-MiniLM-L6-v2",  # Small, fast model
+            "batch_size": 64,                                       # Larger batches
+            "quantize": True,                                       # Use quantization
+            "low_memory": True                                      # Memory optimization
+        }
+    }
+}
+
+# Initialize workflow with optimized settings
+workflow = MenoWorkflow(config_overrides=config_overrides)
+
+# Load large dataset
+data = pd.read_csv("large_dataset.csv")  # Could be millions of documents
+
+# Process in batches if needed
+batch_size = 10000
+for i in range(0, len(data), batch_size):
+    batch = data.iloc[i:i+batch_size]
+    # Process batch
+    if i == 0:  # First batch
+        workflow.load_data(batch, text_column="text")
+        acronyms = workflow.detect_acronyms()
+        # Generate report for first batch only
+        workflow.generate_acronym_report()
+    else:  # Subsequent batches
+        # Update acronym counts
+        batch_acronyms = workflow.detect_acronyms()
+        # Merge with existing acronyms
+        for acronym, count in batch_acronyms.items():
+            if acronym in acronyms:
+                acronyms[acronym] += count
+            else:
+                acronyms[acronym] = count
+
+# Process with memory-efficient settings
+workflow.preprocess_documents()
+topics_df = workflow.discover_topics(method="embedding_cluster", num_topics=10)
+```
 
 ### Basic Topic Discovery
 
@@ -725,6 +875,17 @@ python -m pytest --cov=meno
 ## Contribution Guidelines
 
 Contributions are welcome! Please see [CONTRIBUTING.md](https://github.com/srepho/meno/blob/main/CONTRIBUTING.md) for details.
+
+## Roadmap to v1.0.0
+
+We're working toward a v1.0.0 release with a focus on:
+
+1. **Reducing Dependencies** - Minimizing required packages and conflicts
+2. **Performance Optimization** - Faster processing with lower memory requirements
+3. **API Improvements** - More consistent and intuitive interfaces
+4. **Enhanced CLI Tools** - More command-line functionality for common tasks
+
+See our [detailed roadmap](ROADMAP.md) for more information about planned features and changes.
 
 ## License
 

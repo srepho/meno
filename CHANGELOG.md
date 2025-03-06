@@ -5,6 +5,37 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-06-05
+
+### Added
+- **Team Configuration System:**
+  - Comprehensive system for creating and sharing domain-specific configurations
+  - Support for exporting/importing acronyms and spelling dictionaries
+  - Command-line interface for team configuration management
+  - Configuration comparison tools to identify differences between team configs
+  - Versioning and attribution for domain knowledge sources
+- **Performance Optimizations:**
+  - CPU-optimized embedding with quantization support
+  - Memory-efficient processing for large datasets
+  - Polars integration for faster data processing
+  - Streaming processing for larger-than-memory datasets
+  - Graceful fallbacks when optional dependencies are missing
+- **Example Implementations:**
+  - `workflow_with_optimizations.py` demonstrating performance improvements
+  - Team configuration sharing examples and utilities
+  - Resource usage benchmarks and optimization guidelines
+
+### Changed
+- Improved caching of embeddings to reduce model load times
+- Enhanced documentation with optimization recommendations
+- Better error messages when optional dependencies are missing
+- New visualizations for team-specific terminology
+
+### Fixed
+- Memory leak in repeated embedding generation
+- Thread safety issues in parallel processing
+- Compatibility issues with latest pandas/numpy versions
+
 ## [0.8.0] - 2025-06-03
 
 ### Added
