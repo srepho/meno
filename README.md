@@ -840,9 +840,13 @@ print(f"Loaded {len(df)} insurance complaint documents")
 # Initialize the topic modeler
 modeler = MenoTopicModeler()
 
-# Preprocess documents
+# Preprocess documents with additional stopwords
 print("Preprocessing documents...")
-processed_docs = modeler.preprocess(df, text_column="text")
+processed_docs = modeler.preprocess(
+    df, 
+    text_column="text",
+    additional_stopwords=["claim", "policy", "insure", "insured", "complaint", "email", "please"]
+)
 
 # Generate embeddings
 print("Generating document embeddings...")
@@ -850,7 +854,11 @@ embeddings = modeler.embed_documents()
 
 # Discover topics
 print("Discovering topics...")
-topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=5)
+topics_df = modeler.discover_topics(
+    method="embedding_cluster", 
+    num_topics=5,
+    clustering_algorithm="kmeans"  # Use kmeans for more distinct topics
+)
 print(f"Discovered {len(topics_df['topic'].unique())} topics")
 
 # Print top documents for each topic

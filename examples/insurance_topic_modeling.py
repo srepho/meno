@@ -79,7 +79,7 @@ CONFIG_OVERRIDES = {
         },
         "stopwords": {
             "use_default": True,
-            "additional": ["dear", "insurance", "company", "sincerely", "writing", "regards", "customer"],
+            "additional": ["dear", "insurance", "company", "sincerely", "writing", "regards", "customer", "claim", "policy", "insure", "insured", "complaint", "email", "please"],
         },
     },
     "modeling": {
