@@ -279,6 +279,16 @@ DEFAULT_TEMPLATE = """
             background-color: #2980b9;
         }
         
+        .sample-note {
+            background-color: #f8f9fa;
+            border-left: 3px solid var(--primary-color);
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--secondary-color);
+            border-radius: 4px;
+        }
+        
         footer {
             background-color: var(--light-bg);
             padding: 20px 0;
@@ -319,34 +329,73 @@ DEFAULT_TEMPLATE = """
                 });
             });
             
+            // Full CSV data for export
+            const fullData = {{ full_data_json|safe }};
+            
             // Export table to CSV
             const exportBtn = document.getElementById('export-csv');
             if (exportBtn) {
                 exportBtn.addEventListener('click', () => {
-                    const table = document.querySelector('.data-table');
-                    if (!table) return;
+                    if (!fullData || !fullData.columns || !fullData.data) {
+                        // Fall back to exporting visible table if full data isn't available
+                        exportVisibleTable();
+                        return;
+                    }
                     
+                    // Create CSV from full dataset
                     let csv = [];
-                    const rows = table.querySelectorAll('tr');
                     
-                    rows.forEach(row => {
-                        const cols = row.querySelectorAll('td, th');
-                        const rowData = Array.from(cols).map(col => '"' + col.innerText + '"');
+                    // Add header row
+                    csv.push(fullData.columns.map(col => `"${col}"`).join(','));
+                    
+                    // Add data rows
+                    fullData.data.forEach(row => {
+                        const rowData = row.map(cell => {
+                            // Handle null values
+                            if (cell === null) return '""';
+                            // Format numbers to 3 decimal places
+                            if (typeof cell === 'number') {
+                                return `"${cell.toFixed(3)}"`;
+                            }
+                            // Escape quotes in text
+                            return `"${String(cell).replace(/"/g, '""')}"`;
+                        });
                         csv.push(rowData.join(','));
                     });
                     
-                    const csvContent = csv.join('\\n');
-                    const blob = new Blob([csvContent], { type: 'text/csv' });
-                    const url = URL.createObjectURL(blob);
-                    
-                    const a = document.createElement('a');
-                    a.setAttribute('hidden', '');
-                    a.setAttribute('href', url);
-                    a.setAttribute('download', 'topic_data.csv');
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    downloadCSV(csv.join('\\n'));
                 });
+            }
+            
+            // Function to export only the visible table
+            function exportVisibleTable() {
+                const table = document.querySelector('.data-table');
+                if (!table) return;
+                
+                let csv = [];
+                const rows = table.querySelectorAll('tr');
+                
+                rows.forEach(row => {
+                    const cols = row.querySelectorAll('td, th');
+                    const rowData = Array.from(cols).map(col => '"' + col.innerText.replace(/"/g, '""') + '"');
+                    csv.push(rowData.join(','));
+                });
+                
+                downloadCSV(csv.join('\\n'));
+            }
+            
+            // Helper function to download CSV data
+            function downloadCSV(csvContent) {
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.setAttribute('hidden', '');
+                a.setAttribute('href', url);
+                a.setAttribute('download', 'topic_data.csv');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
             }
         });
     </script>
@@ -660,6 +709,7 @@ def generate_html_report(
     
     # Create HTML table for raw data
     topic_assignments_table = ""
+    full_data_json = "{}"
     if config["include_raw_data"]:
         # Select subset of columns for display
         display_cols = ["topic", "topic_probability"]
@@ -671,16 +721,51 @@ def generate_html_report(
         ]
         display_cols.extend(similarity_cols)
         
+        # Create a sample of the data by taking a few examples from each topic
+        max_samples_per_topic = config.get("max_samples_per_topic", 5)
+        
+        # Get unique topics
+        unique_topics = documents["topic"].unique()
+        
+        # Create sample DataFrame with examples from each topic
+        sample_rows = []
+        for topic_name in unique_topics:
+            # Get rows for this topic, limited to max_samples_per_topic
+            topic_rows = documents[documents["topic"] == topic_name].head(max_samples_per_topic)
+            sample_rows.append(topic_rows)
+        
+        # Combine all sample rows
+        sample_df = pd.concat(sample_rows)
+        
         # Create HTML table
         table_df = pd.concat(
-            [documents[["text"]], topic_assignments[display_cols]],
+            [sample_df[["text"]], topic_assignments.loc[sample_df.index][display_cols]],
             axis=1,
         )
-        topic_assignments_table = table_df.to_html(
+        
+        # Add a note about the sampling
+        sample_note = f"<div class='sample-note'><em>Note: Showing sample data ({max_samples_per_topic} examples per topic). Download CSV for full dataset.</em></div>"
+        
+        # Generate the HTML table
+        topic_assignments_table = sample_note + table_df.to_html(
             index=False,
             classes="dataframe data-table",  # Add data-table class for CSV export
             float_format="%.3f",
         )
+        
+        # Create full data for CSV export
+        full_table_df = pd.concat(
+            [documents[["text"]], topic_assignments[display_cols]],
+            axis=1,
+        )
+        
+        # Convert to JSON for embedding in the HTML
+        import json
+        full_data_dict = {
+            "columns": full_table_df.columns.tolist(),
+            "data": full_table_df.values.tolist(),
+        }
+        full_data_json = json.dumps(full_data_dict)
     
     # Calculate additional metrics
     avg_words_per_doc = None
@@ -711,6 +796,7 @@ def generate_html_report(
         "topic_assignments_table": topic_assignments_table,
         "avg_words_per_doc": avg_words_per_doc,
         "topic_coherence": topic_coherence,
+        "full_data_json": full_data_json,
     }
     
     # Render template

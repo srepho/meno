@@ -419,6 +419,7 @@ class MenoTopicModeler:
         title: Optional[str] = None,
         include_raw_data: Optional[bool] = None,
         max_examples_per_topic: Optional[int] = None,
+        max_samples_per_topic: Optional[int] = None,
         similarity_matrix: Optional[np.ndarray] = None,
         topic_words: Optional[Dict[str, Dict[str, float]]] = None,
     ) -> str:
@@ -441,6 +442,9 @@ class MenoTopicModeler:
         max_examples_per_topic : Optional[int], optional
             Maximum number of example documents per topic, by default None
             If None, uses the value from config
+        max_samples_per_topic : Optional[int], optional
+            Maximum number of samples per topic in the raw data table, by default None
+            If None, uses the value from config (default is 5)
         similarity_matrix : Optional[np.ndarray], optional
             Matrix of topic similarities, shape (n_topics, n_topics), by default None
         topic_words : Optional[Dict[str, Dict[str, float]]], optional
@@ -470,6 +474,8 @@ class MenoTopicModeler:
             report_config["include_raw_data"] = include_raw_data
         if max_examples_per_topic is not None:
             report_config["max_examples_per_topic"] = max_examples_per_topic
+        if max_samples_per_topic is not None:
+            report_config["max_samples_per_topic"] = max_samples_per_topic
         
         # Create output path if not provided
         if output_path is None:

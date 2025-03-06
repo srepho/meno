@@ -165,6 +165,7 @@ class HTMLReportConfig(BaseModel):
     include_interactive: bool = True
     max_examples_per_topic: int = 5
     include_raw_data: bool = False
+    max_samples_per_topic: int = 5  # Maximum number of samples per topic in the raw data table
 
 
 class ExportConfig(BaseModel):
