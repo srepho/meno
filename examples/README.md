@@ -18,6 +18,7 @@ This directory contains example scripts and notebooks demonstrating how to use t
 - **[bertopic_example.py](bertopic_example.py)** - Advanced topic modeling using BERTopic with KeyBERTInspired
 - **[simple_bertopic_example.py](simple_bertopic_example.py)** - BERTopic example with ClassTfidfTransformer
 - **[bertopic_custom_pipeline.py](bertopic_custom_pipeline.py)** - Advanced BERTopic with full custom pipeline
+- **[workflow_bertopic_example.py](workflow_bertopic_example.py)** - Integration of MenoWorkflow with BERTopic
 - **[workflow_with_optimizations.py](workflow_with_optimizations.py)** - Optimized workflow for large datasets
 - **[interactive_workflow_demo.py](interactive_workflow_demo.py)** - Step-by-step guided workflow with interactive components
 

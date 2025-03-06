@@ -160,7 +160,126 @@ report_path = modeler.generate_report(output_path="insurance_topics_report.html"
 print(f"Report generated at: {report_path}")
 ```
 
-### Interactive Workflow (New in 0.8.0)
+### Interactive Workflow with BERTopic Integration (New in 0.9.1)
+
+```python
+from meno import MenoWorkflow
+import pandas as pd
+from datasets import load_dataset
+from bertopic import BERTopic
+from bertopic.vectorizers import ClassTfidfTransformer
+from bertopic.representation import KeyBERTInspired
+
+# Load insurance dataset from Hugging Face
+dataset = load_dataset("soates/australian-insurance-pii-dataset-corrected")
+df = pd.DataFrame({
+    "text": dataset["train"]["original_text"],
+    "id": dataset["train"]["id"]
+})
+
+# Initialize the workflow
+workflow = MenoWorkflow()
+
+# 1. Load the data with column mappings
+workflow.load_data(
+    data=df,
+    text_column="text",
+    id_column="id"
+)
+
+# 2. Generate interactive acronym report
+acronym_report_path = workflow.generate_acronym_report(
+    min_length=2,
+    min_count=3,
+    output_path="insurance_acronyms.html",
+    open_browser=True  # Opens in your default browser
+)
+
+# 3. Apply acronym expansions with custom mappings
+workflow.expand_acronyms({
+    "PDS": "Product Disclosure Statement",
+    "CTP": "Compulsory Third Party",
+    "RSA": "Roadside Assistance"
+})
+
+# 4. Generate interactive misspelling report
+misspelling_report_path = workflow.generate_misspelling_report(
+    min_length=5,
+    min_count=2,
+    output_path="insurance_misspellings.html",
+    open_browser=True
+)
+
+# 5. Apply spelling corrections
+workflow.correct_spelling({
+    "recieved": "received",
+    "accross": "across",
+    "reciept": "receipt"
+})
+
+# 6. Preprocess with custom stopwords
+workflow.preprocess_documents(
+    lowercase=True,
+    remove_punctuation=True,
+    remove_stopwords=True,
+    additional_stopwords=[
+        "insurance", "policy", "claim", "insurer", "please",
+        "company", "dear", "sincerely", "regards"
+    ]
+)
+
+# 7. Use BERTopic for advanced topic modeling
+# Get preprocessed data from workflow
+preprocessed_df = workflow.get_preprocessed_data()
+
+# Configure BERTopic with enhanced components
+ctfidf_model = ClassTfidfTransformer(
+    reduce_frequent_words=True,
+    bm25_weighting=True
+)
+keybert_model = KeyBERTInspired()
+
+# Create and fit BERTopic model
+topic_model = BERTopic(
+    embedding_model="all-MiniLM-L6-v2",
+    vectorizer_model=ctfidf_model,
+    representation_model=keybert_model,
+    nr_topics=10,
+    calculate_probabilities=True
+)
+
+# Fit model on preprocessed text
+topics, probs = topic_model.fit_transform(
+    preprocessed_df["processed_text"].tolist()
+)
+
+# Add topics back to DataFrame and update workflow
+preprocessed_df["topic"] = [f"Topic_{t}" if t >= 0 else "Outlier" for t in topics]
+preprocessed_df["topic_probability"] = probs
+
+# Update the workflow with BERTopic results
+workflow.set_topic_assignments(preprocessed_df[["topic", "topic_probability"]])
+
+# 8. Generate BERTopic visualizations
+topic_model.visualize_topics().write_html("bertopic_similarity.html")
+topic_model.visualize_hierarchy().write_html("bertopic_hierarchy.html")
+topic_model.visualize_barchart(top_n_topics=10).write_html("bertopic_barchart.html")
+
+# 9. Generate workflow visualizations
+workflow.visualize_topics(plot_type="embeddings").write_html("topic_embeddings.html")
+workflow.visualize_topics(plot_type="distribution").write_html("topic_distribution.html")
+
+# 10. Create comprehensive report with BERTopic results
+report_path = workflow.generate_comprehensive_report(
+    output_path="bertopic_integrated_report.html",
+    title="BERTopic Integrated Workflow Results",
+    include_interactive=True,
+    include_raw_data=True,
+    open_browser=True
+)
+```
+
+For the original workflow without BERTopic, you can still use:
 
 ```python
 from meno import MenoWorkflow
@@ -179,59 +298,12 @@ data = pd.DataFrame({
     "region": ["North", "West", "North", "East"]
 })
 
-# Initialize the workflow
+# Initialize and run workflow
 workflow = MenoWorkflow()
-
-# 1. Load the data with column mappings
-workflow.load_data(
-    data=data,
-    text_column="text",
-    time_column="date",
-    category_column="department", 
-    geo_column="region"
-)
-
-# 2. Generate interactive acronym report
-acronym_report_path = workflow.generate_acronym_report(
-    output_path="acronym_report.html",
-    open_browser=True  # Opens in your default browser
-)
-
-# 3. Apply acronym expansions with custom mappings
-workflow.expand_acronyms({
-    "CRM": "Customer Relationship Management",
-    "HWY": "Highway",
-    "EOB": "Explanation of Benefits",
-    "CPT": "Current Procedural Terminology"
-})
-
-# 4. Generate interactive misspelling report
-misspelling_report_path = workflow.generate_misspelling_report(
-    output_path="misspelling_report.html",
-    open_browser=True
-)
-
-# 5. Apply spelling corrections
-workflow.correct_spelling({
-    "vehical": "vehicle",
-    "cust": "customer",
-    "recieved": "received"
-})
-
-# 6. Preprocess and model
+workflow.load_data(data=data, text_column="text")
 workflow.preprocess_documents()
 workflow.discover_topics(num_topics=3)
-
-# 7. Generate visualizations
-workflow.visualize_topics(plot_type="embeddings").write_html("topic_embeddings.html")
-workflow.visualize_topics(plot_type="trends").write_html("topic_trends.html")
-
-# 8. Create comprehensive report
-report_path = workflow.generate_comprehensive_report(
-    output_path="topic_report.html",
-    include_interactive=True,
-    open_browser=True
-)
+workflow.generate_comprehensive_report("report.html")
 ```
 
 ## Overview
