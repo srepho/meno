@@ -87,7 +87,7 @@ Integrates with Cleanlab to facilitate hand-labeling, iterative label fine-tunin
 
 ## Dependencies & Requirements
 
-*   **Python:** 3.8+
+*   **Python:** 3.8, 3.9, 3.10, 3.11, 3.12, 3.13
 *   **Core Libraries** (always installed):
     *   Data Processing: `pandas`, `pyarrow`
     *   Machine Learning: `scikit-learn`
@@ -95,6 +95,7 @@ Integrates with Cleanlab to facilitate hand-labeling, iterative label fine-tunin
     *   Configuration: `pydantic`, `PyYAML`, `jinja2`
 *   **Optional Libraries** (install based on needs):
     *   Topic Modeling: `gensim` (for LDA)
+    *   Additional Topic Models: `bertopic`, `top2vec`
     *   Embeddings (CPU): `transformers`, `sentence-transformers`, `torch`
     *   Embeddings (GPU): Additional `accelerate`, `bitsandbytes` 
     *   Dimensionality Reduction: `umap-learn`
@@ -102,7 +103,7 @@ Integrates with Cleanlab to facilitate hand-labeling, iterative label fine-tunin
     *   Data Cleaning & NLP: `spaCy`, `python-Levenshtein`
     *   Visualization: `plotly`
     *   Active Learning: `cleanlab`
-    *   Large Dataset Optimization: `polars`
+    *   Large Dataset Optimization: `polars` (for streaming and memory efficiency)
 *   Development and testing libraries: `pytest`, `hypothesis`, `black`, `ruff`, `mypy`, `sphinx`
 
 ## Installation & Setup
@@ -126,6 +127,9 @@ pip install meno[embeddings]
 # For embeddings with GPU acceleration
 pip install meno[embeddings-gpu]
 
+# For additional topic modeling approaches (BERTopic, Top2Vec)
+pip install meno[additional_models]
+
 # For LDA topic modeling
 pip install meno[lda]
 
@@ -134,6 +138,9 @@ pip install meno[viz]
 
 # For NLP processing capabilities
 pip install meno[nlp]
+
+# For large dataset optimization using Polars
+pip install meno[optimization]
 
 # For developers
 pip install meno[dev,test]
@@ -160,7 +167,7 @@ pip install -e ".[dev,test]"
 Create a new conda environment:
 
 ```bash
-conda create -n meno python=3.10
+conda create -n meno python=3.12  # Or any version between 3.8 and 3.13
 conda activate meno
 pip install meno[full]
 ```
@@ -252,7 +259,7 @@ The results will be saved in the `output` directory.
 ## Roadmap & Future Enhancements
 
 *   **Enhanced NLP Cleaning:** Integration of more advanced text normalization and context-aware corrections.
-*   **Additional Topic Models:** Explore integration with other topic modeling techniques (e.g., NMF, neural topic models).
+*   **Additional Topic Models:** Further integrate other topic modeling techniques (e.g., NMF, CTM, neural topic models) beyond the existing LDA, BERTopic, and Top2Vec implementations.
 *   **Expanded Reporting Options:** Additional templates and customization options for HTML report generation.
 *   **User Feedback Loop:** Streamlined integration with active learning systems for continuous model improvement.
 *   **Scalability:**  **Implement support for larger datasets through techniques like mini-batch processing (for LDA) and potentially distributed processing (e.g., using Dask).**
