@@ -2,6 +2,23 @@
 
 This document outlines the planned changes and features for the Meno v1.0.0 release. The primary goals for this release are to reduce dependencies, optimize performance, and provide a more streamlined user experience.
 
+## Status Update: Pre-Release v0.9.x (Updated July 2025)
+
+We're getting ready for the v1.0.0 release! Here's our current status:
+
+✅ **API Standardization**: Completed standardization of core API methods and parameters
+✅ **Documentation**: Added comprehensive developer guidelines and API documentation
+✅ **Testing**: Enhanced test coverage with a focus on Python 3.10 compatibility
+✅ **BERTopic Integration**: Fully integrated BERTopic with expanded customization options
+✅ **Streaming Support**: Added support for large-scale data processing
+
+### Remaining Tasks for v1.0.0:
+- Finalize documentation for all public APIs
+- Complete benchmarking across different hardware configurations
+- Perform final dependency audit and optimization
+- Freeze API interfaces and prepare migration guides
+- Release candidate testing (targeting August 2025)
+
 ## Dependency Optimization
 
 ### Core Objectives
@@ -113,31 +130,60 @@ Our goal for v1.0.0 is to significantly reduce the default dependency footprint:
 
 ## Timeline and Implementation Strategy
 
-1. **Phase 1: Dependency Audit (1-2 weeks)**
-   - Analyze all dependencies for usage patterns
-   - Identify candidates for removal or replacement
-   - Measure impact on functionality
+1. **Phase 1: Dependency Audit (COMPLETED)**
+   - ✅ Analyzed all dependencies for usage patterns
+   - ✅ Identified candidates for removal or replacement
+   - ✅ Measured impact on functionality
    
-2. **Phase 2: Modularization (2-3 weeks)**
-   - Refactor code to move functionality to optional modules
-   - Implement fallbacks for missing dependencies
-   - Create installation profiles
+2. **Phase 2: Modularization (COMPLETED)**
+   - ✅ Refactored code to move functionality to optional modules
+   - ✅ Implemented fallbacks for missing dependencies
+   - ✅ Created installation profiles
 
-3. **Phase 3: Performance Optimization (2-3 weeks)**
-   - Implement memory-efficient processing
-   - Add streaming data handling
-   - Optimize core algorithms
+3. **Phase 3: Performance Optimization (IN PROGRESS - 80%)**
+   - ✅ Implemented memory-efficient processing
+   - ✅ Added streaming data handling
+   - 🔄 Optimizing core algorithms (ongoing)
 
-4. **Phase 4: API Stabilization (1-2 weeks)**
-   - Finalize public API design
-   - Deprecate legacy interfaces
-   - Complete documentation updates
+4. **Phase 4: API Stabilization (IN PROGRESS - 90%)**
+   - ✅ Finalized public API design
+   - ✅ Deprecated legacy interfaces
+   - 🔄 Completing documentation updates (final review)
 
-5. **Phase 5: Testing and Release (1-2 weeks)**
-   - Comprehensive testing on all platforms
-   - Performance benchmarking
-   - Documentation review
-   - Final release preparation
+5. **Phase 5: Testing and Release (PLANNED - August 2025)**
+   - 🔄 Comprehensive testing on all platforms
+   - 📅 Performance benchmarking
+   - 📅 Documentation review
+   - 📅 Final release preparation
+
+## New Feature Proposals for v1.0.0 and Beyond
+
+Based on recent industry trends and user feedback, we're considering these additional enhancements:
+
+1. **Multimodal Support**
+   - Integration with image-text models for multimodal topic modeling
+   - Support for analyzing documents with embedded images
+   - Cross-modal topic correlation analysis
+
+2. **Domain-Specific Pre-trained Models**
+   - Financial/Insurance domain specialized embeddings
+   - Medical/Healthcare optimized topic models
+   - Legal document analysis templates
+
+3. **Incremental Learning & Model Updates**
+   - Support for updating topic models with new data without full retraining
+   - Drift detection for topic evolution over time
+   - Versioned model storage with comparison tools
+
+4. **Advanced Report Generation**
+   - Interactive dashboard exports with filtering capabilities
+   - Custom templating system for report generation
+   - Exportable visualization components for web integration
+
+5. **Enterprise Integration Features**
+   - Database connectors for enterprise data sources
+   - Authentication and access control for shared models
+   - Scheduled processing and reporting
 
 ## Contributing
 

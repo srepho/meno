@@ -1,5 +1,30 @@
 # Meno Version Notes
 
+## v1.0.0 Release Candidate (August 2025) - PLANNED
+
+The upcoming 1.0.0 release will mark our first stable API release with long-term support:
+
+### Final API Stabilization
+- Complete API standardization across all components
+- Finalize public interface with backward compatibility guarantees
+- Add deprecation warnings for any legacy interfaces
+
+### Performance Optimizations
+- Finalize memory-mapped formats for all model components
+- Complete streaming processor implementation
+- Add final optimizations for CPU-only environments
+
+### Documentation and Testing
+- Complete comprehensive API documentation
+- Add migration guides from earlier versions
+- Expand test coverage to 90%+ for all core components
+- Add performance benchmarks across different hardware configs
+
+### Installation and Deployment
+- Finalize dependency structure with minimal core requirements
+- Add specialized installation profiles for different use cases
+- Include containerized deployment examples
+
 ## v0.9.1 - Standardized API and Memory Optimizations
 
 This release focuses on API standardization and continued performance improvements:
