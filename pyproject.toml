@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meno"
-version = "1.0.0"
+version = "1.0.1"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
 requires-python = ">=3.8,<3.14"
@@ -103,6 +103,9 @@ minimal = [
     "umap-learn>=0.5.3,<0.6.0",
     "hdbscan>=0.8.29,<0.9.0", 
     "bertopic>=0.15.0,<0.16.0",
+    "gensim>=4.3.0,<5.0.0",
+    "spacy>=3.5.0,<4.0.0",
+    "wordcloud>=1.9.0,<2.0.0",
 ]
 # Full installation with all optional dependencies (CPU)
 full = [

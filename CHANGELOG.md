@@ -5,6 +5,23 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-08-15
+
+### Added
+- Added support for offline/air-gapped environments
+- Added `local_files_only` parameter to `DocumentEmbedding` class
+- Enhanced model loading to detect models in HuggingFace cache
+- Added example script for using locally downloaded models
+- Included wordcloud, gensim, and spacy in meno[minimal] installation
+
+### Improved
+- Better detection of local model files in standard HuggingFace locations
+- Updated README with offline installation instructions
+- Added support for loading models from custom paths
+
+### Fixed
+- Improved error handling when models cannot be downloaded
+
 ## [1.0.0] - 2025-08-01
 
 ### Added

@@ -69,14 +69,38 @@ class DocumentEmbedding:
         cache_dir: Optional[str] = None,
         use_mmap: bool = True,
         precision: str = "float32",
+        local_files_only: bool = False,
     ):
-        """Initialize the document embedding model."""
+        """Initialize the document embedding model.
+        
+        Parameters
+        ----------
+        model_name : str, optional
+            Name of the transformer model to use, by default "answerdotai/ModernBERT-base"
+        device : Optional[str], optional
+            Device to run the model on, by default determined by use_gpu setting
+        batch_size : int, optional
+            Batch size for embedding generation, by default 32
+        use_gpu : bool, optional
+            Whether to use GPU acceleration if available, by default False
+        local_model_path : Optional[str], optional
+            Path to locally downloaded model, by default None
+        cache_dir : Optional[str], optional
+            Directory to cache embeddings, by default uses system temp directory
+        use_mmap : bool, optional
+            Whether to use memory-mapped storage for large embedding matrices, by default True
+        precision : str, optional
+            Precision for storing embeddings, by default "float32". Options: "float32", "float16"
+        local_files_only : bool, optional
+            Whether to use only local files and not download from Hugging Face, by default False
+        """
         self.model_name = model_name
         self.batch_size = batch_size
         self.use_gpu = use_gpu
         self.local_model_path = local_model_path
         self.use_mmap = use_mmap
         self.precision = precision
+        self.local_files_only = local_files_only
         
         # Validate precision
         if precision not in ["float32", "float16"]:
@@ -98,20 +122,52 @@ class DocumentEmbedding:
             
         # Load model
         try:
+            # Option 1: Load from explicit local path if provided
             if local_model_path and os.path.exists(local_model_path):
                 logger.info(f"Loading model from local path: {local_model_path}")
                 self.model = SentenceTransformer(local_model_path, device=self.device)
             else:
-                # First try with local model cache handling
+                # Option 2: Check for model in standard HuggingFace cache location
+                # This handles manually downloaded models
+                try:
+                    # First try the transformers cache directory structure
+                    hf_cache_dir = os.path.expanduser("~/.cache/huggingface/hub")
+                    model_files_dir = os.path.join(hf_cache_dir, "models--" + model_name.replace("/", "--"))
+                    
+                    if os.path.exists(model_files_dir):
+                        # Use the snapshots directory which contains the actual model files
+                        snapshots_dir = os.path.join(model_files_dir, "snapshots")
+                        if os.path.exists(snapshots_dir):
+                            # Use the most recent snapshot (get the last directory)
+                            snapshot_dirs = [d for d in os.listdir(snapshots_dir) 
+                                           if os.path.isdir(os.path.join(snapshots_dir, d))]
+                            if snapshot_dirs:
+                                latest_snapshot = sorted(snapshot_dirs)[-1]
+                                model_path = os.path.join(snapshots_dir, latest_snapshot)
+                                logger.info(f"Loading model from HuggingFace cache: {model_path}")
+                                self.model = SentenceTransformer(model_path, device=self.device)
+                                return
+                except Exception as e:
+                    logger.debug(f"Error when trying to load from HuggingFace cache: {e}")
+                
+                # Option 3: Check Meno's own cache directory
                 # This ensures models can be loaded when behind firewalls
                 local_cache_dir = os.path.expanduser("~/.cache/meno/models")
                 os.makedirs(local_cache_dir, exist_ok=True)
                 model_cache_path = os.path.join(local_cache_dir, model_name.replace("/", "_"))
                 
                 if os.path.exists(model_cache_path):
-                    logger.info(f"Loading model from local cache: {model_cache_path}")
+                    logger.info(f"Loading model from Meno cache: {model_cache_path}")
                     self.model = SentenceTransformer(model_cache_path, device=self.device)
                 else:
+                    # Option 4: Try to download, but respect local_files_only setting
+                    if self.local_files_only:
+                        raise ValueError(
+                            f"Model '{model_name}' not found locally and local_files_only=True. "
+                            f"Please download the model manually and provide the path via local_model_path "
+                            f"or place it in the HuggingFace cache directory."
+                        )
+                    
                     logger.info(f"Downloading model: {model_name}")
                     self.model = SentenceTransformer(model_name, device=self.device)
                     # Save for future use

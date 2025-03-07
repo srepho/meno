@@ -2,16 +2,22 @@
 
 ## Build & Installation
 ```bash
-# Install with uv
-uv pip install -e .
+# Install with conda (recommended)
+conda create -n meno_env python=3.10
+conda activate meno_env
+pip install -e .
 
 # Install with dev dependencies
-uv pip install -e ".[dev]"
+pip install -e ".[dev]"
 
 # Install with CPU-only embeddings (recommended)
-uv pip install -e ".[embeddings]"
+pip install -e ".[embeddings]"
 
-# Create virtual environment
+# Alternative: Install with uv
+uv pip install -e .
+uv pip install -e ".[dev]"
+
+# Create virtual environment with uv
 uv venv
 
 # Activate virtual environment
@@ -22,18 +28,19 @@ source .venv/bin/activate  # Linux/macOS
 
 ## Test Commands
 ```bash
-# IMPORTANT: Always run tests from within a virtual environment (uv or conda)
+# IMPORTANT: Always run tests from within a virtual environment (conda recommended)
 # Python 3.10 is the primary target for testing
 
-# Create and activate a test environment with uv
+# Create and activate a test environment with conda (recommended)
+conda create -n meno_test python=3.10
+conda activate meno_test
+pip install -e ".[dev,test]"
+
+# Alternative: Create and activate a test environment with uv
 uv venv -p 3.10
 source .venv/bin/activate  # Linux/macOS
 # OR
 .venv\Scripts\activate     # Windows
-
-# Create and activate a test environment with conda
-conda create -n meno_test python=3.10
-conda activate meno_test
 
 # Run all tests
 python -m pytest

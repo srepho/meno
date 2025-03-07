@@ -448,6 +448,7 @@ class BERTopicModel(BaseTopicModel):
         cls,
         path: Union[str, Path],
         embedding_model: Optional[DocumentEmbedding] = None,
+        local_files_only: bool = False,
     ) -> "BERTopicModel":
         """Load a model from disk.
         
@@ -457,6 +458,8 @@ class BERTopicModel(BaseTopicModel):
             Path to load the model from
         embedding_model : Optional[DocumentEmbedding], optional
             Document embedding model to use, by default None
+        local_files_only : bool, optional
+            Whether to use only local files and not download from Hugging Face, by default False
             
         Returns
         -------
@@ -474,6 +477,15 @@ class BERTopicModel(BaseTopicModel):
         # Load metadata
         with open(path / "metadata.json", "r") as f:
             metadata = json.load(f)
+        
+        # Create embedding model with local_files_only setting if not provided
+        if embedding_model is None:
+            model_name = "all-MiniLM-L6-v2"  # Default model
+            embedding_model = DocumentEmbedding(
+                model_name=model_name,
+                use_gpu=False,
+                local_files_only=local_files_only
+            )
             
         # Create instance with loaded parameters
         instance = cls(

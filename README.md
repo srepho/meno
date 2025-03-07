@@ -28,6 +28,40 @@ pip install "numpy<2.0.0"
 pip install "meno[embeddings]" -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
+### Offline/Air-gapped Environment Installation
+
+For environments with limited internet access:
+
+1. Download required models on a connected machine:
+   ```python
+   from sentence_transformers import SentenceTransformer
+   # Download and cache model
+   model = SentenceTransformer("all-MiniLM-L6-v2")
+   # Note the model path (usually in ~/.cache/huggingface)
+   ```
+
+2. Transfer the downloaded model files to the offline machine in the same directory structure
+
+3. Use the local_files_only option when initializing:
+   ```python
+   from meno.modeling.embeddings import DocumentEmbedding
+   
+   # Option 1: Direct path to downloaded model
+   embedding_model = DocumentEmbedding(
+       local_model_path="/path/to/local/model",
+       use_gpu=False
+   )
+   
+   # Option 2: Using standard HuggingFace cache location
+   embedding_model = DocumentEmbedding(
+       model_name="all-MiniLM-L6-v2",
+       local_files_only=True,
+       use_gpu=False
+   )
+   ```
+
+See `examples/local_model_example.py` for detailed offline usage examples.
+
 ## Quick Start
 
 ### Basic Topic Modeling
