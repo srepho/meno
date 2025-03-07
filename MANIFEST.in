@@ -7,3 +7,15 @@ include examples/sample_reports/*.html
 include LICENSE
 include README.md
 include CHANGELOG.md
+include docs/*.md
+
+# Ensure new components are included
+recursive-include meno/modeling/simple_models *.py
+recursive-include meno/cli *.py
+include meno/web_interface.py
+include meno/visualization/lightweight_viz.py
+
+# Make sure required model files get included with the package
+global-exclude */__pycache__/*
+recursive-include meno *
+recursive-include config *

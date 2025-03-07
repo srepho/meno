@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meno"
-version = "1.0.3"
+version = "1.1.0"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
 requires-python = ">=3.8,<3.14"
@@ -41,6 +41,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Optional web interface dependencies
+web = [
+    "dash>=2.10.0,<3.0.0",
+    "dash-bootstrap-components>=1.5.0,<2.0.0",
+    "plotly>=5.14.0,<6.0.0",
+]
 # Optional embeddings dependencies (CPU only)
 embeddings = [
     "sentence-transformers>=2.2.2,<3.0.0",
@@ -82,6 +88,10 @@ additional_models = [
     "top2vec>=1.0.27,<2.0.0",
     "nmf-topic-modeling>=0.2.0,<0.3.0",
     "contextualized-topic-models>=2.5.0,<3.0.0",
+]
+# Simple models with minimal dependencies
+simple_models = [
+    "scikit-learn>=1.2.0,<2.0.0",  # For KMeans, NMF, LSA/TruncatedSVD
 ]
 # Optional optimization for large datasets
 optimization = [
@@ -169,7 +179,9 @@ docs = [
 "Bug Tracker" = "https://github.com/srepho/meno/issues"
 
 [project.scripts]
+meno = "meno.cli.meno_cli:main"
 meno-config = "meno.cli.team_config_cli:main"
+meno-web = "meno.cli.web_interface_cli:main"
 
 [tool.black]
 line-length = 88
@@ -200,10 +212,12 @@ packages = [
     "meno.active_learning",
     "meno.cli",
     "meno.modeling",
+    "meno.modeling.simple_models",
     "meno.preprocessing",
     "meno.reporting",
     "meno.utils",
-    "meno.visualization"
+    "meno.visualization",
+    "meno.visualization.enhanced_viz"
 ]
 package-dir = {"" = "."}
 include-package-data = true

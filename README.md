@@ -40,7 +40,16 @@ For environments with limited internet access:
    # Note the model path (usually in ~/.cache/huggingface)
    ```
 
-2. Transfer the downloaded model files to the offline machine in the same directory structure
+2. Manually download the necessary files for your chosen model. You can find these files on the model's Hugging Face page under the "Files and versions" tab. You need:
+   - config.json
+   - pytorch_model.bin
+   - special_tokens_map.json
+   - tokenizer.json
+   - tokenizer_config.json
+   - vocab.txt (if applicable)
+   - modules.json (for Sentence Transformers models)
+   
+   Download these files and place them in a local directory.
 
 3. Use the local_files_only option when initializing:
    ```python
@@ -133,6 +142,14 @@ workflow.generate_comprehensive_report("final_report.html", open_browser=True)
 - **Enhanced Memory Efficiency** - Process larger datasets with streaming and quantization
 - **Path Object Support** - Better file handling with pathlib integration
 - **Return Type Standardization** - Consistent return values across all methods
+- **Advanced Preprocessing** - Context-aware spelling correction and acronym expansion
+- **Domain-Specific Adapters** - Medical, technical, financial, and legal domain support
+- **Cross-Document Learning** - Learns terminology and acronyms across multiple documents
+- **Performance Optimizations** - Parallel and batch processing for large datasets
+- **Evaluation Framework** - Metrics to measure correction quality and improvement
+- **Lightweight Topic Models** - CPU-optimized models with minimal dependencies for large datasets
+- **Advanced Visualizations** - New comparative visualization tools for topic models
+- **Web Interface** - Interactive no-code UI for topic modeling exploration
 
 ## Overview
 
@@ -152,6 +169,14 @@ Meno streamlines topic modeling on messy text data, with a special focus on data
   - Supervised matching against predefined topics
   - Automatic topic detection
   - Integration with BERTopic and other advanced models
+  - Lightweight models optimized for performance (SimpleTopicModel, TFIDFTopicModel, NMFTopicModel, LSATopicModel)
+
+- **Web Interface for No-Code Exploration**
+  - Interactive data upload and preprocessing
+  - Model configuration and training through UI
+  - Topic exploration and visualization
+  - Document search and filtering
+  - Customizable and extensible Dash-based interface
 
 - **Team Configuration System**
   - Share domain-specific dictionaries across teams
@@ -169,6 +194,7 @@ Meno streamlines topic modeling on messy text data, with a special focus on data
   - Topic distribution and similarity analysis
   - Time series and geospatial visualizations
   - Comprehensive HTML reports
+  - Advanced topic comparison visualizations
 
 ## Installation Options
 
@@ -193,6 +219,9 @@ pip install "meno[optimization]"
 
 # For memory-efficient embeddings
 pip install "meno[memory_efficient]"
+
+# For web interface and interactive UI
+pip install "meno[web]"
 
 # For all features (CPU only)
 pip install "meno[full]"
@@ -248,6 +277,45 @@ report_path = modeler.generate_report(
     output_path="topic_report.html",
     include_interactive=True
 )
+```
+
+### Advanced Text Preprocessing with Domain Knowledge
+
+```python
+from meno.preprocessing.acronyms import AcronymExpander
+from meno.preprocessing.spelling import SpellingCorrector
+from meno.nlp.domain_adapters import get_domain_adapter
+import pandas as pd
+
+# Load data
+df = pd.read_csv("medical_records.csv")
+
+# Get domain-specific adapter for medical text
+medical_adapter = get_domain_adapter("healthcare")
+
+# Create enhanced spelling corrector and acronym expander
+spelling_corrector = SpellingCorrector(
+    domain="medical",
+    min_word_length=3,
+    use_keyboard_proximity=True,
+    learn_corrections=True
+)
+
+acronym_expander = AcronymExpander(
+    domain="healthcare",
+    ignore_case=True,
+    contextual_expansion=True
+)
+
+# Process text with domain knowledge
+df["corrected_text"] = df["text"].apply(spelling_corrector.correct_text)
+df["processed_text"] = df["corrected_text"].apply(acronym_expander.expand_acronyms)
+
+# Initialize modeler with preprocessed text
+modeler = MenoTopicModeler()
+modeler.preprocess(df, text_column="processed_text")
+
+# Continue with topic modeling...
 ```
 
 ### BERTopic Integration
@@ -424,6 +492,92 @@ python -m pytest --cov=meno
 
 For detailed usage information, see the [full documentation](https://github.com/srepho/meno/wiki).
 
+### Using Lightweight Topic Models
+
+```python
+from meno.modeling.simple_models.lightweight_models import (
+    SimpleTopicModel,
+    TFIDFTopicModel,
+    NMFTopicModel,
+    LSATopicModel
+)
+
+# Create a TF-IDF based model (extremely fast and lightweight)
+tfidf_model = TFIDFTopicModel(num_topics=10, max_features=2000)
+tfidf_model.fit(documents)
+
+# Get topic information and visualize
+topic_info = tfidf_model.get_topic_info()
+print(topic_info)
+
+# Create an NMF model for more interpretable topics
+nmf_model = NMFTopicModel(num_topics=8, max_features=1500)
+nmf_model.fit(documents)
+
+# Compare document-topic distributions
+nmf_topics, nmf_doc_topic = nmf_model.transform(test_documents)
+
+# Visualize topics
+fig = nmf_model.visualize_topics(width=1000, height=600)
+fig.write_html("nmf_topics.html")
+```
+
+### Advanced Topic Visualizations
+
+```python
+from meno.visualization.lightweight_viz import (
+    plot_model_comparison,
+    plot_topic_landscape,
+    plot_multi_topic_heatmap,
+    plot_comparative_document_analysis
+)
+
+# Compare multiple models
+fig = plot_model_comparison(
+    document_lists=[documents, documents, documents],
+    model_names=["TF-IDF", "NMF", "LSA"],
+    models=[tfidf_model, nmf_model, lsa_model]
+)
+fig.write_html("model_comparison.html")
+
+# Create topic landscape visualization
+fig = plot_topic_landscape(
+    model=nmf_model,
+    documents=documents,
+    method="umap"
+)
+fig.write_html("topic_landscape.html")
+
+# Generate topic similarity heatmap
+fig = plot_multi_topic_heatmap(
+    models=[nmf_model, lsa_model],
+    model_names=["NMF", "LSA"],
+    document_lists=[documents, documents]
+)
+fig.write_html("topic_heatmap.html")
+```
+
+### Using the Web Interface
+
+```python
+from meno.web_interface import launch_web_interface
+
+# Launch the web interface for no-code exploration
+launch_web_interface(port=8050, debug=True)
+```
+
+Or run from the command line:
+
+```bash
+# Basic launch
+meno-web --port 8050
+
+# Launch with debugging enabled
+meno-web --port 8050 --debug
+```
+
+See the example scripts in the [examples directory](examples/) for more detailed usage.
+
 ## Future Development
 
 With v1.0.0 complete, our focus is shifting to:
@@ -433,6 +587,8 @@ With v1.0.0 complete, our focus is shifting to:
 3. **Domain-Specific Fine-Tuning** - Adapt models to specific industries
 4. **Explainable AI Features** - Better interpret topic assignments
 5. **Interactive Dashboards** - More powerful visualization tools
+6. **Export/Import Format** - Standard format for sharing models and results
+7. **Extension API** - Plugin system for custom models and visualizations
 
 See our [detailed roadmap](ROADMAP.md) for more information.
 
