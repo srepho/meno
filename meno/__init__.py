@@ -4,7 +4,7 @@ A toolkit for topic modeling with both traditional (LDA) and
 modern embedding-based approaches, visualization, and reporting.
 """
 
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 
 # Import key components for easy access
 from .meno import MenoTopicModeler
@@ -16,6 +16,18 @@ from .utils.config import WorkflowMenoConfig
 
 # Re-export key functions
 from .preprocessing import correct_spelling, expand_acronyms, normalize_text
+
+# Re-export lightweight models for easy access
+try:
+    from .modeling.simple_models.lightweight_models import (
+        SimpleTopicModel,
+        TFIDFTopicModel,
+        NMFTopicModel,
+        LSATopicModel
+    )
+except ImportError:
+    # Graceful fallback if scikit-learn is not installed
+    pass
 
 # Download English spaCy model on import if not already available
 import logging
@@ -66,13 +78,22 @@ except Exception as e:
     logger.debug(f"Non-critical error while ensuring spaCy model: {e}")
 
 __all__ = [
+    # Core classes
     "MenoTopicModeler",
     "MenoWorkflow",
     "create_workflow",
     "load_workflow_config",
     "save_workflow_config",
     "WorkflowMenoConfig",
+    
+    # Preprocessing functions
     "correct_spelling",
     "expand_acronyms",
     "normalize_text",
+    
+    # Lightweight models
+    "SimpleTopicModel",
+    "TFIDFTopicModel",
+    "NMFTopicModel",
+    "LSATopicModel",
 ]

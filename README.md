@@ -1,4 +1,4 @@
-# Meno: Topic Modeling Toolkit (v1.0.3)
+# Meno: Topic Modeling Toolkit (v1.1.0)
 
 <p align="center">
   <img src="meno.webp" alt="Meno Logo" width="250"/>
@@ -10,7 +10,7 @@
 [![Tests](https://github.com/srepho/meno/workflows/tests/badge.svg)](https://github.com/srepho/meno/actions?query=workflow%3Atests)
 [![Downloads](https://img.shields.io/pypi/dm/meno.svg)](https://pypi.org/project/meno/)
 
-Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization.
+Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization. It includes both high-powered models and lightweight alternatives that work without heavy dependencies.
 
 ## Installation
 
@@ -135,7 +135,17 @@ workflow.discover_topics(num_topics=2)
 workflow.generate_comprehensive_report("final_report.html", open_browser=True)
 ```
 
-## What's New in v1.0.0
+## What's New in v1.1.0
+
+- **Enhanced Lightweight Models** - Four CPU-optimized topic models with minimal dependencies
+- **Integrated Components** - Seamless integration between models, visualizations, and web interface
+- **Improved Documentation** - Comprehensive guides for all components
+- **New Example Scripts** - Demonstrations of all features working together
+- **Advanced Visualizations** - New comparative visualization tools for lightweight models
+- **Web Interface Improvements** - Better support for lightweight models in the interactive UI
+- **Performance Enhancements** - Faster processing and reduced memory usage
+
+## What's in v1.0.0
 
 - **Standardized API** - Consistent parameter names and method signatures across all models
 - **Automatic Topic Detection** - Models can discover the optimal number of topics automatically
@@ -515,12 +525,21 @@ nmf_model = NMFTopicModel(num_topics=8, max_features=1500)
 nmf_model.fit(documents)
 
 # Compare document-topic distributions
-nmf_topics, nmf_doc_topic = nmf_model.transform(test_documents)
+doc_topic_matrix = nmf_model.transform(test_documents)
+print(f"Document-topic matrix shape: {doc_topic_matrix.shape}")
 
 # Visualize topics
 fig = nmf_model.visualize_topics(width=1000, height=600)
 fig.write_html("nmf_topics.html")
+
+# Simple K-means based model with embeddings
+from meno.modeling.embeddings import DocumentEmbedding
+embedding_model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
+simple_model = SimpleTopicModel(num_topics=5, embedding_model=embedding_model)
+simple_model.fit(documents)
 ```
+
+For more detailed examples, see [LIGHTWEIGHT_MODELS_DOCUMENTATION.md](LIGHTWEIGHT_MODELS_DOCUMENTATION.md).
 
 ### Advanced Topic Visualizations
 
@@ -532,7 +551,16 @@ from meno.visualization.lightweight_viz import (
     plot_comparative_document_analysis
 )
 
-# Compare multiple models
+# Create multiple models for comparison
+tfidf_model = TFIDFTopicModel(num_topics=5)
+nmf_model = NMFTopicModel(num_topics=5)
+lsa_model = LSATopicModel(num_topics=5)
+
+# Fit all models on the same data
+for model in [tfidf_model, nmf_model, lsa_model]:
+    model.fit(documents)
+
+# Compare multiple models side-by-side
 fig = plot_model_comparison(
     document_lists=[documents, documents, documents],
     model_names=["TF-IDF", "NMF", "LSA"],
@@ -540,30 +568,56 @@ fig = plot_model_comparison(
 )
 fig.write_html("model_comparison.html")
 
-# Create topic landscape visualization
+# Create topic landscape visualization with dimensionality reduction
 fig = plot_topic_landscape(
     model=nmf_model,
     documents=documents,
-    method="umap"
+    method="umap"  # Can also use 'pca' if UMAP not available
 )
 fig.write_html("topic_landscape.html")
 
-# Generate topic similarity heatmap
+# Generate topic similarity heatmap between models
 fig = plot_multi_topic_heatmap(
     models=[nmf_model, lsa_model],
     model_names=["NMF", "LSA"],
     document_lists=[documents, documents]
 )
 fig.write_html("topic_heatmap.html")
+
+# Analyze how documents relate to different topics
+fig = plot_comparative_document_analysis(
+    model=nmf_model,
+    documents=documents[:10],  # Show first 10 documents
+    title="Document Topic Analysis"
+)
+fig.write_html("document_analysis.html")
 ```
+
+For complete examples, see `examples/lightweight_models_visualization.py` and `examples/integrated_components_example.py`.
 
 ### Using the Web Interface
 
 ```python
 from meno.web_interface import launch_web_interface
+from meno.modeling.simple_models.lightweight_models import TFIDFTopicModel, NMFTopicModel
 
-# Launch the web interface for no-code exploration
-launch_web_interface(port=8050, debug=True)
+# Create and train some models
+tfidf_model = TFIDFTopicModel(num_topics=5)
+nmf_model = NMFTopicModel(num_topics=5)
+tfidf_model.fit(documents)
+nmf_model.fit(documents)
+
+# Launch the web interface with pre-trained models
+launch_web_interface(
+    port=8050, 
+    debug=True,
+    models={
+        "TF-IDF Model": tfidf_model,
+        "NMF Model": nmf_model
+    },
+    data=df,  # Optional: pass a dataframe with your documents
+    text_column="text"  # Specify which column contains the text
+)
 ```
 
 Or run from the command line:
@@ -574,23 +628,30 @@ meno-web --port 8050
 
 # Launch with debugging enabled
 meno-web --port 8050 --debug
+
+# Launch with specific model types
+meno-web --port 8050 --models tfidf nmf lsa
 ```
+
+See `examples/web_lightweight_example.py` for a complete example of using the web interface with lightweight models.
 
 See the example scripts in the [examples directory](examples/) for more detailed usage.
 
 ## Future Development
 
-With v1.0.0 complete, our focus is shifting to:
+With v1.1.0 enhancing our lightweight components, we're now focusing on:
 
-1. **Cloud Integration** - Native support for cloud-based services
-2. **Multilingual Support** - Expand beyond English
-3. **Domain-Specific Fine-Tuning** - Adapt models to specific industries
-4. **Explainable AI Features** - Better interpret topic assignments
-5. **Interactive Dashboards** - More powerful visualization tools
-6. **Export/Import Format** - Standard format for sharing models and results
-7. **Extension API** - Plugin system for custom models and visualizations
+1. **Incremental Learning** - Support for streaming data and updating models
+2. **Advanced Model Integration** - Better integration with external models
+3. **Multilingual Support** - Expand beyond English
+4. **Domain-Specific Fine-Tuning** - Adapt models to specific industries
+5. **Explainable AI Features** - Better interpret topic assignments
+6. **Interactive Dashboards** - More powerful visualization tools
+7. **Cloud Integration** - Native support for cloud-based services
+8. **Export/Import Format** - Standard format for sharing models and results
+9. **Extension API** - Plugin system for custom models and visualizations
 
-See our [detailed roadmap](ROADMAP.md) for more information.
+See our [detailed roadmap](ROADMAP.md) for more information and the [INTEGRATED_COMPONENTS_SUMMARY.md](INTEGRATED_COMPONENTS_SUMMARY.md) for details on our recent work.
 
 ## License
 
