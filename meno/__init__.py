@@ -29,6 +29,13 @@ except ImportError:
     # Graceful fallback if scikit-learn is not installed
     pass
 
+# Re-export feedback system
+try:
+    from .active_learning.simple_feedback import SimpleFeedback, TopicFeedbackManager
+except ImportError:
+    # Graceful fallback if dependencies are missing
+    pass
+
 # Download English spaCy model on import if not already available
 import logging
 import importlib
@@ -96,4 +103,8 @@ __all__ = [
     "TFIDFTopicModel",
     "NMFTopicModel",
     "LSATopicModel",
+    
+    # Feedback system
+    "SimpleFeedback",
+    "TopicFeedbackManager",
 ]

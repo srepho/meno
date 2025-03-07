@@ -136,6 +136,7 @@ workflow.generate_comprehensive_report("final_report.html", open_browser=True)
 ## What's New in v1.1.0
 
 - **Enhanced Lightweight Models** - Four CPU-optimized topic models with minimal dependencies
+- **Interactive Feedback System** - Notebook-friendly interface for refining topic assignments
 - **Integrated Components** - Seamless integration between models, visualizations, and web interface
 - **Improved Documentation** - Comprehensive guides for all components
 - **New Example Scripts** - Demonstrations of all features working together
@@ -632,6 +633,42 @@ meno-web --port 8050 --models tfidf nmf lsa
 ```
 
 See `examples/web_lightweight_example.py` for a complete example of using the web interface with lightweight models.
+
+### Interactive Topic Feedback
+
+```python
+from meno import MenoTopicModeler
+from meno.active_learning.simple_feedback import TopicFeedbackManager
+
+# Run initial topic modeling
+modeler = MenoTopicModeler()
+modeler.preprocess(df, text_column="text")
+modeler.discover_topics(method="embedding_cluster", num_topics=5)
+
+# Create feedback manager
+feedback_manager = TopicFeedbackManager(modeler)
+
+# Set up with descriptive topic information
+feedback_system = feedback_manager.setup_feedback(
+    n_samples=20,  # Number of documents to review
+    uncertainty_ratio=0.7,  # Focus on uncertain documents
+    topic_descriptions=["Description for Topic 1", "Description for Topic 2", ...],
+)
+
+# Start interactive review (in a Jupyter notebook)
+feedback_manager.start_review()
+
+# After providing feedback, apply updates
+feedback_system.apply_updates()
+
+# Get the updated model
+updated_modeler = feedback_manager.get_updated_model()
+
+# Export feedback for collaboration
+feedback_system.export_to_csv("topic_feedback.csv")
+```
+
+See `examples/interactive_feedback_example.py` and `examples/topic_feedback_notebook.ipynb` for complete examples of using the feedback system.
 
 See the example scripts in the [examples directory](examples/) for more detailed usage.
 
