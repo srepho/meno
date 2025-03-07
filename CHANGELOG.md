@@ -5,6 +5,41 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-08-05
+
+### Added
+- **Lightweight Topic Models:**
+  - Added `SimpleTopicModel`: K-Means based model with document embeddings
+  - Added `TFIDFTopicModel`: Extremely fast model with minimal dependencies
+  - Added `NMFTopicModel`: Non-negative Matrix Factorization for interpretable topics
+  - Added `LSATopicModel`: Latent Semantic Analysis for semantic relationship discovery
+  - Comprehensive documentation for all models in `docs/lightweight_models.md`
+  - Example script demonstrating lightweight models in `examples/lightweight_models_visualization.py`
+
+- **Advanced Topic Visualizations:**
+  - Added `plot_model_comparison` for comparing different topic model results
+  - Added `plot_topic_landscape` for visualizing topic relationships in 2D
+  - Added `plot_multi_topic_heatmap` for analyzing topic similarities across models
+  - Added `plot_comparative_document_analysis` for document-topic analysis
+  - Comprehensive visualization documentation with examples
+
+- **Web Interface for No-Code Exploration:**
+  - Added `MenoWebApp` class providing a Dash-based web interface
+  - Interactive data upload and preprocessing
+  - Model configuration and training through UI
+  - Interactive topic exploration and visualization
+  - Document search and filtering functionality
+  - CLI tool `meno-web` for launching the web interface
+  - Detailed documentation in `docs/web_interface.md`
+  - Example script in `examples/web_interface_example.py`
+
+### Improved
+- Enhanced README with new examples and feature descriptions
+- Added comprehensive tests for all new components
+- Updated installation options with `meno[web]` for web interface dependencies
+- Streamlined package structure with clear organization of new components
+- Improved API consistency across all model implementations
+
 ## [1.0.3] - 2025-03-08
 
 ### Fixed
