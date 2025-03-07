@@ -1,6 +1,6 @@
 """BERTopic model for topic modeling."""
 
-from typing import List, Dict, Optional, Union, Any, Tuple
+from typing import List, Dict, Optional, Union, Any, Tuple, ClassVar
 import numpy as np
 import pandas as pd
 import logging
@@ -26,9 +26,10 @@ class BERTopicModel(BaseTopicModel):
     
     Parameters
     ----------
-    n_topics : Optional[int], optional
+    num_topics : Optional[int], optional
         Number of topics to extract, by default None
         If None, BERTopic automatically determines the number of topics
+        (Standardized parameter name, internally mapped to n_topics for BERTopic)
     embedding_model : Optional[DocumentEmbedding], optional
         Document embedding model to use, by default None
         If None, a default DocumentEmbedding will be created
@@ -54,15 +55,19 @@ class BERTopicModel(BaseTopicModel):
         Mapping of topic IDs to topic sizes
     """
     
+    # API version for compatibility checks
+    API_VERSION: ClassVar[str] = "1.0.0"
+    
     def __init__(
         self,
-        n_topics: Optional[int] = None,
+        num_topics: Optional[int] = None,
         embedding_model: Optional[DocumentEmbedding] = None,
         min_topic_size: int = 10,
         use_gpu: bool = False,
         n_neighbors: int = 15,
         n_components: int = 5,
         verbose: bool = True,
+        **kwargs
     ):
         """Initialize the BERTopic model."""
         if not BERTOPIC_AVAILABLE:
@@ -70,8 +75,12 @@ class BERTopicModel(BaseTopicModel):
                 "BERTopic is required for this model. "
                 "Install with 'pip install bertopic>=0.15.0'"
             )
-            
-        self.n_topics = n_topics
+        
+        # Map standardized parameter name to BERTopic parameter
+        n_topics = num_topics
+        
+        self.num_topics = num_topics  # Standardized name
+        self.n_topics = n_topics      # For backward compatibility
         self.min_topic_size = min_topic_size
         self.use_gpu = use_gpu
         self.n_neighbors = n_neighbors
@@ -106,6 +115,7 @@ class BERTopicModel(BaseTopicModel):
             vectorizer_model=self.vectorizer_model,
             representation_model=self.representation_model,
             verbose=verbose,
+            **kwargs
         )
         
         # Initialize empty attributes
@@ -118,6 +128,7 @@ class BERTopicModel(BaseTopicModel):
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
+        **kwargs
     ) -> "BERTopicModel":
         """Fit the BERTopic model to a set of documents.
         
@@ -128,12 +139,23 @@ class BERTopicModel(BaseTopicModel):
         embeddings : Optional[np.ndarray], optional
             Pre-computed document embeddings, by default None
             If None, embeddings will be computed using the embedding model
+        **kwargs : Any
+            Additional keyword arguments for model-specific configurations:
+            - num_topics: Override the number of topics from initialization
+            - min_topic_size: Minimum size of topics
+            - seed: Random seed for reproducibility
         
         Returns
         -------
         BERTopicModel
             Fitted model
         """
+        # Process kwargs for standardized parameters
+        if 'num_topics' in kwargs:
+            self.num_topics = kwargs.pop('num_topics')
+            self.n_topics = self.num_topics
+            self.model.nr_topics = self.n_topics
+            
         # Convert pandas Series to list if needed
         if isinstance(documents, pd.Series):
             documents = documents.tolist()
@@ -142,8 +164,8 @@ class BERTopicModel(BaseTopicModel):
         if embeddings is None:
             embeddings = self.embedding_model.embed_documents(documents)
             
-        # Fit BERTopic model
-        topics, probs = self.model.fit_transform(documents, embeddings=embeddings)
+        # Fit BERTopic model with any additional kwargs
+        topics, probs = self.model.fit_transform(documents, embeddings=embeddings, **kwargs)
         
         # Store topic information
         self.topics = {i: f"Topic {i}" for i in set(topics) if i != -1}
@@ -173,7 +195,8 @@ class BERTopicModel(BaseTopicModel):
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
-    ) -> Tuple[List[int], np.ndarray]:
+        **kwargs
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Transform documents to topic assignments and probabilities.
         
         Parameters
@@ -183,11 +206,16 @@ class BERTopicModel(BaseTopicModel):
         embeddings : Optional[np.ndarray], optional
             Pre-computed document embeddings, by default None
             If None, embeddings will be computed using the embedding model
+        **kwargs : Any
+            Additional keyword arguments:
+            - top_n: Number of top topics to return per document
         
         Returns
         -------
-        Tuple[List[int], np.ndarray]
-            Tuple of (topic_ids, probabilities)
+        Tuple[np.ndarray, np.ndarray]
+            Tuple of (topic_assignments, topic_probabilities)
+            - topic_assignments: 1D array of shape (n_documents,) with integer topic IDs
+            - topic_probabilities: 2D array of shape (n_documents, n_topics) with probability scores
         """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before transform can be called")
@@ -201,9 +229,17 @@ class BERTopicModel(BaseTopicModel):
             embeddings = self.embedding_model.embed_documents(documents)
             
         # Transform documents
-        topics, probs = self.model.transform(documents, embeddings=embeddings)
+        topics, probs = self.model.transform(documents, embeddings=embeddings, **kwargs)
         
-        return topics, probs
+        # Ensure output is numpy arrays with consistent shape for API compliance
+        topics_array = np.array(topics)
+        probs_array = np.array(probs)
+        
+        # Ensure 2D shape for probabilities
+        if len(probs_array.shape) == 1:
+            probs_array = probs_array.reshape(-1, 1)
+        
+        return topics_array, probs_array
     
     def _compute_topic_embeddings(self) -> None:
         """Compute embeddings for all topics."""
@@ -273,6 +309,53 @@ class BERTopicModel(BaseTopicModel):
             for i in top_indices
         ]
     
+    def get_topic_info(self) -> pd.DataFrame:
+        """Get information about discovered topics.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with standardized topic information containing:
+            - Topic: The topic ID
+            - Count: Number of documents in the topic
+            - Name: Human-readable topic name
+            - Representation: Keywords or representation of the topic content
+        """
+        if not self.is_fitted:
+            raise ValueError("Model must be fitted before topic info can be retrieved")
+            
+        # Get BERTopic's topic information
+        base_info = self.model.get_topic_info()
+        
+        # Standardize format for API compliance
+        topic_info = base_info.copy()
+        
+        # Ensure required columns are present with standard names
+        if 'Topic' not in topic_info.columns:
+            topic_info['Topic'] = topic_info.index
+            
+        if 'Count' not in topic_info.columns and 'Count' in base_info.columns:
+            topic_info['Count'] = base_info['Count']
+        elif 'Count' not in topic_info.columns and 'Size' in base_info.columns:
+            topic_info['Count'] = base_info['Size']
+            
+        if 'Name' not in topic_info.columns:
+            topic_info['Name'] = [f"Topic {i}" if i != -1 else "Other" for i in topic_info['Topic']]
+            
+        if 'Representation' not in topic_info.columns:
+            # Create representations with top words from each topic
+            representations = []
+            for topic_id in topic_info['Topic']:
+                if topic_id != -1:
+                    words = [word for word, _ in self.model.get_topic(topic_id)][:5]
+                    representations.append(", ".join(words))
+                else:
+                    representations.append("Other/Outlier documents")
+            topic_info['Representation'] = representations
+            
+        # Select only standardized columns in the correct order
+        return topic_info[['Topic', 'Count', 'Name', 'Representation']]
+        
     def visualize_topics(
         self,
         width: int = 800,

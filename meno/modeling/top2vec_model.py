@@ -36,8 +36,9 @@ class Top2VecModel(BaseTopicModel):
     
     Parameters
     ----------
-    n_topics : int, optional
+    num_topics : int, optional
         Number of topics to discover, by default 10
+        (Standardized parameter name, internally mapped to n_topics for Top2Vec)
     embedding_model : Union[str, DocumentEmbedding], optional
         Model to use for document embeddings, by default None
     umap_args : Dict[str, Any], optional
@@ -52,9 +53,12 @@ class Top2VecModel(BaseTopicModel):
         Additional arguments to pass to Top2Vec
     """
     
+    # API version for compatibility checks
+    API_VERSION: ClassVar[str] = "1.0.0"
+    
     def __init__(
         self,
-        n_topics: int = 10,
+        num_topics: int = 10,
         embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
         umap_args: Optional[Dict[str, Any]] = None,
         hdbscan_args: Optional[Dict[str, Any]] = None,
@@ -68,7 +72,11 @@ class Top2VecModel(BaseTopicModel):
                 "To use Top2VecModel, install with: pip install meno[top2vec]"
             )
         
-        self.n_topics = n_topics
+        # Map standardized parameter name to model-specific parameter
+        n_topics = num_topics
+        
+        self.num_topics = num_topics  # Standardized name
+        self.n_topics = n_topics      # For backward compatibility
         self.embedding_model = embedding_model
         self.umap_args = umap_args or {}
         self.hdbscan_args = hdbscan_args or {}
@@ -223,7 +231,11 @@ class Top2VecModel(BaseTopicModel):
         Returns
         -------
         pd.DataFrame
-            DataFrame with topic information
+            DataFrame with standardized topic information containing:
+            - Topic: The topic ID
+            - Count: Number of documents in the topic
+            - Name: Human-readable topic name
+            - Representation: Keywords or representation of the topic content
         """
         if not self.is_fitted:
             raise ValueError("Model must be fitted before topic info can be retrieved.")
@@ -232,19 +244,27 @@ class Top2VecModel(BaseTopicModel):
         word_per_topic = 10
         topic_words = self.model.get_topics(word_per_topic)
         
-        # Create DataFrame
+        # Create DataFrame with standardized columns
         data = []
         for i, (words, scores) in enumerate(topic_words):
             data.append({
                 'Topic': i,
                 'Count': self.topic_sizes.get(i, 0),
                 'Name': f"Topic {i}",
+                'Representation': ", ".join(words[:5]),
+                # Additional data (not part of standard API)
                 'Words': words,
-                'Scores': scores,
-                'Representation': ", ".join(words[:5])
+                'Scores': scores
             })
         
-        return pd.DataFrame(data)
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        # Ensure standard columns are present and in the right order
+        standard_columns = ['Topic', 'Count', 'Name', 'Representation']
+        all_columns = standard_columns + [col for col in df.columns if col not in standard_columns]
+        
+        return df[all_columns]
     
     def search_topics(
         self,

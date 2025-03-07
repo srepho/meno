@@ -2,7 +2,8 @@
 Large-scale streaming processor for topic modeling with Meno.
 
 This module provides utilities for processing and modeling large text datasets
-that might not fit in memory, using streaming and batched processing.
+that might not fit in memory, using streaming and batched processing with
+optimized memory usage and disk I/O.
 """
 
 import numpy as np
@@ -14,6 +15,8 @@ import time
 import os
 import gc
 import json
+import shutil  # Add missing import
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm.auto import tqdm
 
 try:
@@ -206,6 +209,8 @@ class StreamingProcessor:
         documents_stream: Iterator[Tuple[List[str], List]],
         save_embeddings: bool = False,
         embedding_file: Optional[Union[str, Path]] = None,
+        cache_embeddings: bool = True,
+        use_mmap: bool = True,
     ) -> Iterator[Tuple[np.ndarray, List]]:
         """
         Create embeddings from a stream of documents.
@@ -214,6 +219,8 @@ class StreamingProcessor:
             documents_stream: Iterator yielding batches of documents
             save_embeddings: Whether to save embeddings to disk
             embedding_file: Path to save embeddings
+            cache_embeddings: Whether to cache embeddings for faster reuse
+            use_mmap: Whether to use memory mapping for large files
         
         Yields:
             Tuple of (batch of embeddings, batch of document IDs)
@@ -231,27 +238,64 @@ class StreamingProcessor:
             
             self.embedding_files.append(embedding_file)
             
-            # Create empty arrays to be extended
-            if embedding_file.exists():
-                embeddings_all = np.load(embedding_file)
-                ids_all = []
-                if (embedding_file.parent / f"{embedding_file.stem}_ids.json").exists():
-                    with open(embedding_file.parent / f"{embedding_file.stem}_ids.json", 'r') as f:
-                        ids_all = json.load(f)
+            # Create file metadata for tracking
+            embedding_meta = {
+                "created": time.time(),
+                "doc_count": 0,
+                "batch_count": 0,
+                "embedding_dim": self.embedding_model.embedding_dimension,
+                "model": str(self.embedding_model),
+                "precision": "float16" if self.use_quantization else "float32",
+            }
+            
+            # Check if we're appending to existing data
+            if embedding_file.exists() and use_mmap:
+                try:
+                    # Get the existing shape to determine where to start appending
+                    existing_embeddings = np.load(embedding_file, mmap_mode='r')
+                    doc_count = existing_embeddings.shape[0]
+                    embedding_meta["doc_count"] = doc_count
+                    
+                    # Load existing IDs
+                    ids_file = embedding_file.parent / f"{embedding_file.stem}_ids.json"
+                    if ids_file.exists():
+                        with open(ids_file, 'r') as f:
+                            ids_all = json.load(f)
+                    else:
+                        ids_all = []
+                    
+                    # Close the memory map
+                    del existing_embeddings
+                except Exception as e:
+                    logger.warning(f"Error accessing existing embeddings file, creating new: {e}")
+                    doc_count = 0
+                    ids_all = []
             else:
-                embeddings_all = np.empty((0, self.embedding_model.embedding_dimension))
+                doc_count = 0
                 ids_all = []
+        
+        # Generate a unique cache prefix for this batch processing job
+        cache_prefix = None
+        if cache_embeddings:
+            timestamp = int(time.time())
+            cache_prefix = f"stream_{timestamp}"
         
         # Stream batches
         batch_num = 0
-        doc_count = 0
+        total_doc_count = 0
         
         for docs, ids in documents_stream:
             if not docs:
                 continue
                 
-            # Generate embeddings
-            embeddings = self.embedding_model.embed_documents(docs)
+            # Generate embeddings with caching if enabled
+            cache_id = f"{cache_prefix}_batch_{batch_num}" if cache_prefix else None
+            embeddings = self.embedding_model.embed_documents(
+                docs, 
+                show_progress_bar=False,
+                cache=cache_embeddings,
+                cache_id=cache_id
+            )
             
             # Apply quantization if requested
             if self.use_quantization and embeddings.dtype != np.float16:
@@ -259,33 +303,108 @@ class StreamingProcessor:
             
             # Save if requested
             if save_embeddings:
-                embeddings_all = np.vstack([embeddings_all, embeddings])
-                ids_all.extend(ids)
-                
-                # Save every 10 batches to avoid memory issues with very large datasets
-                if batch_num % 10 == 0:
+                if use_mmap and doc_count > 0:
+                    # Append to existing memory-mapped file
+                    current_size = doc_count
+                    new_size = current_size + len(docs)
+                    
+                    # Get current array shape and prepare new shape
+                    embed_dim = embeddings.shape[1]
+                    
+                    # Create new memory-mapped array with increased size
+                    temp_file = embedding_file.parent / f"{embedding_file.stem}_temp.npy"
+                    
+                    # Step 1: Create a new memory-mapped file with the combined size
+                    mmap_dtype = np.float16 if self.use_quantization else np.float32
+                    mm_array = np.memmap(
+                        temp_file, 
+                        dtype=mmap_dtype,
+                        mode='w+', 
+                        shape=(new_size, embed_dim)
+                    )
+                    
+                    # Step 2: Copy existing data
+                    if current_size > 0:
+                        existing = np.load(embedding_file, mmap_mode='r')
+                        mm_array[:current_size] = existing[:]
+                        del existing  # Close the memory map
+                    
+                    # Step 3: Add new data
+                    mm_array[current_size:new_size] = embeddings
+                    mm_array.flush()
+                    
+                    # Step 4: Replace the original file
+                    del mm_array  # Close the memory map
+                    
+                    # Move to final location
+                    shutil.move(temp_file, embedding_file)
+                    
+                    # Update IDs
+                    ids_all.extend(ids)
+                    with open(embedding_file.parent / f"{embedding_file.stem}_ids.json", 'w') as f:
+                        json.dump(ids_all, f)
+                    
+                    # Update doc count for next iteration
+                    doc_count = new_size
+                else:
+                    # Legacy approach for compatibility: load all and append
+                    if batch_num == 0 and not embedding_file.exists():
+                        # First batch, create new file
+                        if self.use_quantization and embeddings.dtype != np.float16:
+                            embeddings_all = embeddings.astype(np.float16)
+                        else:
+                            embeddings_all = embeddings
+                        ids_all = ids
+                    else:
+                        # Load existing, append, save
+                        if embedding_file.exists():
+                            embeddings_all = np.load(embedding_file)
+                            # Load existing IDs
+                            ids_path = embedding_file.parent / f"{embedding_file.stem}_ids.json"
+                            if ids_path.exists():
+                                with open(ids_path, 'r') as f:
+                                    ids_all = json.load(f)
+                            else:
+                                ids_all = []
+                        else:
+                            embeddings_all = np.empty((0, embeddings.shape[1]))
+                            ids_all = []
+                            
+                        # Append new data
+                        embeddings_all = np.vstack([embeddings_all, embeddings])
+                        ids_all.extend(ids)
+                    
+                    # Save to disk
                     np.save(embedding_file, embeddings_all)
                     with open(embedding_file.parent / f"{embedding_file.stem}_ids.json", 'w') as f:
                         json.dump(ids_all, f)
+                
+                # Update metadata
+                embedding_meta["doc_count"] += len(docs)
+                embedding_meta["batch_count"] += 1
+                
+                # Save metadata occasionally
+                if batch_num % 10 == 0:
+                    with open(embedding_file.parent / f"{embedding_file.stem}_meta.json", 'w') as f:
+                        json.dump(embedding_meta, f)
             
-            doc_count += len(docs)
+            total_doc_count += len(docs)
             batch_num += 1
             
             yield embeddings, ids
         
-        # Final save if needed
+        # Final metadata save if needed
         if save_embeddings and batch_num > 0:
-            np.save(embedding_file, embeddings_all)
-            with open(embedding_file.parent / f"{embedding_file.stem}_ids.json", 'w') as f:
-                json.dump(ids_all, f)
+            with open(embedding_file.parent / f"{embedding_file.stem}_meta.json", 'w') as f:
+                json.dump(embedding_meta, f)
         
         # Update timing and stats
         self.timing["embedding"] += time.time() - start_time
-        self.total_documents += doc_count
+        self.total_documents += total_doc_count
         self.total_batches += batch_num
         
         if self.verbose:
-            logger.info(f"Processed {doc_count} documents in {batch_num} batches")
+            logger.info(f"Processed {total_doc_count} documents in {batch_num} batches")
             logger.info(f"Embedding time: {self.timing['embedding']:.2f} seconds")
     
     def fit_topic_model_stream(
