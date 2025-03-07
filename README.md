@@ -1,5 +1,9 @@
 # Meno: Topic Modeling Toolkit
 
+<p align="center">
+  <img src="meno.webp" alt="Meno Logo" width="250"/>
+</p>
+
 [![PyPI version](https://img.shields.io/pypi/v/meno.svg)](https://pypi.org/project/meno/)
 [![Python Version](https://img.shields.io/pypi/pyversions/meno.svg)](https://pypi.org/project/meno/)
 [![License](https://img.shields.io/github/license/srepho/meno.svg)](https://github.com/srepho/meno/blob/main/LICENSE)
@@ -7,6 +11,14 @@
 [![Downloads](https://img.shields.io/pypi/dm/meno.svg)](https://pypi.org/project/meno/)
 
 Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization.
+
+## What's New in v1.0.0
+
+- **Standardized API** - Consistent parameter names and method signatures across all models
+- **Automatic Topic Detection** - Let models discover the optimal number of topics automatically
+- **Enhanced Memory Efficiency** - Process even larger datasets with streaming and quantization
+- **Path Object Support** - Better file handling with pathlib integration
+- **Return Type Standardization** - Consistent return values across all model methods
 
 ## What's New in v0.9.0
 
@@ -1073,14 +1085,15 @@ python -m pytest --cov=meno
 
 Contributions are welcome! Please see [CONTRIBUTING.md](https://github.com/srepho/meno/blob/main/CONTRIBUTING.md) for details.
 
-## Roadmap to v1.0.0
+## Future Development
 
-We're working toward a v1.0.0 release with a focus on:
+With v1.0.0 now complete, our focus is shifting to these areas:
 
-1. **Reducing Dependencies** - Minimizing required packages and conflicts
-2. **Performance Optimization** - Faster processing with lower memory requirements
-3. **API Improvements** - More consistent and intuitive interfaces
-4. **Enhanced CLI Tools** - More command-line functionality for common tasks
+1. **Cloud Integration** - Native support for cloud-based embeddings and storage
+2. **Multilingual Support** - Expand language capabilities beyond English
+3. **Domain-Specific Fine-Tuning** - Tools for adapting models to specific industries
+4. **Explainable AI Features** - Better tools to understand and interpret topic assignments
+5. **Interactive Dashboards** - More powerful visualization and exploration tools
 
 See our [detailed roadmap](ROADMAP.md) for more information about planned features and changes.
 
