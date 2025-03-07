@@ -36,6 +36,17 @@ except ImportError:
     # Graceful fallback if dependencies are missing
     pass
 
+# Re-export feedback visualization components
+try:
+    from .visualization.enhanced_viz.feedback_viz import (
+        plot_feedback_impact,
+        create_feedback_comparison_dashboard,
+        plot_topic_feedback_distribution
+    )
+except ImportError:
+    # Graceful fallback if visualization dependencies are missing
+    pass
+
 # Download English spaCy model on import if not already available
 import logging
 import importlib
@@ -107,4 +118,9 @@ __all__ = [
     # Feedback system
     "SimpleFeedback",
     "TopicFeedbackManager",
+    
+    # Feedback visualization
+    "plot_feedback_impact",
+    "create_feedback_comparison_dashboard",
+    "plot_topic_feedback_distribution",
 ]

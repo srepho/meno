@@ -137,6 +137,7 @@ workflow.generate_comprehensive_report("final_report.html", open_browser=True)
 
 - **Enhanced Lightweight Models** - Four CPU-optimized topic models with minimal dependencies
 - **Interactive Feedback System** - Notebook-friendly interface for refining topic assignments
+- **Feedback Visualization Tools** - Specialized visualizations to analyze feedback impact
 - **Integrated Components** - Seamless integration between models, visualizations, and web interface
 - **Improved Documentation** - Comprehensive guides for all components
 - **New Example Scripts** - Demonstrations of all features working together
@@ -634,11 +635,11 @@ meno-web --port 8050 --models tfidf nmf lsa
 
 See `examples/web_lightweight_example.py` for a complete example of using the web interface with lightweight models.
 
-### Interactive Topic Feedback
+### Interactive Topic Feedback with Visualizations
 
 ```python
 from meno import MenoTopicModeler
-from meno.active_learning.simple_feedback import TopicFeedbackManager
+from meno import TopicFeedbackManager, plot_feedback_impact
 
 # Run initial topic modeling
 modeler = MenoTopicModeler()
@@ -666,9 +667,39 @@ updated_modeler = feedback_manager.get_updated_model()
 
 # Export feedback for collaboration
 feedback_system.export_to_csv("topic_feedback.csv")
+
+# Visualize the impact of feedback on topics
+import matplotlib.pyplot as plt
+fig = plot_feedback_impact(feedback_manager)
+plt.figure(fig.number)
+plt.savefig("feedback_impact.png")
+
+# Analyze topic-specific changes
+from meno import plot_topic_feedback_distribution
+original_topics = []  # Stored from before feedback
+current_topics = updated_modeler.get_document_topics()["topic"].tolist()
+fig = plot_topic_feedback_distribution(
+    updated_modeler,
+    documents,
+    original_topics,
+    current_topics,
+    show_wordclouds=True
+)
+plt.figure(fig.number)
+plt.savefig("topic_distribution_changes.png")
+
+# For web-based interactive dashboard (requires dash)
+from meno import create_feedback_comparison_dashboard
+app = create_feedback_comparison_dashboard(
+    before_model=modeler,  # Before feedback
+    after_model=updated_modeler,  # After feedback
+    documents=documents,
+    title="Feedback Impact Analysis"
+)
+app.run_server(debug=True)
 ```
 
-See `examples/interactive_feedback_example.py` and `examples/topic_feedback_notebook.ipynb` for complete examples of using the feedback system.
+See `examples/feedback_visualization_example.py`, `examples/feedback_visualization_notebook.ipynb`, and `examples/interactive_feedback_example.py` for complete examples of using the feedback system with visualizations.
 
 See the example scripts in the [examples directory](examples/) for more detailed usage.
 
