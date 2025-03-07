@@ -1,22 +1,39 @@
-# API Standardization Guidelines for Meno v1.0.0
+# Meno API Standardization Guidelines
 
-This document outlines the standardized API patterns for Meno v1.0.0, which should be followed by all components to ensure consistency and ease of use.
+## Overview
+This document defines the standard API interfaces for Meno v1.0.0 to ensure consistency across all components of the library.
 
-## Core Topic Modeling Interface
+## Topic Modeling API
 
-All topic modeling classes should inherit from the `BaseTopicModel` abstract base class, which defines the following core methods:
+### Parameters
+
+| Standard Name | Description | Type | Used In |
+|---------------|-------------|------|---------|
+| `num_topics`  | Number of topics to discover | `int` | All topic models |
+| `embeddings`  | Document embeddings | `np.ndarray` | All models |
+| `documents`   | Input text documents | `Union[List[str], pd.Series]` | All models |
+| `min_topic_size` | Minimum size for topics | `int` | Most clustering-based models |
+
+### Method Signatures
+
+#### Base Interface
+
+All topic models should inherit from `BaseTopicModel` abstract base class and implement these methods:
 
 ```python
 class BaseTopicModel(ABC):
-    """Abstract base class for topic models in Meno."""
+    """Abstract base class for topic models"""
+    
+    API_VERSION: ClassVar[str] = "1.0.0"
     
     @abstractmethod
     def fit(
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
+        **kwargs
     ) -> "BaseTopicModel":
-        """Fit the model to documents."""
+        """Fit the model to documents"""
         pass
     
     @abstractmethod
@@ -24,261 +41,97 @@ class BaseTopicModel(ABC):
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
-    ) -> Tuple[Any, Any]:
-        """Transform documents to topics."""
+        **kwargs
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Transform documents to topics
+        Returns: tuple of (topic_assignments, topic_probabilities)
+        """
         pass
     
     def fit_transform(
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
-    ) -> Tuple[Any, Any]:
-        """Fit and transform in one step."""
-        self.fit(documents, embeddings)
-        return self.transform(documents, embeddings)
+        **kwargs
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Fit and transform in one step"""
+        self.fit(documents, embeddings, **kwargs)
+        return self.transform(documents, embeddings, **kwargs)
+    
+    @abstractmethod
+    def get_topic_info(self) -> pd.DataFrame:
+        """Get information about topics
+        Returns: DataFrame with standardized columns:
+        - Topic: topic ID
+        - Count: number of documents
+        - Name: human-readable name
+        - Representation: keywords for topic
+        """
+        pass
     
     @abstractmethod
     def save(self, path: str) -> None:
-        """Save the model to disk."""
+        """Save model to disk"""
         pass
     
     @classmethod
     @abstractmethod
     def load(cls, path: str) -> "BaseTopicModel":
-        """Load a model from disk."""
+        """Load model from disk"""
         pass
 ```
 
-## Parameter Standardization
+### Common Return Types
 
-### Topic Model Parameters
+#### Document-Topic Assignments
+Method: `transform()` and `fit_transform()`
 
-All topic model classes should use consistent parameter names:
+Return type: `Tuple[np.ndarray, np.ndarray]`
+- First element: Array of topic IDs of shape `(n_documents,)`
+- Second element: Matrix of topic probabilities of shape `(n_documents, n_topics)`
 
-| Standard Name | Description | Used In |
-|---------------|-------------|---------|
-| `num_topics` | Number of topics to discover | High-level APIs, factory functions |
-| `n_topics` | Number of topics to discover | Direct model initialization |
-| `min_topic_size` | Minimum size of topics | All topic models |
-| `embedding_model` | Embedding model to use | All topic models |
-| `documents` | Input documents | All methods |
-| `embeddings` | Pre-computed embeddings | All methods |
+#### Topic Information
+Method: `get_topic_info()`
 
-### Visualization Parameters
+Return type: `pd.DataFrame` with columns:
+- `Topic`: Topic ID (int)
+- `Count`: Number of documents in topic (int)
+- `Name`: Human-readable topic name (str)
+- `Representation`: Keywords or representation of topic content (str)
 
-All visualization methods should use consistent parameter names:
+## Parameter Standardization Guidelines
 
-| Standard Name | Description | Used In |
-|---------------|-------------|---------|
-| `width` | Width of the plot | All visualizations |
-| `height` | Height of the plot | All visualizations |
-| `title` | Title of the plot | All visualizations |
-| `return_fig` | Whether to return the figure | All visualizations |
-| `colorscale` | Color scale to use | All visualizations |
-| `marker_size` | Size of markers | Scatter plots |
+### For New Methods and Classes
+- Always use the standard parameter names listed above
+- Accept `**kwargs` to allow for flexibility and forward compatibility
+- Use explicit type hints for all parameters
+- Implement reasonable default values
 
-## Return Value Standardization
+### For Legacy Method Support
+- Accept both standard and legacy parameter names
+- Map standard parameter names to legacy internally
+- For example:
+  ```python
+  # In __init__
+  self.num_topics = num_topics  # Standard name
+  self.n_topics = num_topics    # Legacy name for compatibility
+  
+  # In fit() method
+  if 'num_topics' in kwargs:
+      self.num_topics = kwargs.pop('num_topics')
+      self.n_topics = self.num_topics  # Update legacy attribute
+  ```
 
-### Topic Model Return Values
+## Documentation Guidelines
 
-All topic model methods should use consistent return values:
+- All public APIs should have NumPy-style docstrings
+- Parameter descriptions should mention standard names
+- Return type descriptions should specify shape and meaning
+- Include simple examples for common use cases
 
-| Method | Return Type | Description |
-|--------|-------------|-------------|
-| `fit` | `self` | Fitted model for method chaining |
-| `transform` | `Tuple[np.ndarray, np.ndarray]` | (topic_assignments, topic_probabilities) |
-| `fit_transform` | `Tuple[np.ndarray, np.ndarray]` | (topic_assignments, topic_probabilities) |
-| `get_topic_info` | `pd.DataFrame` | DataFrame with topic information |
-| `visualize_topics` | `plotly.graph_objects.Figure` | Interactive visualization |
+## Version Compatibility
 
-### Embedding Model Return Values
-
-All embedding model methods should use consistent return values:
-
-| Method | Return Type | Description |
-|--------|-------------|-------------|
-| `embed_documents` | `np.ndarray` | Document embeddings |
-| `embed_words` | `np.ndarray` | Word embeddings |
-
-## Method Naming Standardization
-
-Use consistent method names across different implementations:
-
-| Standard Name | Description | Alternative Names to Avoid |
-|---------------|-------------|---------------------------|
-| `fit` | Fit model to data | `train`, `learn` |
-| `transform` | Transform documents to topics | `predict`, `infer` |
-| `fit_transform` | Fit and transform in one step | `train_predict` |
-| `save` | Save model to disk | `export`, `write` |
-| `load` | Load model from disk | `import`, `read` |
-| `get_topic_info` | Get information about topics | `topic_info`, `get_topics` |
-| `visualize_topics` | Visualize topics | `plot_topics`, `show_topics` |
-| `search_topics` | Search for topics | `find_topics`, `query_topics` |
-
-## Configuration Standardization
-
-All components should use the same configuration hierarchy:
-
-```python
-# Configuration override example
-config_overrides = {
-    "modeling": {
-        "embeddings": {
-            "model_name": "all-MiniLM-L6-v2",
-            "batch_size": 64
-        },
-        "topic_modeling": {
-            "num_topics": 10,
-            "min_topic_size": 5
-        },
-        "performance": {
-            "use_mmap": True,
-            "precision": "float16"
-        }
-    }
-}
-```
-
-## Factory Functions
-
-Use factory functions with consistent naming and parameters for creating objects:
-
-```python
-def create_topic_modeler(
-    method: str = "embedding_cluster",
-    num_topics: int = 10,
-    config_overrides: Optional[Dict[str, Any]] = None,
-    embedding_model: Optional[Union[str, DocumentEmbedding]] = None
-) -> BaseTopicModel:
-    """Create a topic modeler with the specified method."""
-    pass
-
-def create_embedding_model(
-    model_name: str = "all-MiniLM-L6-v2",
-    config_overrides: Optional[Dict[str, Any]] = None
-) -> DocumentEmbedding:
-    """Create an embedding model with the specified name."""
-    pass
-```
-
-## Type Hints
-
-All methods should use consistent type hints:
-
-```python
-from typing import List, Dict, Optional, Union, Any, Tuple, Callable
-
-def method(
-    param1: Union[List[str], pd.Series],
-    param2: Optional[np.ndarray] = None,
-    param3: int = 10
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Method with proper type hints."""
-    pass
-```
-
-## Docstrings
-
-All methods should use NumPy-style docstrings:
-
-```python
-def method(param1, param2=None):
-    """Short description of the method.
-    
-    Longer description of the method if needed,
-    spanning multiple lines.
-    
-    Parameters
-    ----------
-    param1 : type
-        Description of param1
-    param2 : type, optional
-        Description of param2, by default None
-    
-    Returns
-    -------
-    type
-        Description of return value
-    
-    Raises
-    ------
-    ExceptionType
-        When the exception is raised
-    
-    Examples
-    --------
-    >>> method("example", param2=42)
-    expected_result
-    """
-    pass
-```
-
-## Error Handling
-
-All components should use consistent error handling:
-
-```python
-if not self.is_fitted:
-    raise ValueError("Model must be fitted before transform can be called.")
-
-if not HAVE_DEPS:
-    raise ImportError(
-        "Package dependencies not installed. "
-        "To use this feature, install with: pip install meno[feature]"
-    )
-```
-
-## Warning Messages
-
-Use consistent warning format:
-
-```python
-import warnings
-
-warnings.warn(
-    "Feature X is deprecated and will be removed in v1.0. "
-    "Use Feature Y instead.",
-    DeprecationWarning
-)
-
-warnings.warn(
-    "Optional dependency not installed. "
-    "To use this feature, install with: pip install package"
-)
-```
-
-## Workflow API
-
-The workflow API should use consistent method names and parameters:
-
-```python
-workflow = MenoWorkflow()
-
-# Data loading
-workflow.load_data(
-    data=df,
-    text_column="text",
-    id_column="id",
-    category_column="category"
-)
-
-# Preprocessing
-workflow.preprocess_documents(
-    lowercase=True,
-    remove_punctuation=True,
-    remove_stopwords=True
-)
-
-# Topic discovery
-topics_df = workflow.discover_topics(
-    method="embedding_cluster",
-    num_topics=10
-)
-
-# Report generation
-report_path = workflow.generate_report(
-    output_path="report.html",
-    title="Topic Analysis",
-    open_browser=True
-)
-```
+- All standardized models should include `API_VERSION` class variable
+- Version checks should be performed when models interact
+- Major version changes (1.x → 2.x) may break API compatibility
+- Minor version changes (1.1 → 1.2) should be backward compatible
