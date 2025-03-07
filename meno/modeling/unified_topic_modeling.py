@@ -1,609 +1,395 @@
-"""Unified topic modeling API for Meno."""
+"""Unified topic modeling interface for different topic modeling approaches."""
 
-from typing import Dict, List, Optional, Union, Any, Tuple, Callable
+from typing import List, Dict, Optional, Union, Any, Tuple, Callable
 import numpy as np
 import pandas as pd
 import logging
 from pathlib import Path
-import json
-import pickle
 import os
+import pickle
 
-try:
-    from bertopic import BERTopic
-    from bertopic.representation import KeyBERTInspired
-    from bertopic.vectorizers import ClassTfidfTransformer
-    from bertopic.dimensionality import UMAPReducer
-    BERTOPIC_AVAILABLE = True
-except ImportError:
-    BERTOPIC_AVAILABLE = False
+from .base import BaseTopicModel
+from .bertopic_model import BERTopicModel
+from .top2vec_model import Top2VecModel
+from .embeddings import DocumentEmbedding, ModernTextEmbedding
+from ..utils.config import get_config, MenoConfig
 
-try:
-    from top2vec import Top2Vec
-    TOP2VEC_AVAILABLE = True
-except ImportError:
-    TOP2VEC_AVAILABLE = False
-
-from meno.modeling.embeddings import DocumentEmbedding
-from meno.modeling.bertopic_model import BERTopicModel
-from meno.modeling.top2vec_model import Top2VecModel
-from meno.modeling.bertopic_optimizer import BERTopicOptimizer
-
-# Set up logging
 logger = logging.getLogger(__name__)
 
 
-class UnifiedTopicModeler:
-    """Unified API for different topic modeling approaches in Meno.
+class UnifiedTopicModeler(BaseTopicModel):
+    """Unified topic modeling interface for different topic modeling approaches.
     
-    This class provides a common interface for using different topic modeling
-    backends (BERTopic, Top2Vec, etc.) with consistent functionality.
+    This class provides a standardized interface to interact with various topic modeling 
+    techniques available in the Meno library, including BERTopic and Top2Vec.
     
     Parameters
     ----------
     method : str
-        Topic modeling method to use.
-        Options: "bertopic", "top2vec"
-    n_topics : Optional[int], optional
-        Number of topics to extract, by default None
-        If None, automatic determination will be used when supported
-    embedding_model : Optional[Union[str, DocumentEmbedding]], optional
-        Embedding model to use, by default None
-        Can be a DocumentEmbedding instance or a string name for a model
-    min_topic_size : int, optional
-        Minimum size of topics, by default 10
-    use_gpu : bool, optional
-        Whether to use GPU acceleration if available, by default False
-    advanced_config : Optional[Dict[str, Any]], optional
-        Advanced configuration options specific to the selected method, by default None
-    optimizer_config : Optional[Dict[str, Any]], optional
-        Configuration for hyperparameter optimization, by default None
-        If provided, optimization will be performed when fitting the model
-    verbose : bool, optional
-        Whether to display verbose output, by default True
-    
-    Attributes
-    ----------
-    model : Union[BERTopicModel, Top2VecModel]
-        The underlying topic model instance
-    method : str
-        Topic modeling method being used
-    topics : Dict[int, str]
-        Mapping of topic IDs to topic descriptions
-    topic_sizes : Dict[int, int]
-        Mapping of topic IDs to topic sizes
-    is_fitted : bool
-        Whether the model has been fitted
+        The topic modeling method to use. Options include:
+        - "bertopic": BERTopic model
+        - "top2vec": Top2Vec model  
+        - "embedding_cluster": Embedding-based clustering
+    num_topics : int, optional
+        The number of topics to discover, by default 10
+    config_overrides : Dict[str, Any], optional
+        Configuration overrides for the model, by default None
+    embedding_model : Union[str, DocumentEmbedding], optional
+        The embedding model to use, by default None
     """
     
     def __init__(
         self,
-        method: str,
-        n_topics: Optional[int] = None,
-        embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
-        min_topic_size: int = 10,
-        use_gpu: bool = False,
-        advanced_config: Optional[Dict[str, Any]] = None,
-        optimizer_config: Optional[Dict[str, Any]] = None,
-        verbose: bool = True,
+        method: str = "embedding_cluster",
+        num_topics: int = 10,
+        config_overrides: Optional[Dict[str, Any]] = None,
+        embedding_model: Optional[Union[str, DocumentEmbedding]] = None
     ):
-        """Initialize the unified topic modeler."""
-        self.method = method.lower()
-        self.n_topics = n_topics
-        self.min_topic_size = min_topic_size
-        self.use_gpu = use_gpu
-        self.advanced_config = advanced_config or {}
-        self.optimizer_config = optimizer_config
-        self.verbose = verbose
-        
-        # Set up embedding model
-        if isinstance(embedding_model, str):
-            self.embedding_model = DocumentEmbedding(
-                model_name=embedding_model,
-                use_gpu=use_gpu
-            )
-        else:
-            self.embedding_model = embedding_model
-            
-        # Initialize method-specific components
-        if self.method == "bertopic":
-            if not BERTOPIC_AVAILABLE:
-                raise ImportError(
-                    "BERTopic is required for this method. "
-                    "Install with 'pip install bertopic>=0.15.0'"
-                )
-            
-            # Set up UMAP reducer
-            umap_args = self.advanced_config.get("umap", {})
-            n_neighbors = umap_args.get("n_neighbors", 15)
-            n_components = umap_args.get("n_components", 5)
-            
-            # Set up representation model
-            representation_args = self.advanced_config.get("representation", {})
-            representation_type = representation_args.get("type", "keybert")
-            
-            # Initialize BERTopicModel
-            self.model = BERTopicModel(
-                n_topics=n_topics,
-                embedding_model=self.embedding_model,
-                min_topic_size=min_topic_size,
-                use_gpu=use_gpu,
-                n_neighbors=n_neighbors,
-                n_components=n_components,
-                verbose=verbose,
-            )
-            
-        elif self.method == "top2vec":
-            if not TOP2VEC_AVAILABLE:
-                raise ImportError(
-                    "Top2Vec is required for this method. "
-                    "Install with 'pip install top2vec>=1.0.27'"
-                )
-            
-            # Set up UMAP and HDBSCAN arguments
-            umap_args = self.advanced_config.get("umap", {})
-            hdbscan_args = self.advanced_config.get("hdbscan", {
-                "min_cluster_size": min_topic_size,
-                "min_samples": 5,
-                "metric": "euclidean",
-                "cluster_selection_method": "eom",
-            })
-            
-            # Use custom embeddings or not
-            use_custom_embeddings = self.advanced_config.get("use_custom_embeddings", True)
-            
-            # Initialize Top2VecModel
-            self.model = Top2VecModel(
-                embedding_model=self.embedding_model,
-                n_topics=n_topics,
-                min_topic_size=min_topic_size,
-                use_gpu=use_gpu,
-                umap_args=umap_args,
-                hdbscan_args=hdbscan_args,
-                use_custom_embeddings=use_custom_embeddings,
-                verbose=verbose,
-            )
-            
-        else:
-            raise ValueError(
-                f"Unknown method: {method}. "
-                "Available methods: 'bertopic', 'top2vec'"
-            )
-            
-        # Initialize state
+        self.method = method
+        self.num_topics = num_topics
+        self.config_overrides = config_overrides or {}
+        self.embedding_model = embedding_model
+        self.model = self._create_model()
+        self.is_fitted = False
         self.topics = {}
         self.topic_sizes = {}
-        self.is_fitted = False
+        
+    def _create_model(self) -> BaseTopicModel:
+        """Create the appropriate topic model based on the specified method.
+        
+        Returns
+        -------
+        BaseTopicModel
+            The instantiated topic model
+        """
+        # Create embedding model if specified as string
+        if isinstance(self.embedding_model, str):
+            self.embedding_model = ModernTextEmbedding(model_name=self.embedding_model)
+        
+        # Create model based on method
+        if self.method == "bertopic":
+            return BERTopicModel(
+                n_topics=self.num_topics,
+                embedding_model=self.embedding_model,
+                **self.config_overrides
+            )
+        elif self.method == "top2vec":
+            return Top2VecModel(
+                n_topics=self.num_topics,
+                embedding_model=self.embedding_model,
+                **self.config_overrides
+            )
+        elif self.method == "embedding_cluster":
+            # Default to BERTopic with embedding_model for embedding-based clustering
+            return BERTopicModel(
+                n_topics=self.num_topics,
+                embedding_model=self.embedding_model,
+                **self.config_overrides
+            )
+        else:
+            raise ValueError(f"Unknown topic modeling method: {self.method}")
     
     def fit(
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
+        **kwargs
     ) -> "UnifiedTopicModeler":
         """Fit the topic model to a set of documents.
         
         Parameters
         ----------
         documents : Union[List[str], pd.Series]
-            List or Series of document texts
+            List of document texts to model
         embeddings : Optional[np.ndarray], optional
             Pre-computed document embeddings, by default None
-            
+        **kwargs : Any
+            Additional keyword arguments passed to the underlying model
+        
         Returns
         -------
         UnifiedTopicModeler
-            Fitted model instance
+            The fitted topic modeler for method chaining
         """
-        # If optimizer config is provided, perform hyperparameter optimization
-        if self.optimizer_config is not None and self.method == "bertopic":
-            if self.verbose:
-                logger.info("Performing hyperparameter optimization...")
-                
-            # Create optimizer
-            optimizer = BERTopicOptimizer(
-                embedding_model=self.embedding_model.model_name if self.embedding_model else "all-MiniLM-L6-v2",
-                n_trials=self.optimizer_config.get("n_trials", 10),
-                random_state=self.optimizer_config.get("random_state", 42),
-                metric=self.optimizer_config.get("metric", "combined"),
-                verbose=self.verbose,
-            )
-            
-            # Set custom parameter grid if provided
-            if "param_grid" in self.optimizer_config:
-                optimizer.set_param_grid(self.optimizer_config["param_grid"])
-                
-            # Optimize
-            best_params, best_model, best_score = optimizer.optimize(
-                documents=documents,
-                search_method=self.optimizer_config.get("search_method", "random"),
-            )
-            
-            if self.verbose:
-                logger.info(f"Best parameters: {best_params}")
-                logger.info(f"Best score: {best_score}")
-                
-            # Use the optimized model directly
-            self.model.model = best_model
-            
-            # Extract topic information
-            topic_info = best_model.get_topic_info()
-            
-            # Store topic information
-            self.topics = {}
-            self.topic_sizes = {}
-            
-            for i, row in topic_info.iterrows():
-                topic_id = row["Topic"]
-                if topic_id != -1:
-                    words = [word for word, _ in best_model.get_topic(topic_id)][:5]
-                    self.topics[topic_id] = f"Topic {topic_id}: {', '.join(words)}"
-                    self.topic_sizes[topic_id] = row["Count"]
-                    
-            # Add -1 for outliers
-            if -1 in set(topic_info["Topic"]):
-                row = topic_info[topic_info["Topic"] == -1].iloc[0]
-                self.topics[-1] = "Other"
-                self.topic_sizes[-1] = row["Count"]
-                
-            # Update state
-            self.is_fitted = True
-            
-        else:
-            # Fit the model directly
-            self.model.fit(documents, embeddings)
-            
-            # Store topic information
-            self.topics = self.model.topics
-            self.topic_sizes = self.model.topic_sizes
-            self.is_fitted = self.model.is_fitted
-            
+        # Set n_topics parameter appropriately for the underlying model
+        # Ensure consistency across different model implementations
+        if 'num_topics' in kwargs and 'n_topics' not in kwargs:
+            kwargs['n_topics'] = kwargs.pop('num_topics')
+        elif self.num_topics is not None and 'n_topics' not in kwargs:
+            kwargs['n_topics'] = self.num_topics
+        
+        # Fit the underlying model
+        self.model.fit(documents, embeddings, **kwargs)
+        
+        # Copy important attributes from the underlying model
+        self.topics = getattr(self.model, 'topics', {})
+        self.topic_sizes = getattr(self.model, 'topic_sizes', {})
+        self.is_fitted = True
+        
         return self
     
     def transform(
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
-        top_n: int = 1,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        **kwargs
+    ) -> Tuple[Any, Any]:
         """Transform documents to topic assignments.
         
         Parameters
         ----------
         documents : Union[List[str], pd.Series]
-            List or Series of document texts
+            List of document texts to assign to topics
         embeddings : Optional[np.ndarray], optional
             Pre-computed document embeddings, by default None
-        top_n : int, optional
-            Number of top topics to return per document, by default 1
-            
+        **kwargs : Any
+            Additional keyword arguments passed to the underlying model
+        
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
-            Tuple of (topic_ids, probabilities)
+        Tuple[Any, Any]
+            A tuple containing (topic_assignments, topic_probabilities)
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before transform can be called")
-            
-        if self.method == "bertopic":
-            return self.model.transform(documents, embeddings)
-        elif self.method == "top2vec":
-            return self.model.transform(documents, embeddings, top_n=top_n)
+            raise ValueError("Model must be fitted before transform can be called.")
+        
+        # Standardize parameter names for consistency
+        if 'top_n' in kwargs:
+            kwargs['top_n'] = kwargs['top_n']
+        
+        # Call the underlying model's transform method
+        return self.model.transform(documents, embeddings, **kwargs)
     
     def fit_transform(
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
-        top_n: int = 1,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        **kwargs
+    ) -> Tuple[Any, Any]:
         """Fit the model and transform documents in one step.
         
         Parameters
         ----------
         documents : Union[List[str], pd.Series]
-            List or Series of document texts
+            List of document texts to model and assign to topics
         embeddings : Optional[np.ndarray], optional
             Pre-computed document embeddings, by default None
-        top_n : int, optional
-            Number of top topics to return per document, by default 1
-            
+        **kwargs : Any
+            Additional keyword arguments passed to the underlying model
+        
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
-            Tuple of (topic_ids, probabilities)
+        Tuple[Any, Any]
+            A tuple containing (topic_assignments, topic_probabilities)
         """
-        self.fit(documents, embeddings)
-        return self.transform(documents, embeddings, top_n)
+        self.fit(documents, embeddings, **kwargs)
+        return self.transform(documents, embeddings, **kwargs)
     
-    def find_similar_topics(
-        self,
-        query: str,
-        n_topics: int = 5,
-    ) -> List[Tuple[int, str, float]]:
-        """Find topics similar to a query.
+    def visualize_topics(self, **kwargs) -> Any:
+        """Visualize discovered topics.
         
         Parameters
         ----------
-        query : str
-            Query text to find similar topics for
-        n_topics : int, optional
-            Number of similar topics to return, by default 5
-            
-        Returns
-        -------
-        List[Tuple[int, str, float]]
-            List of tuples (topic_id, topic_description, similarity_score)
-        """
-        if not self.is_fitted:
-            raise ValueError("Model must be fitted before finding similar topics")
-            
-        if self.method == "bertopic":
-            return self.model.find_similar_topics(query, n_topics)
-        elif self.method == "top2vec":
-            return self.model.search_topics(query, n_topics)
-    
-    def get_topic_words(
-        self,
-        topic_id: int,
-        n_words: int = 10,
-    ) -> List[Tuple[str, float]]:
-        """Get the top words for a topic.
+        **kwargs : Any
+            Visualization parameters passed to the underlying model's visualization method
         
-        Parameters
-        ----------
-        topic_id : int
-            Topic ID to get words for
-        n_words : int, optional
-            Number of top words to return, by default 10
-            
-        Returns
-        -------
-        List[Tuple[str, float]]
-            List of tuples (word, score)
-        """
-        if not self.is_fitted:
-            raise ValueError("Model must be fitted before getting topic words")
-            
-        if self.method == "bertopic":
-            return self.model.model.get_topic(topic_id)[:n_words]
-        elif self.method == "top2vec":
-            # Top2Vec uses a different API
-            topic_words, word_scores, _ = self.model.model.get_topics()
-            if topic_id < len(topic_words):
-                return [(word, score) for word, score in 
-                        zip(topic_words[topic_id][:n_words], word_scores[topic_id][:n_words])]
-            else:
-                return []
-    
-    def visualize_topics(
-        self,
-        width: int = 800,
-        height: int = 600,
-    ) -> Any:
-        """Visualize topics.
-        
-        Parameters
-        ----------
-        width : int, optional
-            Width of the visualization, by default 800
-        height : int, optional
-            Height of the visualization, by default 600
-            
         Returns
         -------
         Any
-            Visualization object (typically a plotly Figure)
+            The visualization object (typically a plotly Figure)
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before visualization")
-            
-        if self.method == "bertopic":
-            return self.model.visualize_topics(width, height)
-        elif self.method == "top2vec":
-            # Top2Vec doesn't have an equivalent method, so we create a similar visualization
-            if hasattr(self.model.model, "topic_vectors") and self.model.model.topic_vectors is not None:
-                from sklearn.manifold import TSNE
-                import plotly.graph_objects as go
-                
-                # Get topic vectors
-                topic_vectors = self.model.model.topic_vectors
-                
-                # Reduce to 2D for visualization
-                tsne = TSNE(n_components=2, random_state=42)
-                topic_coords = tsne.fit_transform(topic_vectors)
-                
-                # Create visualization
-                fig = go.Figure()
-                
-                # Add points for each topic
-                for i, (x, y) in enumerate(topic_coords):
-                    if i in self.topics:
-                        topic_name = self.topics[i]
-                        size = self.topic_sizes.get(i, 10)
-                        fig.add_trace(go.Scatter(
-                            x=[x],
-                            y=[y],
-                            mode="markers+text",
-                            marker=dict(size=size / 5 + 10, opacity=0.8),
-                            text=[topic_name],
-                            name=topic_name,
-                            textposition="bottom center",
-                        ))
-                
-                # Update layout
-                fig.update_layout(
-                    title="Topic Visualization",
-                    width=width,
-                    height=height,
-                    xaxis=dict(title="Dimension 1", showticklabels=False),
-                    yaxis=dict(title="Dimension 2", showticklabels=False),
-                )
-                
-                return fig
-            else:
-                logger.warning("Topic vectors not available for visualization")
-                return None
+            raise ValueError("Model must be fitted before topics can be visualized.")
+        
+        if hasattr(self.model, 'visualize_topics'):
+            return self.model.visualize_topics(**kwargs)
+        else:
+            raise NotImplementedError(f"Visualization not implemented for {self.method}")
     
-    def visualize_hierarchy(
-        self,
-        width: int = 1000,
-        height: int = 600,
-    ) -> Any:
-        """Visualize topic hierarchy.
+    def get_topic_info(self) -> pd.DataFrame:
+        """Get information about discovered topics.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with topic information
+        """
+        if not self.is_fitted:
+            raise ValueError("Model must be fitted before topic info can be retrieved.")
+        
+        if hasattr(self.model, 'get_topic_info'):
+            return self.model.get_topic_info()
+        else:
+            # Create a standardized topic info dataframe
+            data = []
+            for topic_id, topic_words in self.topics.items():
+                data.append({
+                    'Topic': topic_id,
+                    'Count': self.topic_sizes.get(topic_id, 0),
+                    'Name': f"Topic {topic_id}",
+                    'Representation': str(topic_words)
+                })
+            return pd.DataFrame(data)
+    
+    def get_document_topics(self, documents: Union[List[str], pd.Series]) -> pd.DataFrame:
+        """Get topic assignments for documents.
         
         Parameters
         ----------
-        width : int, optional
-            Width of the visualization, by default 1000
-        height : int, optional
-            Height of the visualization, by default 600
-            
+        documents : Union[List[str], pd.Series]
+            List of document texts to assign to topics
+        
         Returns
         -------
-        Any
-            Visualization object (typically a plotly Figure)
+        pd.DataFrame
+            DataFrame with document-topic assignments
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before visualization")
-            
-        if self.method == "bertopic":
-            return self.model.visualize_hierarchy(width, height)
-        elif self.method == "top2vec":
-            logger.warning("Hierarchy visualization not available for Top2Vec")
-            return None
+            raise ValueError("Model must be fitted before topics can be assigned.")
+        
+        topic_assignments, probabilities = self.transform(documents)
+        
+        # Create a standardized document-topic dataframe
+        result = pd.DataFrame({
+            'document_id': range(len(documents)),
+            'topic': topic_assignments,
+            'probability': np.max(probabilities, axis=1) if len(probabilities.shape) > 1 else probabilities
+        })
+        
+        return result
     
-    def save(self, path: Union[str, Path]) -> None:
+    def save(self, path: str) -> None:
         """Save the model to disk.
         
         Parameters
         ----------
-        path : Union[str, Path]
+        path : str
             Path to save the model to
         """
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         
-        # Save the underlying model
-        self.model.save(path / f"{self.method}_model")
-        
-        # Save the unified model metadata
-        metadata = {
-            "method": self.method,
-            "n_topics": self.n_topics,
-            "min_topic_size": self.min_topic_size,
-            "use_gpu": self.use_gpu,
-            "advanced_config": self.advanced_config,
-            "is_fitted": self.is_fitted,
-            "topics": {str(k): v for k, v in self.topics.items()},
-            "topic_sizes": {str(k): v for k, v in self.topic_sizes.items()},
+        # Save attributes
+        model_data = {
+            'method': self.method,
+            'num_topics': self.num_topics,
+            'config_overrides': self.config_overrides,
+            'is_fitted': self.is_fitted,
+            'topics': self.topics,
+            'topic_sizes': self.topic_sizes
         }
         
-        with open(path / "unified_metadata.json", "w") as f:
-            json.dump(metadata, f)
+        # Save underlying model if it has a save method
+        model_path = f"{path}_underlying_model"
+        if hasattr(self.model, 'save'):
+            self.model.save(model_path)
+            model_data['underlying_model_path'] = model_path
+        else:
+            # Fallback to pickle if no save method
+            with open(f"{model_path}.pkl", 'wb') as f:
+                pickle.dump(self.model, f)
+            model_data['underlying_model_pickle'] = f"{model_path}.pkl"
+        
+        # Save model data
+        with open(path, 'wb') as f:
+            pickle.dump(model_data, f)
     
     @classmethod
-    def load(
-        cls,
-        path: Union[str, Path],
-        embedding_model: Optional[DocumentEmbedding] = None,
-    ) -> "UnifiedTopicModeler":
+    def load(cls, path: str) -> "UnifiedTopicModeler":
         """Load a model from disk.
         
         Parameters
         ----------
-        path : Union[str, Path]
+        path : str
             Path to load the model from
-        embedding_model : Optional[DocumentEmbedding], optional
-            Embedding model to use, by default None
-            
+        
         Returns
         -------
         UnifiedTopicModeler
             Loaded model
         """
-        path = Path(path)
+        # Load model data
+        with open(path, 'rb') as f:
+            model_data = pickle.load(f)
         
-        # Load metadata
-        with open(path / "unified_metadata.json", "r") as f:
-            metadata = json.load(f)
-            
         # Create instance
         instance = cls(
-            method=metadata["method"],
-            n_topics=metadata["n_topics"],
-            embedding_model=embedding_model,
-            min_topic_size=metadata["min_topic_size"],
-            use_gpu=metadata["use_gpu"],
-            advanced_config=metadata["advanced_config"],
-            verbose=True,
+            method=model_data['method'],
+            num_topics=model_data['num_topics'],
+            config_overrides=model_data['config_overrides']
         )
         
-        # Load the underlying model
-        if metadata["method"] == "bertopic":
-            from meno.modeling.bertopic_model import BERTopicModel
-            instance.model = BERTopicModel.load(
-                path / "bertopic_model",
-                embedding_model=embedding_model,
-            )
-        elif metadata["method"] == "top2vec":
-            from meno.modeling.top2vec_model import Top2VecModel
-            instance.model = Top2VecModel.load(
-                path / "top2vec_model",
-                embedding_model=embedding_model,
-            )
-            
-        # Load other attributes
-        instance.topics = {int(k): v for k, v in metadata["topics"].items()}
-        instance.topic_sizes = {int(k): v for k, v in metadata["topic_sizes"].items()}
-        instance.is_fitted = metadata["is_fitted"]
+        # Load underlying model
+        if 'underlying_model_path' in model_data:
+            if instance.method == 'bertopic':
+                instance.model = BERTopicModel.load(model_data['underlying_model_path'])
+            elif instance.method == 'top2vec':
+                instance.model = Top2VecModel.load(model_data['underlying_model_path'])
+            else:
+                # Fallback to using the appropriate class's load method
+                model_class = instance.model.__class__
+                instance.model = model_class.load(model_data['underlying_model_path'])
+        elif 'underlying_model_pickle' in model_data:
+            with open(model_data['underlying_model_pickle'], 'rb') as f:
+                instance.model = pickle.load(f)
+        
+        # Set attributes
+        instance.is_fitted = model_data['is_fitted']
+        instance.topics = model_data['topics']
+        instance.topic_sizes = model_data['topic_sizes']
         
         return instance
 
 
-# Convenience function
 def create_topic_modeler(
-    method: str = "bertopic",
-    n_topics: Optional[int] = None,
-    embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
-    min_topic_size: int = 10,
-    use_gpu: bool = False,
-    advanced_config: Optional[Dict[str, Any]] = None,
-    optimizer_config: Optional[Dict[str, Any]] = None,
-    verbose: bool = True,
-) -> UnifiedTopicModeler:
-    """Create a unified topic modeler.
+    method: str = "embedding_cluster",
+    num_topics: int = 10,
+    config_overrides: Optional[Dict[str, Any]] = None,
+    embedding_model: Optional[Union[str, DocumentEmbedding]] = None
+) -> BaseTopicModel:
+    """Create a topic modeler with the specified method.
+    
+    This factory function creates and returns an appropriate topic modeler
+    based on the specified method and configuration.
     
     Parameters
     ----------
     method : str, optional
-        Topic modeling method to use, by default "bertopic"
-        Options: "bertopic", "top2vec"
-    n_topics : Optional[int], optional
-        Number of topics to extract, by default None
+        The topic modeling method to use, by default "embedding_cluster"
+        Options: "bertopic", "top2vec", "embedding_cluster"
+    num_topics : int, optional
+        The number of topics to discover, by default 10
+    config_overrides : Optional[Dict[str, Any]], optional
+        Configuration overrides for the model, by default None
     embedding_model : Optional[Union[str, DocumentEmbedding]], optional
-        Embedding model to use, by default None
-    min_topic_size : int, optional
-        Minimum size of topics, by default 10
-    use_gpu : bool, optional
-        Whether to use GPU acceleration if available, by default False
-    advanced_config : Optional[Dict[str, Any]], optional
-        Advanced configuration options specific to the selected method, by default None
-    optimizer_config : Optional[Dict[str, Any]], optional
-        Configuration for hyperparameter optimization, by default None
-    verbose : bool, optional
-        Whether to display verbose output, by default True
-        
+        The embedding model to use, by default None
+    
     Returns
     -------
-    UnifiedTopicModeler
-        Initialized topic modeler
+    BaseTopicModel
+        An instance of the appropriate topic model
     """
+    config = get_config()
+    config_overrides = config_overrides or {}
+    
+    # Special case for directly creating a specific model type
+    if method == "bertopic":
+        return BERTopicModel(
+            n_topics=num_topics,
+            embedding_model=embedding_model,
+            **config_overrides
+        )
+    elif method == "top2vec":
+        return Top2VecModel(
+            n_topics=num_topics,
+            embedding_model=embedding_model,
+            **config_overrides
+        )
+    
+    # Use the unified interface for other methods
     return UnifiedTopicModeler(
         method=method,
-        n_topics=n_topics,
-        embedding_model=embedding_model,
-        min_topic_size=min_topic_size,
-        use_gpu=use_gpu,
-        advanced_config=advanced_config,
-        optimizer_config=optimizer_config,
-        verbose=verbose,
+        num_topics=num_topics,
+        config_overrides=config_overrides,
+        embedding_model=embedding_model
     )

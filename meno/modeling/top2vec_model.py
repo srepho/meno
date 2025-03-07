@@ -1,106 +1,94 @@
-"""Top2Vec model for topic modeling."""
+"""Top2Vec model implementation for topic modeling in Meno."""
 
-from typing import List, Dict, Optional, Union, Any, Tuple
+from typing import List, Dict, Optional, Union, Any, Tuple, Callable
 import numpy as np
 import pandas as pd
 import logging
-from pathlib import Path
-import pickle
 import os
+import pickle
+from pathlib import Path
+import warnings
+
+from .base import BaseTopicModel
+from .embeddings import DocumentEmbedding
+
+logger = logging.getLogger(__name__)
 
 try:
+    import umap
+    import hdbscan
+    from sklearn.cluster import KMeans
     from top2vec import Top2Vec
-    TOP2VEC_AVAILABLE = True
+    HAVE_DEPS = True
 except ImportError:
-    TOP2VEC_AVAILABLE = False
-
-from meno.modeling.base import BaseTopicModel
-from meno.modeling.embeddings import DocumentEmbedding
+    HAVE_DEPS = False
+    warnings.warn(
+        "Top2Vec dependencies not installed. "
+        "To use Top2VecModel, install with: pip install meno[top2vec]"
+    )
 
 
 class Top2VecModel(BaseTopicModel):
-    """Top2Vec model for topic modeling.
+    """Top2Vec model for topic discovery.
+    
+    This class provides a wrapper around the Top2Vec algorithm for topic discovery,
+    with integration into the Meno framework.
     
     Parameters
     ----------
-    embedding_model : Optional[DocumentEmbedding], optional
-        Document embedding model to use, by default None
-        If None, Top2Vec will use internal embeddings
-    n_topics : Optional[int], optional
-        Number of topics to extract, by default None
-        If None, Top2Vec automatically determines the number of topics
-    min_topic_size : int, optional
-        Minimum size of topics, by default 10
+    n_topics : int, optional
+        Number of topics to discover, by default 10
+    embedding_model : Union[str, DocumentEmbedding], optional
+        Model to use for document embeddings, by default None
+    umap_args : Dict[str, Any], optional
+        Arguments to pass to UMAP, by default None
+    hdbscan_args : Dict[str, Any], optional
+        Arguments to pass to HDBSCAN, by default None
+    low_memory : bool, optional
+        Whether to use low memory mode, by default False
     use_gpu : bool, optional
-        Whether to use GPU acceleration if available, by default False
-        Setting to False (default) ensures CPU-only operation and avoids CUDA dependencies
-    umap_args : Optional[Dict], optional
-        Arguments for UMAP, by default None
-    hdbscan_args : Optional[Dict], optional
-        Arguments for HDBSCAN, by default None
-    use_custom_embeddings : bool, optional
-        Whether to use custom embeddings from DocumentEmbedding, by default True
-        If False, Top2Vec will use its own embeddings
-    verbose : bool, optional
-        Whether to show verbose output, by default True
-    
-    Attributes
-    ----------
-    model : Top2Vec
-        Trained Top2Vec model
-    topics : Dict[int, str]
-        Mapping of topic IDs to topic descriptions
-    topic_sizes : Dict[int, int]
-        Mapping of topic IDs to topic sizes
+        Whether to use GPU for embedding computation, by default False
+    **kwargs : Any
+        Additional arguments to pass to Top2Vec
     """
     
     def __init__(
         self,
-        embedding_model: Optional[DocumentEmbedding] = None,
-        n_topics: Optional[int] = None,
-        min_topic_size: int = 10,
+        n_topics: int = 10,
+        embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
+        umap_args: Optional[Dict[str, Any]] = None,
+        hdbscan_args: Optional[Dict[str, Any]] = None,
+        low_memory: bool = False,
         use_gpu: bool = False,
-        umap_args: Optional[Dict] = None,
-        hdbscan_args: Optional[Dict] = None,
-        use_custom_embeddings: bool = True,
-        verbose: bool = True,
+        **kwargs
     ):
-        """Initialize the Top2Vec model."""
-        if not TOP2VEC_AVAILABLE:
+        if not HAVE_DEPS:
             raise ImportError(
-                "Top2Vec is required for this model. "
-                "Install with 'pip install top2vec>=1.0.27'"
+                "Top2Vec dependencies not installed. "
+                "To use Top2VecModel, install with: pip install meno[top2vec]"
             )
-            
-        self.n_topics = n_topics
-        self.min_topic_size = min_topic_size
-        self.use_gpu = use_gpu
-        self.umap_args = umap_args or {}
-        self.hdbscan_args = hdbscan_args or {
-            "min_cluster_size": min_topic_size,
-            "min_samples": 5,
-            "metric": "euclidean",
-            "cluster_selection_method": "eom",
-        }
-        self.use_custom_embeddings = use_custom_embeddings
-        self.verbose = verbose
         
-        # Set up embedding model if not provided and using custom embeddings
-        if embedding_model is None and use_custom_embeddings:
-            self.embedding_model = DocumentEmbedding(use_gpu=False)  # Default to CPU
-        else:
-            self.embedding_model = embedding_model
-            
-        # Initialize model to None
+        self.n_topics = n_topics
+        self.embedding_model = embedding_model
+        self.umap_args = umap_args or {}
+        self.hdbscan_args = hdbscan_args or {}
+        self.low_memory = low_memory
+        self.use_gpu = use_gpu
+        self.kwargs = kwargs
+        
+        # Initialize empty model and state flags
         self.model = None
+        self.is_fitted = False
         self.topics = {}
         self.topic_sizes = {}
-        self.is_fitted = False
-    
+        self.document_embeddings = None
+        self.document_ids = None
+        
     def fit(
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
+        **kwargs
     ) -> "Top2VecModel":
         """Fit the Top2Vec model to a set of documents.
         
@@ -110,87 +98,64 @@ class Top2VecModel(BaseTopicModel):
             List or Series of document texts
         embeddings : Optional[np.ndarray], optional
             Pre-computed document embeddings, by default None
-            If None and use_custom_embeddings=True, embeddings will be computed
+        **kwargs : Any
+            Additional arguments to pass to Top2Vec
             
         Returns
         -------
         Top2VecModel
             Fitted model
         """
-        # Convert pandas Series to list if needed
+        # Use specific num_topics if provided in kwargs
+        if 'num_topics' in kwargs:
+            self.n_topics = kwargs.pop('num_topics')
+        
+        # Convert pandas Series to list
         if isinstance(documents, pd.Series):
             documents = documents.tolist()
         
-        # Handle custom embeddings
-        if self.use_custom_embeddings:
-            if embeddings is None and self.embedding_model is not None:
-                embeddings = self.embedding_model.embed_documents(documents)
-                
-            # Initialize and fit Top2Vec with custom embeddings
-            self.model = Top2Vec(
-                documents=documents, 
-                document_vectors=embeddings,
-                embedding_model=None,  # Custom embeddings already provided
-                min_count=1,  # Not used with custom embeddings
-                keep_documents=True,
-                workers=os.cpu_count() or 1,
-                umap_args=self.umap_args,
-                hdbscan_args=self.hdbscan_args,
-                verbose=self.verbose,
-            )
-        else:
-            # Let Top2Vec handle embeddings
-            use_embedding = "doc2vec" if self.embedding_model is None else "universal-sentence-encoder"
-            speed = "learn" if self.embedding_model is None else "deep-learn"
-            
-            self.model = Top2Vec(
-                documents=documents,
-                embedding_model=use_embedding,
-                speed=speed,
-                min_count=1,
-                keep_documents=True,
-                workers=os.cpu_count() or 1,
-                umap_args=self.umap_args,
-                hdbscan_args=self.hdbscan_args,
-                verbose=self.verbose,
-            )
-            
-        # Reduce topics if specified
-        if self.n_topics is not None and self.n_topics < len(self.model.topic_sizes):
+        # Define Top2Vec parameters
+        params = {
+            "documents": documents,
+            "embedding_model": self.embedding_model,
+            "umap_args": self.umap_args,
+            "hdbscan_args": self.hdbscan_args,
+            "use_embedding_model_tokenizer": True,
+            "verbose": True
+        }
+        
+        # Update with instance kwargs and method kwargs
+        params.update(self.kwargs)
+        params.update(kwargs)
+        
+        # Use pre-computed embeddings if provided
+        if embeddings is not None:
+            params["document_vectors"] = embeddings
+        
+        # Fit Top2Vec model
+        logger.info(f"Fitting Top2Vec model with {self.n_topics} topics...")
+        self.model = Top2Vec(**params)
+        
+        # Reduce to target number of topics if needed
+        if hasattr(self.model, 'get_num_topics') and self.model.get_num_topics() > self.n_topics:
+            logger.info(f"Reducing to {self.n_topics} topics...")
             self.model.hierarchical_topic_reduction(self.n_topics)
-            
-        # Store topic information
-        self._extract_topic_info()
         
+        # Set instance attributes
+        self._update_topic_info()
+        self.document_embeddings = self.model.document_vectors
+        self.document_ids = list(range(len(documents)))
         self.is_fitted = True
+        
         return self
-    
-    def _extract_topic_info(self) -> None:
-        """Extract topic information from the fitted model."""
-        # Get topic words and sizes
-        topic_words, _, _ = self.model.get_topics()
-        topic_sizes = self.model.topic_sizes
-        
-        # Create topic descriptions
-        self.topics = {}
-        self.topic_sizes = {}
-        
-        for i, words in enumerate(topic_words):
-            # Skip outlier topic (-1)
-            if i < len(topic_sizes):
-                # Create topic description from top words
-                top_words = words[:5]
-                topic_name = f"Topic {i}: {', '.join(top_words)}"
-                self.topics[i] = topic_name
-                self.topic_sizes[i] = topic_sizes[i]
     
     def transform(
         self,
         documents: Union[List[str], pd.Series],
         embeddings: Optional[np.ndarray] = None,
-        top_n: int = 1,
+        **kwargs
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Assign documents to topics.
+        """Transform documents to topics.
         
         Parameters
         ----------
@@ -198,231 +163,323 @@ class Top2VecModel(BaseTopicModel):
             List or Series of document texts
         embeddings : Optional[np.ndarray], optional
             Pre-computed document embeddings, by default None
-        top_n : int, optional
-            Number of top topics to return for each document, by default 1
+        **kwargs : Any
+            Additional arguments to pass to the underlying model
             
         Returns
         -------
         Tuple[np.ndarray, np.ndarray]
-            Tuple of (topic_nums, topic_scores)
-            topic_nums has shape (n_documents, top_n)
-            topic_scores has shape (n_documents, top_n)
+            Tuple of (topic_assignments, topic_probabilities)
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before transform can be called")
-            
-        # Convert pandas Series to list if needed
-        if isinstance(documents, pd.Series):
-            documents = documents.tolist()
-            
-        # Handle custom embeddings
-        if self.use_custom_embeddings and embeddings is None and self.embedding_model is not None:
-            embeddings = self.embedding_model.embed_documents(documents)
-            
-        # Get document vectors if using custom embeddings
-        if self.use_custom_embeddings and embeddings is not None:
-            topic_nums, topic_scores = self.model.get_documents_topics(
-                doc_vectors=embeddings,
-                num_topics=top_n
-            )
-        else:
-            # Use Top2Vec's built-in methods
-            topic_nums, topic_scores = self.model.get_documents_topics(
-                doc_ids=None,  # Will use the documents passed to add_documents
-                num_topics=top_n
-            )
-            
-        return topic_nums, topic_scores
-    
-    def add_documents(
-        self,
-        documents: Union[List[str], pd.Series],
-        embeddings: Optional[np.ndarray] = None,
-    ) -> None:
-        """Add new documents to the trained model.
+            raise ValueError("Model must be fitted before transform can be called.")
         
-        Parameters
-        ----------
-        documents : Union[List[str], pd.Series]
-            List or Series of document texts to add
-        embeddings : Optional[np.ndarray], optional
-            Pre-computed document embeddings, by default None
-        """
-        if not self.is_fitted:
-            raise ValueError("Model must be fitted before adding documents")
-            
-        # Convert pandas Series to list if needed
+        # Convert pandas Series to list
         if isinstance(documents, pd.Series):
             documents = documents.tolist()
-            
-        # Handle custom embeddings
-        if self.use_custom_embeddings and embeddings is None and self.embedding_model is not None:
-            embeddings = self.embedding_model.embed_documents(documents)
-            
-        # Add documents to the model
-        if self.use_custom_embeddings and embeddings is not None:
-            self.model.add_documents(
-                documents=documents,
-                doc_vectors=embeddings
-            )
+        
+        # Use document embedding model if provided
+        if embeddings is None and hasattr(self.model, 'embed_documents'):
+            vectors = self.model.embed_documents(documents)
         else:
-            self.model.add_documents(documents=documents)
-            
-        # Update topic information
-        self._extract_topic_info()
+            vectors = embeddings
+        
+        # Get document scores
+        doc_topics, doc_scores = self.model.get_documents_topics(
+            doc_vectors=vectors, 
+            num_topics=kwargs.get('top_n', self.n_topics)
+        )
+        
+        # Convert to numpy arrays
+        topic_assignments = np.array(doc_topics)
+        topic_probabilities = np.array(doc_scores)
+        
+        # Ensure 2D array for probabilities (for consistency)
+        if len(topic_probabilities.shape) == 1:
+            topic_probabilities = topic_probabilities.reshape(-1, 1)
+        
+        return topic_assignments, topic_probabilities
+    
+    def _update_topic_info(self) -> None:
+        """Update topic information from the model."""
+        if not hasattr(self.model, 'topic_sizes'):
+            return
+        
+        # Get topic sizes
+        self.topic_sizes = {i: size for i, size in enumerate(self.model.topic_sizes)}
+        
+        # Get topic words
+        word_per_topic = 10
+        topic_words = self.model.get_topics(word_per_topic)
+        
+        # Format topic descriptions
+        self.topics = {}
+        for i, (words, _) in enumerate(topic_words):
+            self.topics[i] = ", ".join(words[:5])
+    
+    def get_topic_info(self) -> pd.DataFrame:
+        """Get information about discovered topics.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with topic information
+        """
+        if not self.is_fitted:
+            raise ValueError("Model must be fitted before topic info can be retrieved.")
+        
+        # Get topic words and scores
+        word_per_topic = 10
+        topic_words = self.model.get_topics(word_per_topic)
+        
+        # Create DataFrame
+        data = []
+        for i, (words, scores) in enumerate(topic_words):
+            data.append({
+                'Topic': i,
+                'Count': self.topic_sizes.get(i, 0),
+                'Name': f"Topic {i}",
+                'Words': words,
+                'Scores': scores,
+                'Representation': ", ".join(words[:5])
+            })
+        
+        return pd.DataFrame(data)
     
     def search_topics(
         self,
-        query: str,
-        n_topics: int = 5,
-    ) -> List[Tuple[int, str, float]]:
-        """Search for topics similar to a query.
+        search_term: str,
+        num_topics: int = 5
+    ) -> Tuple[List[int], List[float], List[List[str]]]:
+        """Search for topics related to a search term.
         
         Parameters
         ----------
-        query : str
-            Query string to search for
-        n_topics : int, optional
+        search_term : str
+            The search term to find related topics
+        num_topics : int, optional
             Number of topics to return, by default 5
             
         Returns
         -------
-        List[Tuple[int, str, float]]
-            List of tuples (topic_id, topic_name, score)
+        Tuple[List[int], List[float], List[List[str]]]
+            Tuple of (topic_ids, topic_scores, topic_words)
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before searching topics")
-            
-        # Use Top2Vec's search_topics method
-        topic_nums, topic_scores, _ = self.model.search_topics(
-            query=query,
-            num_topics=n_topics
+            raise ValueError("Model must be fitted before topics can be searched.")
+        
+        # Find topics related to search term
+        topic_nums, topic_scores, topic_words = self.model.search_topics(
+            search_term, num_topics
         )
         
-        results = []
-        for i, (topic_num, score) in enumerate(zip(topic_nums, topic_scores)):
-            if topic_num in self.topics:
-                results.append((topic_num, self.topics[topic_num], float(score)))
-                
-        return results
+        return topic_nums, topic_scores, topic_words
     
-    def search_documents(
+    def add_documents(
         self,
-        query: str,
-        n_docs: int = 10,
-    ) -> List[Tuple[str, float]]:
-        """Search for documents similar to a query.
+        documents: Union[List[str], pd.Series],
+        doc_ids: Optional[List[Any]] = None,
+        embeddings: Optional[np.ndarray] = None
+    ) -> None:
+        """Add new documents to the model.
         
         Parameters
         ----------
-        query : str
-            Query string to search for
-        n_docs : int, optional
-            Number of documents to return, by default 10
-            
-        Returns
-        -------
-        List[Tuple[str, float]]
-            List of tuples (document, score)
+        documents : Union[List[str], pd.Series]
+            List or Series of document texts
+        doc_ids : Optional[List[Any]], optional
+            List of document IDs, by default None
+        embeddings : Optional[np.ndarray], optional
+            Pre-computed document embeddings, by default None
         """
         if not self.is_fitted:
-            raise ValueError("Model must be fitted before searching documents")
-            
-        # Use Top2Vec's search_documents method
-        doc_ids, doc_scores = self.model.search_documents_by_keywords(
-            keywords=[query],
-            num_docs=n_docs
+            raise ValueError("Model must be fitted before documents can be added.")
+        
+        # Convert pandas Series to list
+        if isinstance(documents, pd.Series):
+            documents = documents.tolist()
+        
+        # Generate sequential IDs if not provided
+        if doc_ids is None:
+            last_id = max(self.document_ids) if self.document_ids else -1
+            doc_ids = [last_id + i + 1 for i in range(len(documents))]
+        
+        # Add documents to model
+        self.model.add_documents(
+            documents=documents,
+            doc_ids=doc_ids,
+            document_vectors=embeddings
         )
         
-        # Get the documents
-        documents = self.model.documents[doc_ids]
-        
-        # Create the result list
-        results = []
-        for doc, score in zip(documents, doc_scores):
-            results.append((doc, float(score)))
-            
-        return results
+        # Update instance attributes
+        self._update_topic_info()
+        self.document_embeddings = self.model.document_vectors
+        self.document_ids = self.model.doc_ids
     
-    def save(self, path: Union[str, Path]) -> None:
+    def save(self, path: str) -> None:
         """Save the model to disk.
         
         Parameters
         ----------
-        path : Union[str, Path]
+        path : str
             Path to save the model to
         """
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         
-        # Save Top2Vec model
-        self.model.save(str(path / "top2vec_model"))
+        # Save model attributes
+        model_data = {
+            'n_topics': self.n_topics,
+            'umap_args': self.umap_args,
+            'hdbscan_args': self.hdbscan_args,
+            'low_memory': self.low_memory,
+            'use_gpu': self.use_gpu,
+            'kwargs': self.kwargs,
+            'is_fitted': self.is_fitted,
+            'topics': self.topics,
+            'topic_sizes': self.topic_sizes,
+            'document_ids': self.document_ids
+        }
         
-        # Save other attributes
-        with open(path / "metadata.pkl", "wb") as f:
-            pickle.dump({
-                "n_topics": self.n_topics,
-                "min_topic_size": self.min_topic_size,
-                "use_gpu": self.use_gpu,
-                "umap_args": self.umap_args,
-                "hdbscan_args": self.hdbscan_args,
-                "use_custom_embeddings": self.use_custom_embeddings,
-                "verbose": self.verbose,
-                "topics": self.topics,
-                "topic_sizes": self.topic_sizes,
-                "is_fitted": self.is_fitted,
-            }, f)
+        # Save Top2Vec model separately
+        if self.model is not None:
+            model_path = f"{path}_top2vec_model"
+            # Use Top2Vec's save method
+            self.model.save(model_path)
+            model_data['model_path'] = model_path
+        
+        # Save model data
+        with open(path, 'wb') as f:
+            pickle.dump(model_data, f)
     
     @classmethod
-    def load(
-        cls,
-        path: Union[str, Path],
-        embedding_model: Optional[DocumentEmbedding] = None,
-    ) -> "Top2VecModel":
+    def load(cls, path: str) -> "Top2VecModel":
         """Load a model from disk.
         
         Parameters
         ----------
-        path : Union[str, Path]
+        path : str
             Path to load the model from
-        embedding_model : Optional[DocumentEmbedding], optional
-            Document embedding model to use, by default None
             
         Returns
         -------
         Top2VecModel
             Loaded model
         """
-        if not TOP2VEC_AVAILABLE:
-            raise ImportError(
-                "Top2Vec is required for this model. "
-                "Install with 'pip install top2vec>=1.0.27'"
-            )
-            
-        path = Path(path)
+        # Load model data
+        with open(path, 'rb') as f:
+            model_data = pickle.load(f)
         
-        # Load metadata
-        with open(path / "metadata.pkl", "rb") as f:
-            metadata = pickle.load(f)
-            
-        # Create instance with loaded parameters
+        # Create instance
         instance = cls(
-            embedding_model=embedding_model,
-            n_topics=metadata["n_topics"],
-            min_topic_size=metadata["min_topic_size"],
-            use_gpu=metadata["use_gpu"],
-            umap_args=metadata["umap_args"],
-            hdbscan_args=metadata["hdbscan_args"],
-            use_custom_embeddings=metadata["use_custom_embeddings"],
-            verbose=metadata["verbose"],
+            n_topics=model_data['n_topics'],
+            umap_args=model_data['umap_args'],
+            hdbscan_args=model_data['hdbscan_args'],
+            low_memory=model_data['low_memory'],
+            use_gpu=model_data['use_gpu'],
+            **model_data['kwargs']
         )
         
         # Load Top2Vec model
-        instance.model = Top2Vec.load(str(path / "top2vec_model"))
+        if 'model_path' in model_data:
+            instance.model = Top2Vec.load(model_data['model_path'])
         
-        # Load other attributes
-        instance.topics = metadata["topics"]
-        instance.topic_sizes = metadata["topic_sizes"]
-        instance.is_fitted = metadata["is_fitted"]
+        # Set instance attributes
+        instance.is_fitted = model_data['is_fitted']
+        instance.topics = model_data['topics']
+        instance.topic_sizes = model_data['topic_sizes']
+        instance.document_ids = model_data['document_ids']
+        if instance.model is not None:
+            instance.document_embeddings = instance.model.document_vectors
         
         return instance
+    
+    def visualize_topics(
+        self,
+        width: int = 800,
+        height: int = 600,
+        title: str = "Topic Distribution",
+        return_fig: bool = False,
+        colorscale: str = "Viridis",
+        **kwargs
+    ) -> Any:
+        """Visualize discovered topics.
+        
+        Parameters
+        ----------
+        width : int, optional
+            Width of the plot, by default 800
+        height : int, optional
+            Height of the plot, by default 600
+        title : str, optional
+            Title of the plot, by default "Topic Distribution"
+        return_fig : bool, optional
+            Whether to return the figure, by default False
+        colorscale : str, optional
+            Colorscale to use, by default "Viridis"
+        **kwargs : Any
+            Additional parameters for the visualization
+            
+        Returns
+        -------
+        Any
+            Visualization object if return_fig is True
+        """
+        if not self.is_fitted:
+            raise ValueError("Model must be fitted before topics can be visualized.")
+        
+        try:
+            import plotly.graph_objects as go
+            import plotly.express as px
+            from sklearn.manifold import TSNE
+            
+            # Get topic word distributions
+            topic_info = self.get_topic_info()
+            
+            # Get topic vectors
+            topic_vectors = self.model.topic_vectors
+            
+            # Reduce dimensions with t-SNE
+            tsne = TSNE(n_components=2, random_state=42)
+            topic_vectors_2d = tsne.fit_transform(topic_vectors)
+            
+            # Create DataFrame for visualization
+            viz_df = pd.DataFrame({
+                'Topic': topic_info['Topic'],
+                'Size': topic_info['Count'],
+                'X': topic_vectors_2d[:, 0],
+                'Y': topic_vectors_2d[:, 1],
+                'Description': [", ".join(words[:5]) for words in topic_info['Words']]
+            })
+            
+            # Create figure
+            fig = px.scatter(
+                viz_df,
+                x='X',
+                y='Y',
+                size='Size',
+                color='Topic',
+                hover_data=['Description'],
+                color_continuous_scale=colorscale,
+                title=title,
+                width=width,
+                height=height
+            )
+            
+            # Update layout
+            fig.update_layout(
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)
+            )
+            
+            if return_fig:
+                return fig
+            else:
+                fig.show()
+                
+        except ImportError:
+            warnings.warn(
+                "Plotly not installed. To use visualize_topics, "
+                "install with: pip install plotly"
+            )
+            return None
