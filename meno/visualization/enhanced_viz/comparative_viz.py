@@ -25,7 +25,8 @@ def compare_topic_models(
     n_topics: int = 10,
     topic_words: int = 10,
     comparison_method: str = "overlap",
-    figsize: Tuple[int, int] = (12, 8),
+    width: int = 1200,
+    height: int = 800,
 ):
     """
     Compare topics from different topic models.
@@ -37,7 +38,8 @@ def compare_topic_models(
         n_topics: Number of top topics to compare
         topic_words: Number of words per topic to use
         comparison_method: Method to use for comparison ('overlap', 'embedding', or 'correlation')
-        figsize: Figure size for the plot
+        width: Width of the visualization in pixels, by default 1200
+        height: Height of the visualization in pixels, by default 800
 
     Returns:
         fig: Plotly figure object
@@ -56,20 +58,20 @@ def compare_topic_models(
     
     # Create comparison visualization based on method
     if comparison_method == "overlap":
-        return _create_overlap_visualization(all_topics, model_names, figsize)
+        return _create_overlap_visualization(all_topics, model_names, width, height)
     elif comparison_method == "embedding":
-        return _create_embedding_visualization(all_topics, model_names, figsize)
+        return _create_embedding_visualization(all_topics, model_names, width, height)
     elif comparison_method == "correlation":
         # Get document-topic distributions
         doc_topics = []
         for model in models:
             doc_topics.append(model.transform(documents))
-        return _create_correlation_visualization(doc_topics, model_names, figsize)
+        return _create_correlation_visualization(doc_topics, model_names, width, height)
     else:
         raise ValueError("Invalid comparison method. Choose 'overlap', 'embedding', or 'correlation'")
 
 
-def _create_overlap_visualization(all_topics, model_names, figsize):
+def _create_overlap_visualization(all_topics, model_names, width, height):
     """Create visualization based on word overlap between topics."""
     n_models = len(model_names)
     n_topics = len(all_topics[0])
@@ -125,8 +127,8 @@ def _create_overlap_visualization(all_topics, model_names, figsize):
     
     fig.update_layout(
         title="Topic Similarity Across Models (Jaccard Similarity)",
-        width=figsize[0] * 100,
-        height=figsize[1] * 100,
+        width=width,
+        height=height,
         updatemenus=[{
             'buttons': buttons,
             'direction': 'down',
@@ -139,7 +141,7 @@ def _create_overlap_visualization(all_topics, model_names, figsize):
     return fig
 
 
-def _create_embedding_visualization(all_topics, model_names, figsize):
+def _create_embedding_visualization(all_topics, model_names, width, height):
     """Create visualization based on embedding similarity between topics."""
     try:
         from sentence_transformers import SentenceTransformer
@@ -187,8 +189,8 @@ def _create_embedding_visualization(all_topics, model_names, figsize):
         df, x='x', y='y', color='model', symbol='model',
         hover_data=['topic', 'topic_num'],
         title="Topic Similarity Across Models (Embedding Space)",
-        width=figsize[0] * 100,
-        height=figsize[1] * 100,
+        width=width,
+        height=height,
     )
     
     # Add lines connecting most similar topics between models
@@ -224,7 +226,7 @@ def _create_embedding_visualization(all_topics, model_names, figsize):
     return fig
 
 
-def _create_correlation_visualization(doc_topics, model_names, figsize):
+def _create_correlation_visualization(doc_topics, model_names, width, height):
     """Create visualization based on correlation of document-topic distributions."""
     n_models = len(model_names)
     
@@ -283,8 +285,8 @@ def _create_correlation_visualization(doc_topics, model_names, figsize):
     
     fig.update_layout(
         title="Topic Correlation Across Models (Document Distribution)",
-        width=figsize[0] * 100,
-        height=figsize[1] * 100,
+        width=width,
+        height=height,
         updatemenus=[{
             'buttons': buttons,
             'direction': 'down',
@@ -306,7 +308,8 @@ def visualize_topic_differences(
     metric: str = "topic_word_difference",
     n_topics: int = 10,
     n_words: int = 20,
-    figsize: Tuple[int, int] = (12, 10),
+    width: int = 1200,
+    height: int = 1000,
 ):
     """
     Visualize differences between topics in two different models.
@@ -323,22 +326,23 @@ def visualize_topic_differences(
                - 'topic_distribution': Compare topic prevalence
         n_topics: Number of top topics to compare
         n_words: Number of words per topic to visualize
-        figsize: Figure size for the plot
+        width: Width of the visualization in pixels, by default 1200
+        height: Height of the visualization in pixels, by default 1000
 
     Returns:
         fig: Plotly figure object
     """
     if metric == "topic_word_difference":
-        return _visualize_word_differences(model1, model2, model1_name, model2_name, n_topics, n_words, figsize)
+        return _visualize_word_differences(model1, model2, model1_name, model2_name, n_topics, n_words, width, height)
     elif metric == "document_assignment":
-        return _visualize_document_assignment_differences(model1, model2, model1_name, model2_name, documents, figsize)
+        return _visualize_document_assignment_differences(model1, model2, model1_name, model2_name, documents, width, height)
     elif metric == "topic_distribution":
-        return _visualize_topic_distribution_differences(model1, model2, model1_name, model2_name, documents, figsize)
+        return _visualize_topic_distribution_differences(model1, model2, model1_name, model2_name, documents, width, height)
     else:
         raise ValueError("Invalid metric. Choose from 'topic_word_difference', 'document_assignment', or 'topic_distribution'")
 
 
-def _visualize_word_differences(model1, model2, model1_name, model2_name, n_topics, n_words, figsize):
+def _visualize_word_differences(model1, model2, model1_name, model2_name, n_topics, n_words, width, height):
     """Visualize differences in top words for each topic between models."""
     # Get top words for each model
     model1_topics = {}
@@ -493,8 +497,8 @@ def _visualize_word_differences(model1, model2, model1_name, model2_name, n_topi
         xaxis_title="Words",
         yaxis_title="Weight",
         barmode='group',
-        width=figsize[0] * 100,
-        height=figsize[1] * 100,
+        width=width,
+        height=height,
         updatemenus=[{
             'buttons': buttons,
             'direction': 'down',
@@ -507,7 +511,7 @@ def _visualize_word_differences(model1, model2, model1_name, model2_name, n_topi
     return fig
 
 
-def _visualize_document_assignment_differences(model1, model2, model1_name, model2_name, documents, figsize):
+def _visualize_document_assignment_differences(model1, model2, model1_name, model2_name, documents, width, height):
     """Visualize differences in document topic assignments between models."""
     # Get document-topic distributions
     doc_topics1 = model1.transform(documents)
@@ -560,8 +564,8 @@ def _visualize_document_assignment_differences(model1, model2, model1_name, mode
         title=f"Document Assignment Confusion Matrix (Counts): {model1_name} vs {model2_name}",
         xaxis_title=f"{model2_name} Topics",
         yaxis_title=f"{model1_name} Topics",
-        width=figsize[0] * 100,
-        height=figsize[1] * 100,
+        width=width,
+        height=height,
     )
     
     # Update layout
@@ -569,8 +573,8 @@ def _visualize_document_assignment_differences(model1, model2, model1_name, mode
         title=f"Document Assignment Confusion Matrix: {model1_name} vs {model2_name}",
         xaxis_title=f"{model2_name} Topics",
         yaxis_title=f"{model1_name} Topics",
-        width=figsize[0] * 100,
-        height=figsize[1] * 100,
+        width=width,
+        height=height,
     )
     
     # Create button to toggle between proportion and count
@@ -606,7 +610,7 @@ def _visualize_document_assignment_differences(model1, model2, model1_name, mode
     return fig
 
 
-def _visualize_topic_distribution_differences(model1, model2, model1_name, model2_name, documents, figsize):
+def _visualize_topic_distribution_differences(model1, model2, model1_name, model2_name, documents, width, height):
     """Visualize differences in overall topic distributions between models."""
     # Get document-topic distributions
     doc_topics1 = model1.transform(documents)
@@ -654,8 +658,8 @@ def _visualize_topic_distribution_differences(model1, model2, model1_name, model
         hover_data=['Top Words'],
         title=f"Topic Prevalence Comparison: {model1_name} vs {model2_name}",
         labels={'Prevalence': 'Topic Prevalence (mean document-topic weight)'},
-        width=figsize[0] * 100,
-        height=figsize[1] * 100,
+        width=width,
+        height=height,
     )
     
     # Update layout

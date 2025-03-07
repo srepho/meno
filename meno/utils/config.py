@@ -57,6 +57,17 @@ class EmbeddingConfig(BaseModel):
     batch_size: int = 32
     use_gpu: bool = False
     local_model_path: Optional[str] = None
+    precision: str = "float32"  # "float32" or "float16"
+    use_mmap: bool = True
+    cache_dir: Optional[str] = None
+    cache_embeddings: bool = True
+    
+    @validator("precision")
+    def validate_precision(cls, v):
+        allowed = ["float32", "float16"]
+        if v not in allowed:
+            raise ValueError(f"precision must be one of {allowed}")
+        return v
 
 
 class LDAConfig(BaseModel):
@@ -293,15 +304,33 @@ class ExtendedVisualizationConfig(VisualizationConfig):
     category: CategoryVisualizationConfig = Field(default_factory=CategoryVisualizationConfig)
 
 
+class PerformanceConfig(BaseModel):
+    """Configuration for performance and memory management."""
+    
+    low_memory: bool = True
+    use_mmap: bool = True
+    cache_dir: Optional[str] = None
+    persist_embeddings: bool = True
+    clean_temp_files_on_exit: bool = True
+    precision: str = "float32"  # "float32" or "float16"
+    
+    @validator("precision")
+    def validate_precision(cls, v):
+        allowed = ["float32", "float16"]
+        if v not in allowed:
+            raise ValueError(f"precision must be one of {allowed}")
+        return v
+
 class ExtendedModelingConfig(ModelingConfig):
     """Extended modeling configuration with workflow-specific settings."""
     
     default_method: str = "embedding_cluster"
     default_num_topics: int = 10
+    performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     
     @validator("default_method")
     def validate_default_method(cls, v):
-        allowed = ["embedding_cluster", "lda"]
+        allowed = ["embedding_cluster", "lda", "bertopic"]
         if v not in allowed:
             raise ValueError(f"default_method must be one of {allowed}")
         return v
@@ -309,12 +338,13 @@ class ExtendedModelingConfig(ModelingConfig):
     # Update the embeddings config to include additional fields
     @validator("embeddings", pre=True)
     def update_embeddings_config(cls, v):
-        # Add quantize and low_memory if they don't exist in embeddings
+        # Add performance parameters if they don't exist in embeddings
         if isinstance(v, EmbeddingConfig):
             embeddings_dict = v.dict()
             embeddings_dict.setdefault("use_gpu", False)
-            embeddings_dict.setdefault("quantize", True)
-            embeddings_dict.setdefault("low_memory", True)
+            embeddings_dict.setdefault("precision", "float32")
+            embeddings_dict.setdefault("use_mmap", True)
+            embeddings_dict.setdefault("cache_embeddings", True)
             return EmbeddingConfig(**embeddings_dict)
         return v
 

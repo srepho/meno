@@ -1,6 +1,7 @@
 """Base classes for topic modeling in Meno."""
 
 from typing import List, Dict, Optional, Union, Any, Tuple, ClassVar
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod

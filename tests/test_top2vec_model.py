@@ -124,8 +124,8 @@ class TestTop2VecModel:
         # Fit the model
         fitted_model = top2vec_model.fit(sample_texts)
         
-        # Search for topics
-        similar_topics = fitted_model.search_topics("machine learning", n_topics=2)
+        # Test the standardized method name
+        similar_topics = fitted_model.find_similar_topics("machine learning", n_topics=2)
         
         # Check results
         assert len(similar_topics) <= 2  # May be fewer than 2 if not enough topics
@@ -135,6 +135,12 @@ class TestTop2VecModel:
             assert isinstance(similar_topics[0][0], int)  # topic_id
             assert isinstance(similar_topics[0][1], str)  # description
             assert isinstance(similar_topics[0][2], float)  # score
+            
+        # Test the legacy method for backward compatibility
+        topic_nums, topic_scores, topic_words = fitted_model.search_topics("machine learning", num_topics=2)
+        assert isinstance(topic_nums, list)
+        assert isinstance(topic_scores, list)
+        assert isinstance(topic_words, list)
 
     def test_search_documents(self, top2vec_model, sample_texts):
         """Test searching for documents."""

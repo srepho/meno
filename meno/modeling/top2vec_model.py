@@ -279,12 +279,50 @@ class Top2VecModel(BaseTopicModel):
         
         return df[all_columns]
     
+    def find_similar_topics(
+        self,
+        query: str,
+        n_topics: int = 5,
+        **kwargs
+    ) -> List[Tuple[int, str, float]]:
+        """Find topics similar to a query string.
+        
+        Parameters
+        ----------
+        query : str
+            The query string to find similar topics for
+        n_topics : int, optional
+            Number of similar topics to return, by default 5
+        **kwargs : Any
+            Additional keyword arguments, not used
+            
+        Returns
+        -------
+        List[Tuple[int, str, float]]
+            List of tuples (topic_id, topic_description, similarity_score)
+        """
+        if not self.is_fitted:
+            raise ValueError("Model must be fitted before topics can be searched.")
+        
+        # Find topics related to query
+        topic_nums, topic_scores, topic_words = self.model.search_topics(
+            query, n_topics
+        )
+        
+        # Format the results to match BaseTopicModel's standard format
+        results = []
+        for i, (topic_id, score, words) in enumerate(zip(topic_nums, topic_scores, topic_words)):
+            topic_desc = self.topics.get(topic_id, f"Topic {topic_id}")
+            results.append((topic_id, topic_desc, float(score)))
+        
+        return results
+        
     def search_topics(
         self,
         search_term: str,
         num_topics: int = 5
     ) -> Tuple[List[int], List[float], List[List[str]]]:
-        """Search for topics related to a search term.
+        """Search for topics related to a search term (deprecated, use find_similar_topics).
         
         Parameters
         ----------
@@ -349,20 +387,24 @@ class Top2VecModel(BaseTopicModel):
         self.document_embeddings = self.model.document_vectors
         self.document_ids = self.model.doc_ids
     
-    def save(self, path: str) -> None:
+    def save(self, path: Union[str, Path]) -> None:
         """Save the model to disk.
         
         Parameters
         ----------
-        path : str
+        path : Union[str, Path]
             Path to save the model to
         """
+        # Convert to Path object
+        path = Path(path)
+        
         # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         
         # Save model attributes
         model_data = {
             'n_topics': self.n_topics,
+            'num_topics': self.num_topics,  # Include standardized name
             'umap_args': self.umap_args,
             'hdbscan_args': self.hdbscan_args,
             'low_memory': self.low_memory,
@@ -371,12 +413,13 @@ class Top2VecModel(BaseTopicModel):
             'is_fitted': self.is_fitted,
             'topics': self.topics,
             'topic_sizes': self.topic_sizes,
-            'document_ids': self.document_ids
+            'document_ids': self.document_ids,
+            'auto_detect_topics': self.auto_detect_topics
         }
         
         # Save Top2Vec model separately
         if self.model is not None:
-            model_path = f"{path}_top2vec_model"
+            model_path = str(path) + "_top2vec_model"
             # Use Top2Vec's save method
             self.model.save(model_path)
             model_data['model_path'] = model_path
@@ -386,12 +429,12 @@ class Top2VecModel(BaseTopicModel):
             pickle.dump(model_data, f)
     
     @classmethod
-    def load(cls, path: str) -> "Top2VecModel":
+    def load(cls, path: Union[str, Path]) -> "Top2VecModel":
         """Load a model from disk.
         
         Parameters
         ----------
-        path : str
+        path : Union[str, Path]
             Path to load the model from
             
         Returns
@@ -399,13 +442,26 @@ class Top2VecModel(BaseTopicModel):
         Top2VecModel
             Loaded model
         """
+        # Convert to Path object
+        path = Path(path)
+        
         # Load model data
         with open(path, 'rb') as f:
             model_data = pickle.load(f)
         
+        # Handle standardized parameter names
+        if 'num_topics' in model_data:
+            num_topics = model_data['num_topics']
+            auto_detect_topics = model_data.get('auto_detect_topics', False)
+        else:
+            # Backward compatibility
+            num_topics = model_data['n_topics']
+            auto_detect_topics = False
+        
         # Create instance
         instance = cls(
-            n_topics=model_data['n_topics'],
+            num_topics=num_topics,
+            auto_detect_topics=auto_detect_topics,
             umap_args=model_data['umap_args'],
             hdbscan_args=model_data['hdbscan_args'],
             low_memory=model_data['low_memory'],
@@ -415,6 +471,7 @@ class Top2VecModel(BaseTopicModel):
         
         # Load Top2Vec model
         if 'model_path' in model_data:
+            from top2vec import Top2Vec
             instance.model = Top2Vec.load(model_data['model_path'])
         
         # Set instance attributes
