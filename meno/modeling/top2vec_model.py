@@ -1,6 +1,6 @@
 """Top2Vec model implementation for topic modeling in Meno."""
 
-from typing import List, Dict, Optional, Union, Any, Tuple, Callable
+from typing import List, Dict, Optional, Union, Any, Tuple, Callable, ClassVar
 import numpy as np
 import pandas as pd
 import logging
@@ -153,14 +153,20 @@ class Top2VecModel(BaseTopicModel):
         if embeddings is not None:
             params["document_vectors"] = embeddings
         
+        # Remove n_topics parameter as it's not accepted by Top2Vec
+        if 'n_topics' in params:
+            del params['n_topics']
+        
         # Fit Top2Vec model
-        logger.info(f"Fitting Top2Vec model with {self.n_topics} topics...")
+        logger.info(f"Fitting Top2Vec model with parameters: {params.keys()}")
         self.model = Top2Vec(**params)
         
-        # Reduce to target number of topics if needed
-        if hasattr(self.model, 'get_num_topics') and self.model.get_num_topics() > self.n_topics:
-            logger.info(f"Reducing to {self.n_topics} topics...")
-            self.model.hierarchical_topic_reduction(self.n_topics)
+        # Reduce to target number of topics if needed and if n_topics is not None
+        if self.n_topics is not None and hasattr(self.model, 'get_num_topics'):
+            current_topics = self.model.get_num_topics()
+            if current_topics > self.n_topics:
+                logger.info(f"Reducing from {current_topics} to {self.n_topics} topics...")
+                self.model.hierarchical_topic_reduction(self.n_topics)
         
         # Set instance attributes
         self._update_topic_info()

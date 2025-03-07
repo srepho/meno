@@ -97,10 +97,32 @@ class DocumentEmbedding:
             self.device = device
             
         # Load model
-        if local_model_path and os.path.exists(local_model_path):
-            self.model = SentenceTransformer(local_model_path, device=self.device)
-        else:
-            self.model = SentenceTransformer(model_name, device=self.device)
+        try:
+            if local_model_path and os.path.exists(local_model_path):
+                logger.info(f"Loading model from local path: {local_model_path}")
+                self.model = SentenceTransformer(local_model_path, device=self.device)
+            else:
+                # First try with local model cache handling
+                # This ensures models can be loaded when behind firewalls
+                local_cache_dir = os.path.expanduser("~/.cache/meno/models")
+                os.makedirs(local_cache_dir, exist_ok=True)
+                model_cache_path = os.path.join(local_cache_dir, model_name.replace("/", "_"))
+                
+                if os.path.exists(model_cache_path):
+                    logger.info(f"Loading model from local cache: {model_cache_path}")
+                    self.model = SentenceTransformer(model_cache_path, device=self.device)
+                else:
+                    logger.info(f"Downloading model: {model_name}")
+                    self.model = SentenceTransformer(model_name, device=self.device)
+                    # Save for future use
+                    try:
+                        self.model.save(model_cache_path)
+                        logger.info(f"Saved model to local cache: {model_cache_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to save model to local cache: {e}")
+        except Exception as e:
+            logger.error(f"Error loading model {model_name}: {e}")
+            raise
             
         self.embedding_dim = self.model.get_sentence_embedding_dimension()
         
@@ -411,8 +433,28 @@ class DocumentEmbedding:
         streaming_df = reader.select(text_column).collect(streaming=True)
         
         # Process in batches using the streaming iterator
+        # Polars API changed between versions; try compatible approaches
         batch_idx = 0
-        for batch_df in streaming_df.iter_batches(batch_size=batch_size):
+        try:
+            # Newer polars versions use iter_slices(n_rows)
+            for batch_df in streaming_df.iter_slices(batch_size):
+                pass  # Just to test the API
+            # If we got here, we can use iter_slices with n_rows
+            batch_iterator = streaming_df.iter_slices(batch_size)
+        except (TypeError, AttributeError):
+            try:
+                # Try older iter_batches API
+                for batch_df in streaming_df.iter_batches(batch_size=batch_size):
+                    pass  # Just to test the API
+                # If we got here, we can use iter_batches
+                batch_iterator = streaming_df.iter_batches(batch_size=batch_size)
+            except (TypeError, AttributeError):
+                # Fall back to chunk-wise processing
+                logger.warning("Polars streaming API incompatible; falling back to chunked processing")
+                batch_iterator = [streaming_df]
+                
+        # Process each batch
+        for batch_df in batch_iterator:
             texts = batch_df[text_column].to_list()
             
             # Create cache ID for this batch

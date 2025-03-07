@@ -65,12 +65,14 @@ class TestCPUEmbedding:
     def test_cpu_explicit_device_setting(self, embedding_model_cpu_explicit):
         """Test that the device is correctly set to CPU when explicitly specified."""
         assert embedding_model_cpu_explicit.device == "cpu"
-        assert embedding_model_cpu_explicit.model.device == "cpu"
+        # Check model device is a CPU device (SentenceTransformer returns torch.device objects)
+        assert str(embedding_model_cpu_explicit.model.device) == "cpu"
     
     def test_cpu_implicit_device_selection(self, embedding_model_cpu_implicit):
         """Test that device defaults to CPU when use_gpu=False."""
         assert embedding_model_cpu_implicit.device == "cpu"
-        assert embedding_model_cpu_implicit.model.device == "cpu"
+        # Check model device is a CPU device (SentenceTransformer returns torch.device objects)
+        assert str(embedding_model_cpu_implicit.model.device) == "cpu"
     
     def test_embed_with_pandas_series(self, embedding_model_cpu_explicit, sample_texts):
         """Test embedding a pandas Series on CPU."""

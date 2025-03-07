@@ -71,7 +71,8 @@ class TestTop2VecModel:
     def test_model_initialization(self, top2vec_model):
         """Test that the model initializes correctly."""
         # Check attributes
-        assert top2vec_model.n_topics == 3
+        assert top2vec_model.num_topics == 3  # Updated to use standardized parameter name
+        assert top2vec_model.n_topics == 3    # Legacy parameter should still be accessible
         assert top2vec_model.min_topic_size == 2
         assert top2vec_model.use_gpu is False
         assert top2vec_model.use_custom_embeddings is True

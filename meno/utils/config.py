@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Union, Any
 import os
 import yaml
 from pathlib import Path
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, field_validator
 
 
 class NormalizationConfig(BaseModel):
@@ -62,7 +62,7 @@ class EmbeddingConfig(BaseModel):
     cache_dir: Optional[str] = None
     cache_embeddings: bool = True
     
-    @validator("precision")
+    @field_validator("precision")
     def validate_precision(cls, v):
         allowed = ["float32", "float16"]
         if v not in allowed:
@@ -79,13 +79,13 @@ class LDAConfig(BaseModel):
     alpha: Union[str, float] = "auto"
     eta: Union[str, float] = "auto"
     
-    @validator("alpha")
+    @field_validator("alpha")
     def validate_alpha(cls, v):
         if isinstance(v, str) and v not in ["auto", "symmetric", "asymmetric"]:
             raise ValueError("alpha must be 'auto', 'symmetric', 'asymmetric', or a float")
         return v
     
-    @validator("eta")
+    @field_validator("eta")
     def validate_eta(cls, v):
         if isinstance(v, str) and v not in ["auto", "symmetric"]:
             raise ValueError("eta must be 'auto', 'symmetric', or a float")
@@ -101,14 +101,14 @@ class ClusteringConfig(BaseModel):
     cluster_selection_method: str = "eom"
     n_clusters: int = 10
     
-    @validator("algorithm")
+    @field_validator("algorithm")
     def validate_algorithm(cls, v):
         allowed = ["hdbscan", "kmeans", "agglomerative"]
         if v not in allowed:
             raise ValueError(f"algorithm must be one of {allowed}")
         return v
     
-    @validator("cluster_selection_method")
+    @field_validator("cluster_selection_method")
     def validate_selection_method(cls, v):
         allowed = ["eom", "leaf"]
         if v not in allowed:
@@ -185,7 +185,7 @@ class ExportConfig(BaseModel):
     formats: List[str] = Field(default_factory=lambda: ["csv", "json"])
     include_embeddings: bool = False
     
-    @validator("formats")
+    @field_validator("formats")
     def validate_formats(cls, v):
         allowed = ["csv", "json", "excel", "pickle"]
         for fmt in v:
@@ -244,21 +244,21 @@ class VisualizationDefaultsConfig(BaseModel):
     map_type: str = "point_map"
     trend_type: str = "line"
     
-    @validator("plot_type")
+    @field_validator("plot_type")
     def validate_plot_type(cls, v):
         allowed = ["embeddings", "distribution", "trends", "map", "timespace"]
         if v not in allowed:
             raise ValueError(f"plot_type must be one of {allowed}")
         return v
     
-    @validator("map_type")
+    @field_validator("map_type")
     def validate_map_type(cls, v):
         allowed = ["point_map", "choropleth", "density_map", "postcode_map"]
         if v not in allowed:
             raise ValueError(f"map_type must be one of {allowed}")
         return v
     
-    @validator("trend_type")
+    @field_validator("trend_type")
     def validate_trend_type(cls, v):
         allowed = ["line", "heatmap", "stacked_area", "ridge", "calendar"]
         if v not in allowed:
@@ -272,7 +272,7 @@ class TimeVisualizationConfig(BaseModel):
     date_format: str = "%Y-%m-%d"
     resample_freq: str = "W"  # Weekly
     
-    @validator("resample_freq")
+    @field_validator("resample_freq")
     def validate_resample_freq(cls, v):
         allowed = ["D", "W", "M", "Q", "Y"]
         if v not in allowed:
@@ -314,7 +314,7 @@ class PerformanceConfig(BaseModel):
     clean_temp_files_on_exit: bool = True
     precision: str = "float32"  # "float32" or "float16"
     
-    @validator("precision")
+    @field_validator("precision")
     def validate_precision(cls, v):
         allowed = ["float32", "float16"]
         if v not in allowed:
@@ -328,7 +328,7 @@ class ExtendedModelingConfig(ModelingConfig):
     default_num_topics: int = 10
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     
-    @validator("default_method")
+    @field_validator("default_method")
     def validate_default_method(cls, v):
         allowed = ["embedding_cluster", "lda", "bertopic"]
         if v not in allowed:
@@ -336,11 +336,11 @@ class ExtendedModelingConfig(ModelingConfig):
         return v
     
     # Update the embeddings config to include additional fields
-    @validator("embeddings", pre=True)
+    @validator("embeddings", pre=True)  # Keep using validator with pre=True since field_validator doesn't support it
     def update_embeddings_config(cls, v):
         # Add performance parameters if they don't exist in embeddings
         if isinstance(v, EmbeddingConfig):
-            embeddings_dict = v.dict()
+            embeddings_dict = v.model_dump()
             embeddings_dict.setdefault("use_gpu", False)
             embeddings_dict.setdefault("precision", "float32")
             embeddings_dict.setdefault("use_mmap", True)
@@ -469,7 +469,7 @@ def merge_configs(
         Merged configuration
     """
     # Convert to dict, update, and convert back
-    config_dict = base_config.dict()
+    config_dict = base_config.model_dump()
     
     # Recursively update the config
     def update_dict(d, u):
