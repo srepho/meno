@@ -67,6 +67,7 @@ class BERTopicModel(BaseTopicModel):
         n_neighbors: int = 15,
         n_components: int = 5,
         verbose: bool = True,
+        auto_detect_topics: bool = False,
         **kwargs
     ):
         """Initialize the BERTopic model."""
@@ -75,6 +76,11 @@ class BERTopicModel(BaseTopicModel):
                 "BERTopic is required for this model. "
                 "Install with 'pip install bertopic>=0.15.0'"
             )
+        
+        # Handle automatic topic detection
+        self.auto_detect_topics = auto_detect_topics
+        if auto_detect_topics:
+            num_topics = None  # Force automatic detection
         
         # Map standardized parameter name to BERTopic parameter
         n_topics = num_topics

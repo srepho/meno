@@ -21,8 +21,11 @@ class BaseTopicModel(ABC):
         Mapping of topic IDs to topic sizes
     is_fitted : bool
         Whether the model has been fitted
-    num_topics : int
+    num_topics : Optional[int]
         The number of topics in the model (standardized parameter name)
+        If None, the model will automatically determine the optimal number of topics
+    auto_detect_topics : bool
+        Whether the model should automatically detect the optimal number of topics
     API_VERSION : ClassVar[str]
         The API version this model implements
     """

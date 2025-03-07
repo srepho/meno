@@ -9,7 +9,8 @@ This document defines the standard API interfaces for Meno v1.0.0 to ensure cons
 
 | Standard Name | Description | Type | Used In |
 |---------------|-------------|------|---------|
-| `num_topics`  | Number of topics to discover | `int` | All topic models |
+| `num_topics`  | Number of topics to discover | `Optional[int]` | All topic models |
+| `auto_detect_topics` | Automatically determine optimal number of topics | `bool` | All topic models |
 | `embeddings`  | Document embeddings | `np.ndarray` | All models |
 | `documents`   | Input text documents | `Union[List[str], pd.Series]` | All models |
 | `min_topic_size` | Minimum size for topics | `int` | Most clustering-based models |

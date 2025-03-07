@@ -41,11 +41,23 @@ class UnifiedTopicModeler(BaseTopicModel):
     def __init__(
         self,
         method: str = "embedding_cluster",
-        num_topics: int = 10,
+        num_topics: Optional[int] = 10,
         config_overrides: Optional[Dict[str, Any]] = None,
-        embedding_model: Optional[Union[str, DocumentEmbedding]] = None
+        embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
+        auto_detect_topics: bool = False
     ):
         self.method = method
+        self.auto_detect_topics = auto_detect_topics
+        
+        # Handle automatic topic detection
+        if auto_detect_topics:
+            num_topics = None  # Force auto-detection
+            
+            # Add auto-detection configuration to overrides
+            if config_overrides is None:
+                config_overrides = {}
+            config_overrides['auto_detect_topics'] = True
+        
         self.num_topics = num_topics
         self.config_overrides = config_overrides or {}
         self.embedding_model = embedding_model
@@ -343,9 +355,10 @@ class UnifiedTopicModeler(BaseTopicModel):
 
 def create_topic_modeler(
     method: str = "embedding_cluster",
-    num_topics: int = 10,
+    num_topics: Optional[int] = 10,
     config_overrides: Optional[Dict[str, Any]] = None,
-    embedding_model: Optional[Union[str, DocumentEmbedding]] = None
+    embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
+    auto_detect_topics: bool = False
 ) -> BaseTopicModel:
     """Create a topic modeler with the specified method.
     
@@ -357,12 +370,18 @@ def create_topic_modeler(
     method : str, optional
         The topic modeling method to use, by default "embedding_cluster"
         Options: "bertopic", "top2vec", "embedding_cluster"
-    num_topics : int, optional
+    num_topics : Optional[int], optional
         The number of topics to discover, by default 10
+        If None or if auto_detect_topics=True, the model will automatically 
+        determine the optimal number of topics
     config_overrides : Optional[Dict[str, Any]], optional
         Configuration overrides for the model, by default None
     embedding_model : Optional[Union[str, DocumentEmbedding]], optional
         The embedding model to use, by default None
+    auto_detect_topics : bool, optional
+        Whether to automatically detect the optimal number of topics, by default False
+        If True, num_topics will be ignored and the model will determine the best
+        number of topics based on the data
     
     Returns
     -------
@@ -372,17 +391,28 @@ def create_topic_modeler(
     config = get_config()
     config_overrides = config_overrides or {}
     
+    # Handle auto-detection configuration
+    if auto_detect_topics:
+        if config_overrides is None:
+            config_overrides = {}
+        config_overrides['auto_detect_topics'] = True
+        
+        # Force num_topics to None for auto-detection
+        num_topics = None
+    
     # Special case for directly creating a specific model type
     if method == "bertopic":
         return BERTopicModel(
-            n_topics=num_topics,
+            num_topics=num_topics,  # Use standardized parameter name
             embedding_model=embedding_model,
+            auto_detect_topics=auto_detect_topics,
             **config_overrides
         )
     elif method == "top2vec":
         return Top2VecModel(
-            n_topics=num_topics,
+            num_topics=num_topics,  # Use standardized parameter name
             embedding_model=embedding_model,
+            auto_detect_topics=auto_detect_topics,
             **config_overrides
         )
     
@@ -391,5 +421,6 @@ def create_topic_modeler(
         method=method,
         num_topics=num_topics,
         config_overrides=config_overrides,
-        embedding_model=embedding_model
+        embedding_model=embedding_model,
+        auto_detect_topics=auto_detect_topics
     )

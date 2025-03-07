@@ -58,12 +58,13 @@ class Top2VecModel(BaseTopicModel):
     
     def __init__(
         self,
-        num_topics: int = 10,
+        num_topics: Optional[int] = 10,
         embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
         umap_args: Optional[Dict[str, Any]] = None,
         hdbscan_args: Optional[Dict[str, Any]] = None,
         low_memory: bool = False,
         use_gpu: bool = False,
+        auto_detect_topics: bool = False,
         **kwargs
     ):
         if not HAVE_DEPS:
@@ -71,6 +72,18 @@ class Top2VecModel(BaseTopicModel):
                 "Top2Vec dependencies not installed. "
                 "To use Top2VecModel, install with: pip install meno[top2vec]"
             )
+        
+        # Handle automatic topic detection
+        self.auto_detect_topics = auto_detect_topics
+        if auto_detect_topics:
+            # Top2Vec can automatically detect topics using HDBSCAN
+            num_topics = None  # Set to None for automatic detection
+            
+            # Ensure we have appropriate HDBSCAN args for auto-detection
+            if hdbscan_args is None:
+                hdbscan_args = {}
+            if 'min_cluster_size' not in hdbscan_args:
+                hdbscan_args['min_cluster_size'] = 15  # Default for reasonable clusters
         
         # Map standardized parameter name to model-specific parameter
         n_topics = num_topics
