@@ -4,7 +4,7 @@ A toolkit for topic modeling with both traditional (LDA) and
 modern embedding-based approaches, visualization, and reporting.
 """
 
-__version__ = "0.9.1"
+__version__ = "1.0.0"
 
 # Import key components for easy access
 from .meno import MenoTopicModeler

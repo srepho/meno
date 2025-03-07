@@ -5,6 +5,42 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-08-01
+
+### Added
+- **Standardized API:**
+  - Comprehensive API standardization across all models
+  - Automatic topic number detection capability
+  - Consistent parameter naming across all components
+  - Standardized visualization interface with uniform parameters
+  - Memory-mapped storage for large embedding matrices
+  - Common interface for working with document embeddings
+
+### Changed
+- **Breaking Changes:**
+  - Renamed `n_topics` to `num_topics` throughout the codebase
+  - Changed parameter types to be more consistent (e.g., Path parameters)
+  - Standardized return types for all methods
+  - Updated visualization functions to use consistent parameters
+  - Updated save/load methods for consistent behavior
+
+### Fixed
+- Fixed inconsistent method signatures and return types
+- Fixed memory issues with large datasets
+- Improved type annotations throughout the codebase
+- Standardized error handling and informative error messages
+
+### Removed
+- Removed legacy parameter names and compatibility layers
+- Removed deprecated visualization functions
+- Removed redundant code and unused imports
+
+### Documentation
+- Added comprehensive API reference documentation
+- Created migration guide from 0.x to 1.0.0
+- Added examples for all common use cases
+- Improved docstrings with consistent formatting
+
 ## [0.9.0] - 2025-06-05
 
 ### Added
