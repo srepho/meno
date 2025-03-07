@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meno"
-version = "1.1.0"
+version = "1.1.1"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
 requires-python = ">=3.8,<3.14"

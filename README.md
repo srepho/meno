@@ -1,4 +1,4 @@
-# Meno: Topic Modeling Toolkit (v1.1.0)
+# Meno: Topic Modeling Toolkit (v1.1.1)
 
 <p align="center">
   <img src="meno.webp" alt="Meno Logo" width="250"/>
