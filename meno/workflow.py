@@ -74,6 +74,8 @@ class MenoWorkflow:
         modeler: Optional[MenoTopicModeler] = None,
         config_path: Optional[Union[str, Path]] = None,
         config_overrides: Optional[Dict[str, Any]] = None,
+        local_model_path: Optional[str] = None,
+        local_files_only: bool = False,
     ):
         """Initialize the workflow with an optional existing modeler instance."""
         # Load workflow configuration
@@ -86,10 +88,20 @@ class MenoWorkflow:
         if config_overrides:
             self.config = merge_configs(self.config, config_overrides)
         
+        # Create embedding model with local settings if requested
+        embedding_model = None
+        if local_model_path or local_files_only:
+            from meno.modeling.embeddings import DocumentEmbedding
+            embedding_model = DocumentEmbedding(
+                local_model_path=local_model_path,
+                local_files_only=local_files_only
+            )
+        
         # Set up modeler
         self.modeler = modeler or MenoTopicModeler(
             config_path=config_path,
-            config_overrides=config_overrides
+            config_overrides=config_overrides,
+            embedding_model=embedding_model
         )
         
         # Initialize components based on configuration
@@ -901,16 +913,20 @@ class MenoWorkflow:
         if self.documents is None or self.text_column is None:
             raise ValueError("No data loaded. Call load_data() first.")
             
-        # Preprocess using the underlying modeler
+        # Update the TextNormalizer settings in the modeler first
+        self.modeler.text_normalizer.lowercase = lowercase
+        self.modeler.text_normalizer.remove_punctuation = remove_punctuation
+        self.modeler.text_normalizer.remove_numbers = remove_numbers
+        self.modeler.text_normalizer.lemmatize = lemmatize
+        
+        # Handle custom stopwords
+        if custom_stopwords:
+            self.modeler.text_normalizer.add_stopwords(custom_stopwords)
+        
+        # Then call preprocess with only the parameters it accepts
         processed_docs = self.modeler.preprocess(
             self.documents,
             text_column=self.text_column,
-            lowercase=lowercase,
-            remove_punctuation=remove_punctuation,
-            remove_numbers=remove_numbers,
-            remove_stopwords=remove_stopwords,
-            lemmatize=lemmatize,
-            custom_stopwords=custom_stopwords,
         )
         
         self.preprocessing_complete = True

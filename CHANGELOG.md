@@ -5,7 +5,33 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2025-08-15
+## [1.0.3] - 2025-03-08
+
+### Fixed
+- Fixed API inconsistency in MenoWorkflow.preprocess_documents() where it was passing parameters that MenoTopicModeler.preprocess() doesn't accept
+- Fixed parameter handling for text normalization options in workflow.py
+- Ensured preprocessing parameters are applied correctly to the TextNormalizer instance
+
+## [1.0.2] - 2025-03-08
+
+### Added
+- Enhanced support for offline/air-gapped environments
+- Added automatic fallback in spaCy model loading for offline environments
+- Added more detailed error messages for network issues
+- Added comprehensive examples for offline deployment
+
+### Improved
+- Strengthened error handling when working with missing network connectivity
+- Refined documentation for installation in restricted environments
+- Updated default embedding model implementation details
+- Enhanced test coverage for offline usage scenarios
+
+### Fixed
+- Improved error handling in spaCy model downloader
+- Added fallback paths for model loading in offline mode
+- Fixed edge cases in local model path resolution
+
+## [1.0.1] - 2024-08-03
 
 ### Added
 - Added support for offline/air-gapped environments
@@ -13,11 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced model loading to detect models in HuggingFace cache
 - Added example script for using locally downloaded models
 - Included wordcloud, gensim, and spacy in meno[minimal] installation
+- Added automatic spaCy model download on package import
+- Added support for custom embedding models in MenoTopicModeler
+- Added support for local model paths in MenoWorkflow
+- Changed default embedding model to sentence-transformers/all-MiniLM-L6-v2
 
 ### Improved
 - Better detection of local model files in standard HuggingFace locations
 - Updated README with offline installation instructions
 - Added support for loading models from custom paths
+- Improved error handling for offline environments
+- Added detailed documentation for offline usage scenarios
+- Added spaCy model as an optional dependency
+- Improved test coverage for local model loading
 
 ### Fixed
 - Improved error handling when models cannot be downloaded
