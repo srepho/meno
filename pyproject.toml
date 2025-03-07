@@ -8,7 +8,7 @@ version = "1.0.1"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
 requires-python = ">=3.8,<3.14"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Stephen Oates", email = "stephen.oates@example.com"},
 ]
