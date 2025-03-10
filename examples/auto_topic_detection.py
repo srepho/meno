@@ -11,6 +11,7 @@ from meno.modeling.unified_topic_modeling import create_topic_modeler
 from meno.modeling.embeddings import DocumentEmbedding
 from meno.visualization.static_plots import create_topic_visualization
 
+
 # Sample data
 documents = [
     "Machine learning algorithms require significant computational resources",
@@ -149,3 +150,12 @@ print("1. You have no prior knowledge about how many topics to expect")
 print("2. You want the model to find natural clusters in your data")
 print("3. You're doing exploratory analysis of an unknown corpus")
 print("4. You want to compare with a predetermined number of topics")
+
+# Show how documents are distributed across topics:
+
+print("\nDocument distribution across topics:")
+topic_assignments = unified_model.transform(documents_series)
+topic_counts = pd.Series(topic_assignments).value_counts()
+for topic, count in topic_counts.items():
+    percentage = (count / len(documents_series)) * 100
+    print(f"Topic {topic}: {count} documents ({percentage:.1f}%)")
