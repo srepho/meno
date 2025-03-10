@@ -24,6 +24,53 @@ from ..utils.team_config import (
     import_spelling_corrections_from_file
 )
 
+# Custom exception classes for better error handling
+class ConfigError(Exception):
+    """Base class for configuration-related errors."""
+    pass
+
+class ConfigNotFoundError(ConfigError):
+    """Raised when a configuration file is not found."""
+    pass
+
+class ConfigFormatError(ConfigError):
+    """Raised when a configuration file has invalid format."""
+    pass
+
+# Centralized error handling function
+def handle_error(error, exit_code=1):
+    """Handle errors in a consistent way."""
+    if isinstance(error, ConfigNotFoundError):
+        print(f"Configuration error: {str(error)}")
+    elif isinstance(error, json.JSONDecodeError):
+        print(f"JSON parsing error: {str(error)}")
+    elif isinstance(error, FileNotFoundError):
+        print(f"File not found: {str(error)}")
+    else:
+        print(f"Error: {str(error)}")
+    
+    if exit_code is not None:
+        sys.exit(exit_code)
+
+# Helper functions for file operations
+def load_json_file(file_path):
+    """Safely load a JSON file with error handling."""
+    try:
+        with open(file_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise ConfigNotFoundError(f"File {file_path} not found")
+    except json.JSONDecodeError as e:
+        raise ConfigFormatError(f"Invalid JSON in {file_path}: {str(e)}")
+    except Exception as e:
+        raise ConfigError(f"Failed to load JSON from {file_path}: {str(e)}")
+
+
+
+
+
+
+
 
 def create_config_cmd(args):
     """Create a new team configuration."""
