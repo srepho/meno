@@ -896,6 +896,7 @@ class MenoWorkflow:
         remove_stopwords: bool = True,
         lemmatize: bool = True,
         custom_stopwords: Optional[List[str]] = None,
+        additional_stopwords: Optional[List[str]] = None,
     ) -> pd.DataFrame:
         """Preprocess text data for topic modeling.
         
@@ -913,6 +914,8 @@ class MenoWorkflow:
             Whether to lemmatize words, by default True.
         custom_stopwords : Optional[List[str]], optional
             Custom stopwords to remove, by default None.
+        additional_stopwords : Optional[List[str]], optional
+            Additional stopwords to remove, alias for custom_stopwords, by default None.
             
         Returns
         -------
@@ -928,9 +931,15 @@ class MenoWorkflow:
         self.modeler.text_normalizer.remove_numbers = remove_numbers
         self.modeler.text_normalizer.lemmatize = lemmatize
         
-        # Handle custom stopwords
+        # Handle custom stopwords (combine both parameters for backward compatibility)
+        stopwords_to_add = []
         if custom_stopwords:
-            self.modeler.text_normalizer.add_stopwords(custom_stopwords)
+            stopwords_to_add.extend(custom_stopwords)
+        if additional_stopwords:
+            stopwords_to_add.extend(additional_stopwords)
+            
+        if stopwords_to_add:
+            self.modeler.text_normalizer.add_stopwords(stopwords_to_add)
         
         # Then call preprocess with only the parameters it accepts
         processed_docs = self.modeler.preprocess(
@@ -941,6 +950,56 @@ class MenoWorkflow:
         self.preprocessing_complete = True
         logger.info("Text preprocessing completed.")
         return processed_docs
+        
+    def get_preprocessed_data(self) -> pd.DataFrame:
+        """Get the preprocessed data.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with preprocessed text.
+        """
+        if not self.preprocessing_complete:
+            raise ValueError("No preprocessing has been performed. Call preprocess_documents() first.")
+            
+        return self.modeler.documents
+        
+    def set_topic_assignments(self, topic_assignments: pd.DataFrame) -> None:
+        """Set topic assignments from an external model (e.g., BERTopic).
+        
+        Parameters
+        ----------
+        topic_assignments : pd.DataFrame
+            DataFrame with topic assignments. 
+            Must contain columns 'topic' and optionally 'topic_probability'.
+            
+        Returns
+        -------
+        None
+        """
+        if self.modeler.documents is None:
+            raise ValueError("No documents loaded. Call load_data() and preprocess_documents() first.")
+            
+        if "topic" not in topic_assignments.columns:
+            raise ValueError("Topic assignments must contain a 'topic' column.")
+            
+        # Ensure the index matches
+        if not topic_assignments.index.equals(self.modeler.documents.index):
+            raise ValueError("Topic assignments index does not match documents index.")
+            
+        # Add topic assignments to the modeler's documents
+        self.modeler.documents["topic"] = topic_assignments["topic"]
+        
+        # Add topic probability if available
+        if "topic_probability" in topic_assignments.columns:
+            self.modeler.documents["topic_probability"] = topic_assignments["topic_probability"]
+            
+        # Set topic assignments in the modeler
+        self.modeler.topic_assignments = topic_assignments
+        
+        # Set modeling complete flag
+        self.modeling_complete = True
+        logger.info("Topic assignments set from external model.")
     
     def discover_topics(
         self,
