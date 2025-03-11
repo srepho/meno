@@ -180,6 +180,11 @@ class TextNormalizer:
             Normalized text
         """
         if not text or not isinstance(text, str):
+            # Return empty string for None, empty strings, or non-string inputs (like NaN/float values)
+            return ""
+            
+        # Handle pandas NaN or other float values that might slip through
+        if isinstance(text, float):
             return ""
         
         # Preprocess before spaCy
@@ -245,10 +250,18 @@ class TextNormalizer:
         else:
             text_list = texts
         
+        # Clean the input list to handle NaN values and non-strings
+        clean_list = []
+        for item in text_list:
+            if pd.isna(item) or isinstance(item, float) or not isinstance(item, str):
+                clean_list.append("")
+            else:
+                clean_list.append(item)
+        
         # Process in batches to avoid memory issues with large datasets
         normalized_texts = []
-        for i in range(0, len(text_list), batch_size):
-            batch = text_list[i:i + batch_size]
+        for i in range(0, len(clean_list), batch_size):
+            batch = clean_list[i:i + batch_size]
             
             # Process batch with SpaCy's pipe for efficiency
             docs = self.nlp.pipe(
@@ -327,6 +340,10 @@ def normalize_text(
     str
         Normalized text
     """
+    # Handle non-string inputs (including None, NaN, etc.)
+    if pd.isna(text) or not isinstance(text, str):
+        return ""
+        
     # Create stopwords config
     config = StopwordsConfig(
         use_default=True,

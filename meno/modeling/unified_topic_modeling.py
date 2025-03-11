@@ -11,8 +11,9 @@ import pickle
 from .base import BaseTopicModel
 from .bertopic_model import BERTopicModel
 from .top2vec_model import Top2VecModel
-from .embeddings import DocumentEmbedding, ModernTextEmbedding
-from ..utils.config import get_config, MenoConfig
+from .embeddings import DocumentEmbedding
+from .coherence import calculate_generic_coherence, GENSIM_AVAILABLE
+from ..utils.config import MenoConfig, load_config
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +218,85 @@ class UnifiedTopicModeler(BaseTopicModel):
             return self.model.visualize_topics(**kwargs)
         else:
             raise NotImplementedError(f"Visualization not implemented for {self.method}")
+            
+    def calculate_coherence(
+        self,
+        texts: List[List[str]],
+        coherence: str = "c_v",
+        top_n: int = 10,
+    ) -> Union[float, Dict[str, float]]:
+        """Calculate coherence metrics for the model.
+        
+        Parameters
+        ----------
+        texts : List[List[str]]
+            Tokenized texts (list of token lists)
+        coherence : str, optional
+            Coherence metric to use, by default "c_v"
+            Options: "c_v", "c_uci", "c_npmi", "u_mass", "all"
+            If "all", returns all available metrics
+        top_n : int, optional
+            Number of top words per topic to use, by default 10
+            
+        Returns
+        -------
+        Union[float, Dict[str, float]]
+            Coherence score or dictionary of scores if coherence="all"
+            
+        Raises
+        ------
+        ImportError
+            If gensim is not available
+        ValueError
+            If model is not fitted
+        """
+        if not GENSIM_AVAILABLE:
+            raise ImportError(
+                "Gensim is required for coherence calculation. "
+                "Install with 'pip install gensim>=4.0.0'"
+            )
+            
+        if not self.is_fitted:
+            raise ValueError("Model must be fitted before calculating coherence")
+            
+        # If model has its own coherence calculation method, use that
+        if hasattr(self.model, 'calculate_coherence'):
+            return self.model.calculate_coherence(
+                texts=texts,
+                coherence=coherence,
+                top_n=top_n
+            )
+        
+        # Otherwise calculate coherence ourselves using the topic words
+        topic_words = {}
+        
+        # Extract top words for each topic
+        topic_info = self.get_topic_info()
+        for _, row in topic_info.iterrows():
+            topic_id = row['Topic']
+            if topic_id != -1:  # Skip outlier topic
+                # Extract words from representation 
+                if isinstance(row['Representation'], str):
+                    # Try to parse comma-separated words
+                    try:
+                        words = [word.strip() for word in row['Representation'].split(',')]
+                    except:
+                        # If parsing fails, use the whole string
+                        words = [row['Representation']]
+                elif isinstance(row['Representation'], list):
+                    words = row['Representation']
+                else:
+                    words = [str(row['Representation'])]
+                    
+                topic_words[topic_id] = words
+        
+        # Calculate coherence using the generic function
+        return calculate_generic_coherence(
+            topic_words=topic_words,
+            texts=texts,
+            coherence=coherence,
+            top_n=top_n
+        )
     
     def get_topic_info(self) -> pd.DataFrame:
         """Get information about discovered topics.
@@ -388,7 +468,7 @@ def create_topic_modeler(
     BaseTopicModel
         An instance of the appropriate topic model
     """
-    config = get_config()
+    config = load_config()
     config_overrides = config_overrides or {}
     
     # Handle auto-detection configuration
@@ -402,18 +482,28 @@ def create_topic_modeler(
     
     # Special case for directly creating a specific model type
     if method == "bertopic":
+        # Remove auto_detect_topics from config_overrides if it's already passed as a parameter
+        model_config = config_overrides.copy()
+        if 'auto_detect_topics' in model_config:
+            del model_config['auto_detect_topics']
+            
         return BERTopicModel(
             num_topics=num_topics,  # Use standardized parameter name
             embedding_model=embedding_model,
             auto_detect_topics=auto_detect_topics,
-            **config_overrides
+            **model_config
         )
     elif method == "top2vec":
+        # Remove auto_detect_topics from config_overrides if it's already passed as a parameter
+        model_config = config_overrides.copy()
+        if 'auto_detect_topics' in model_config:
+            del model_config['auto_detect_topics']
+            
         return Top2VecModel(
             num_topics=num_topics,  # Use standardized parameter name
             embedding_model=embedding_model,
             auto_detect_topics=auto_detect_topics,
-            **config_overrides
+            **model_config
         )
     
     # Use the unified interface for other methods

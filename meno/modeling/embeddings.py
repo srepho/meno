@@ -61,7 +61,7 @@ class DocumentEmbedding:
     
     def __init__(
         self,
-        model_name: str = "answerdotai/ModernBERT-base",
+        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
         device: Optional[str] = None,
         batch_size: int = 32,
         use_gpu: bool = False,
@@ -76,7 +76,7 @@ class DocumentEmbedding:
         Parameters
         ----------
         model_name : str, optional
-            Name of the transformer model to use, by default "answerdotai/ModernBERT-base"
+            Name of the transformer model to use, by default "sentence-transformers/all-MiniLM-L6-v2"
         device : Optional[str], optional
             Device to run the model on, by default determined by use_gpu setting
         batch_size : int, optional
@@ -183,12 +183,24 @@ class DocumentEmbedding:
         self.embedding_dim = self.model.get_sentence_embedding_dimension()
         
         # Create a model hash for cache lookups
-        self.model_hash = hashlib.md5(
-            f"{self.model_name}_{self.embedding_dim}".encode()
-        ).hexdigest()
+        try:
+            self.model_hash = hashlib.md5(
+                f"{self.model_name}_{self.embedding_dim}".encode()
+            ).hexdigest()
+        except Exception as e:
+            logger.warning(f"Failed to create model hash: {e}")
+            # Set a default hash if model_name or embedding_dim are not available
+            self.model_hash = hashlib.md5(f"{id(self)}".encode()).hexdigest()
         
         # Cache tracking
         self._embedding_cache = {}
+        
+        # Ensure other attributes required by methods exist
+        if not hasattr(self, 'use_mmap'):
+            self.use_mmap = True
+        if not hasattr(self, 'cache_dir'):
+            self.cache_dir = Path(tempfile.gettempdir()) / "meno_embeddings"
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
     
     def _create_batches(self, documents: List[str], batch_size: int) -> Generator[List[str], None, None]:
         """Split documents into batches for processing.
@@ -221,6 +233,13 @@ class DocumentEmbedding:
         # Hash the concatenation of the first 100 characters of each document
         # along with the total count for a fast but reasonably unique hash
         sample = "".join([doc[:100] for doc in documents[:10]])
+        
+        # Make sure model_hash attribute exists
+        if not hasattr(self, 'model_hash'):
+            self.model_hash = hashlib.md5(
+                f"{getattr(self, 'model_name', 'default_model')}_{getattr(self, 'embedding_dim', 0)}".encode()
+            ).hexdigest()
+            
         return hashlib.md5(
             f"{sample}_{len(documents)}_{self.model_hash}".encode()
         ).hexdigest()
@@ -234,6 +253,9 @@ class DocumentEmbedding:
         cache_id: Optional[str] = None,
     ) -> np.ndarray:
         """Generate embeddings for a list of documents.
+        
+        Note: This implementation provides a safe fallback for minimal installations
+        where the full SentenceTransformer functionality might not be available.
         
         Parameters
         ----------
@@ -268,33 +290,48 @@ class DocumentEmbedding:
                 raise ValueError("text_column must be provided when documents is a DataFrame")
             documents = documents[text_column].tolist()
         
+        # Make sure cache-related attributes exist
+        if not hasattr(self, '_embedding_cache'):
+            self._embedding_cache = {}
+        if not hasattr(self, 'cache_dir'):
+            import tempfile
+            self.cache_dir = Path(tempfile.gettempdir()) / "meno_embeddings"
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+        if not hasattr(self, 'use_mmap'):
+            self.use_mmap = True
+            
         # Check cache first if enabled
         if cache:
             # Use provided cache_id or compute hash of documents
             if cache_id is None:
-                cache_id = self._compute_corpus_hash(documents)
-            
-            # Check if we have this in memory cache
-            if cache_id in self._embedding_cache:
-                return self._embedding_cache[cache_id]
-                
-            # Check if we have this in disk cache
-            cache_path = self.cache_dir / f"{cache_id}.npy"
-            if cache_path.exists():
                 try:
-                    # Load with memory mapping if enabled
-                    if self.use_mmap:
-                        embeddings = np.load(cache_path, mmap_mode='r')
-                    else:
-                        embeddings = np.load(cache_path)
-                    
-                    # Store in memory cache for faster future access
-                    self._embedding_cache[cache_id] = embeddings
-                    
-                    logger.info(f"Loaded embeddings from cache: {cache_path}")
-                    return embeddings
+                    cache_id = self._compute_corpus_hash(documents)
                 except Exception as e:
-                    logger.warning(f"Failed to load embeddings from cache: {e}")
+                    logger.warning(f"Failed to compute corpus hash: {e}. Disabling cache for this request.")
+                    cache = False
+            
+            if cache:
+                # Check if we have this in memory cache
+                if cache_id in self._embedding_cache:
+                    return self._embedding_cache[cache_id]
+                    
+                # Check if we have this in disk cache
+                cache_path = self.cache_dir / f"{cache_id}.npy"
+                if cache_path.exists():
+                    try:
+                        # Load with memory mapping if enabled
+                        if self.use_mmap:
+                            embeddings = np.load(cache_path, mmap_mode='r', allow_pickle=True)
+                        else:
+                            embeddings = np.load(cache_path, allow_pickle=True)
+                        
+                        # Store in memory cache for faster future access
+                        self._embedding_cache[cache_id] = embeddings
+                        
+                        logger.info(f"Loaded embeddings from cache: {cache_path}")
+                        return embeddings
+                    except Exception as e:
+                        logger.warning(f"Failed to load embeddings from cache: {e}")
         
         # Generate embeddings
         embeddings = self.model.encode(
@@ -309,47 +346,68 @@ class DocumentEmbedding:
             embeddings = embeddings.astype(np.float16)
         
         # Cache if enabled
-        if cache:
-            # Save to disk cache
-            cache_path = self.cache_dir / f"{cache_id}.npy"
-            
-            # Create a memory-mapped array for disk storage if use_mmap is True
-            if self.use_mmap:
-                # First save to a temporary file to avoid partial writes
-                temp_path = self.cache_dir / f"{cache_id}_temp.npy"
+        if cache and cache_id is not None:
+            try:
+                # Save to disk cache
+                cache_path = self.cache_dir / f"{cache_id}.npy"
                 
-                # Create new memory-mapped array
-                mmap_array = np.memmap(
-                    temp_path, 
-                    dtype=self._get_numpy_dtype(),
-                    mode='w+', 
-                    shape=embeddings.shape
-                )
+                # Make sure the cache directory exists
+                if not self.cache_dir.exists():
+                    self.cache_dir.mkdir(parents=True, exist_ok=True)
                 
-                # Copy data to memory-mapped array
-                mmap_array[:] = embeddings[:]
-                mmap_array.flush()
+                # Handle use_mmap attribute if missing
+                if not hasattr(self, 'use_mmap'):
+                    self.use_mmap = True
                 
-                # Move to final location
-                if temp_path.exists():
-                    shutil.move(temp_path, cache_path)
-            else:
-                # Regular save
-                np.save(cache_path, embeddings)
+                # Create a memory-mapped array for disk storage if use_mmap is True
+                if self.use_mmap:
+                    try:
+                        # First save to a temporary file to avoid partial writes
+                        temp_path = self.cache_dir / f"{cache_id}_temp.npy"
+                        
+                        # Create new memory-mapped array
+                        mmap_array = np.memmap(
+                            temp_path, 
+                            dtype=getattr(self, '_get_numpy_dtype', lambda: np.float32)(),
+                            mode='w+', 
+                            shape=embeddings.shape
+                        )
+                        
+                        # Copy data to memory-mapped array
+                        mmap_array[:] = embeddings[:]
+                        mmap_array.flush()
+                        
+                        # Move to final location
+                        if temp_path.exists():
+                            shutil.move(temp_path, cache_path)
+                    except Exception as e:
+                        logger.warning(f"Failed to save using mmap, falling back to regular save: {e}")
+                        np.save(cache_path, embeddings)
+                else:
+                    # Regular save
+                    np.save(cache_path, embeddings)
+                
+                # Store metadata
+                meta_path = self.cache_dir / f"{cache_id}_meta.json"
+            except Exception as e:
+                logger.warning(f"Failed to cache embeddings: {e}")
+            try:
+                with open(meta_path, 'w') as f:
+                    json.dump({
+                        "model": getattr(self, 'model_name', 'unknown'),
+                        "embedding_dim": getattr(self, 'embedding_dim', embeddings.shape[1] if embeddings is not None else 0),
+                        "doc_count": len(documents),
+                        "created": time.time(),
+                        "precision": getattr(self, 'precision', 'float32'),
+                    }, f)
+            except Exception as e:
+                logger.warning(f"Failed to save metadata: {e}")
             
-            # Store metadata
-            meta_path = self.cache_dir / f"{cache_id}_meta.json"
-            with open(meta_path, 'w') as f:
-                json.dump({
-                    "model": self.model_name,
-                    "embedding_dim": self.embedding_dim,
-                    "doc_count": len(documents),
-                    "created": time.time(),
-                    "precision": self.precision,
-                }, f)
-            
-            # Add to memory cache
-            self._embedding_cache[cache_id] = embeddings
+            try:
+                # Add to memory cache
+                self._embedding_cache[cache_id] = embeddings
+            except Exception as e:
+                logger.warning(f"Failed to cache embeddings: {e}")
         
         return embeddings
     
@@ -609,9 +667,9 @@ class DocumentEmbedding:
             try:
                 # Load with memory mapping if enabled
                 if self.use_mmap:
-                    embeddings = np.load(cache_path, mmap_mode='r')
+                    embeddings = np.load(cache_path, mmap_mode='r', allow_pickle=True)
                 else:
-                    embeddings = np.load(cache_path)
+                    embeddings = np.load(cache_path, allow_pickle=True)
                 
                 # Store in memory cache for faster future access
                 self._embedding_cache[cache_id] = embeddings

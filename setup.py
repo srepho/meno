@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="meno",
-    version="1.0.1",
+    version="1.1.2",
     description="Topic modeling toolkit for messy text data",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -13,6 +13,7 @@ setup(
     url="https://github.com/srepho/meno",
     packages=find_packages(),
     include_package_data=True,
+    package_data={"meno": ["default_config.yaml", "config/*.yaml"]},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
@@ -48,6 +49,25 @@ setup(
             "bertopic>=0.15.0,<0.16.0",
             "gensim>=4.3.0,<5.0.0",
             "spacy>=3.5.0,<4.0.0",
+            "wordcloud>=1.9.0,<2.0.0",
+        ],
+        "spacy_model": [
+            "en_core_web_sm>=3.5.0,<4.0.0",
+        ],
+        "full": [
+            "sentence-transformers>=2.2.2,<3.0.0",
+            "transformers>=4.28.0,<5.0.0",
+            "torch>=2.0.0,<3.0.0",
+            "gensim>=4.3.0,<5.0.0",
+            "plotly>=5.14.0,<6.0.0",
+            "umap-learn>=0.5.3,<0.6.0",
+            "hdbscan>=0.8.29,<0.9.0",
+            "spacy>=3.5.0,<4.0.0",
+            "en_core_web_sm>=3.5.0,<4.0.0",
+            "cleanlab>=2.3.0,<3.0.0",
+            "polars>=1.11.0,<1.15.0",
+            "bertopic>=0.15.0,<0.16.0",
+            "top2vec>=1.0.27,<2.0.0",
             "wordcloud>=1.9.0,<2.0.0",
         ],
     },
