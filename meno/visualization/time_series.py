@@ -13,6 +13,8 @@ import plotly.express as px
 from typing import Dict, List, Optional, Tuple, Union, Any
 from datetime import datetime
 
+DEFAULT_COLOR_SEQUENCE = px.colors.qualitative.Plotly
+
 def create_topic_trend_plot(
     df: pd.DataFrame,
     time_column: str,
@@ -26,6 +28,7 @@ def create_topic_trend_plot(
     title: str = "Topic Trends Over Time",
     height: int = 600,
     width: int = 800,
+    id_column: Optional[str] = None,
 ) -> go.Figure:
     """
     Create an interactive line chart showing topic trends over time.
@@ -57,6 +60,8 @@ def create_topic_trend_plot(
         Height of the plot in pixels
     width : int, default 800
         Width of the plot in pixels
+    id_column : Optional[str], default None
+        If provided, enables tracking of individual entities (claims, customers) across topics
         
     Returns
     -------
@@ -76,20 +81,56 @@ def create_topic_trend_plot(
         plot_df[time_column] = pd.to_datetime(plot_df[time_column])
     
     # Group by time interval and topic, then aggregate
+    # Use 'ME' instead of 'M' for month-end frequency to avoid deprecation warning
+    time_freq = time_interval
+    if time_interval == 'M':
+        time_freq = 'ME'
+        
+    group_cols = [pd.Grouper(key=time_column, freq=time_freq), topic_column]
+    
+    # Add ID column to grouping if provided
+    if id_column and id_column in plot_df.columns:
+        group_cols.append(id_column)
+        
     if value_column:
         # Aggregate provided values
-        agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
-            topic_column
-        ])[value_column].sum().reset_index()
+        agg_df = plot_df.groupby(group_cols)[value_column].sum().reset_index()
     else:
         # Count occurrences
-        agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
-            topic_column
-        ]).size().reset_index(name='count')
+        agg_df = plot_df.groupby(group_cols).size().reset_index(name='count')
         value_column = 'count'
     
+    # Process ID column if present to track entity movements
+    if id_column and id_column in agg_df.columns:
+        # Track unique entities per time period and topic
+        id_tracking = agg_df.drop_duplicates(subset=[time_column, id_column, topic_column])
+        
+        # Create entity transitions - this could be used for Sankey diagrams
+        entity_transitions = {}
+        for entity in plot_df[id_column].unique():
+            entity_data = plot_df[plot_df[id_column] == entity].sort_values(by=time_column)
+            if len(entity_data) > 1:
+                # Track topic changes over time for this entity
+                topics_sequence = entity_data[topic_column].tolist()
+                times_sequence = entity_data[time_column].tolist()
+                
+                for i in range(len(topics_sequence) - 1):
+                    from_topic = topics_sequence[i]
+                    to_topic = topics_sequence[i + 1]
+                    from_time = times_sequence[i]
+                    to_time = times_sequence[i + 1]
+                    
+                    if from_topic != to_topic:
+                        transition_key = (from_topic, to_topic)
+                        if transition_key not in entity_transitions:
+                            entity_transitions[transition_key] = {'count': 0, 'entities': set()}
+                        
+                        entity_transitions[transition_key]['count'] += 1
+                        entity_transitions[transition_key]['entities'].add(entity)
+        
+        # Now aggregate without the ID column for the main visualization
+        agg_df = agg_df.groupby([time_column, topic_column])[value_column].sum().reset_index()
+        
     # If requested, get only top N topics
     if top_n_topics:
         top_topics = agg_df.groupby(topic_column)[value_column].sum().nlargest(top_n_topics).index.tolist()
@@ -205,16 +246,21 @@ def create_topic_heatmap(
         plot_df[time_column] = pd.to_datetime(plot_df[time_column])
     
     # Group by time interval and topic, then aggregate
+    # Use 'ME' instead of 'M' for month-end frequency to avoid deprecation warning
+    time_freq = time_interval
+    if time_interval == 'M':
+        time_freq = 'ME'
+        
     if value_column:
         # Aggregate provided values
         agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
+            pd.Grouper(key=time_column, freq=time_freq),
             topic_column
         ])[value_column].sum().reset_index()
     else:
         # Count occurrences
         agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
+            pd.Grouper(key=time_column, freq=time_freq),
             topic_column
         ]).size().reset_index(name='count')
         value_column = 'count'
@@ -333,16 +379,21 @@ def create_topic_stacked_area(
         plot_df[time_column] = pd.to_datetime(plot_df[time_column])
     
     # Group by time interval and topic, then aggregate
+    # Use 'ME' instead of 'M' for month-end frequency to avoid deprecation warning
+    time_freq = time_interval
+    if time_interval == 'M':
+        time_freq = 'ME'
+        
     if value_column:
         # Aggregate provided values
         agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
+            pd.Grouper(key=time_column, freq=time_freq),
             topic_column
         ])[value_column].sum().reset_index()
     else:
         # Count occurrences
         agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
+            pd.Grouper(key=time_column, freq=time_freq),
             topic_column
         ]).size().reset_index(name='count')
         value_column = 'count'
@@ -463,16 +514,21 @@ def create_topic_ridge_plot(
         plot_df[time_column] = pd.to_datetime(plot_df[time_column])
     
     # Group by time interval and topic, then aggregate
+    # Use 'ME' instead of 'M' for month-end frequency to avoid deprecation warning
+    time_freq = time_interval
+    if time_interval == 'M':
+        time_freq = 'ME'
+    
     if value_column:
         # Aggregate provided values
         agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
+            pd.Grouper(key=time_column, freq=time_freq),
             topic_column
         ])[value_column].sum().reset_index()
     else:
         # Count occurrences
         agg_df = plot_df.groupby([
-            pd.Grouper(key=time_column, freq=time_interval),
+            pd.Grouper(key=time_column, freq=time_freq),
             topic_column
         ]).size().reset_index(name='count')
         value_column = 'count'
