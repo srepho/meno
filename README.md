@@ -926,6 +926,108 @@ With v1.2.0 adding advanced BERTopic features and LLM topic labeling, we're now 
 
 See our [detailed roadmap](ROADMAP.md) for more information and the [INTEGRATED_COMPONENTS_SUMMARY.md](INTEGRATED_COMPONENTS_SUMMARY.md) for details on our recent work.
 
+## CPU-Optimized Usage (No LLM Required)
+
+For CPU-bound systems without LLM integration needs, here's how to get the best performance:
+
+### Installation
+```bash
+# Install with CPU-optimized dependencies
+pip install "meno[embeddings,minimal]" -f https://download.pytorch.org/whl/torch_stable.html
+```
+
+### CPU-Optimized Topic Modeling
+```python
+import pandas as pd
+from meno import MenoTopicModeler
+
+# Define CPU-optimized configuration
+CPU_CONFIG = {
+    "preprocessing": {
+        "normalization": {
+            "lowercase": True,
+            "remove_punctuation": True,
+            "lemmatize": True,
+        },
+    },
+    "modeling": {
+        "embeddings": {
+            "model_name": "all-MiniLM-L6-v2",  # Small, fast model
+            "device": "cpu",                   # Explicitly use CPU
+            "use_gpu": False,                  # Disable GPU
+            "batch_size": 32,                  # CPU-optimized batch size
+            "quantize": True,                  # Reduce memory usage
+        },
+    },
+    "visualization": {
+        "umap": {
+            "n_neighbors": 15,
+            "min_dist": 0.1,
+        },
+    },
+}
+
+# Load your data
+df = pd.read_csv("your_documents.csv")
+
+# Initialize modeler with CPU configuration
+modeler = MenoTopicModeler(config_overrides=CPU_CONFIG)
+
+# Preprocess documents
+processed_docs = modeler.preprocess(
+    df, 
+    text_column="text",
+    remove_stopwords=True
+)
+
+# Generate embeddings and discover topics
+modeler.embed_documents()
+topics_df = modeler.discover_topics(
+    method="embedding_cluster",
+    auto_detect_topics=True,
+    modeling_approach="lightweight"  # Use NMF or TF-IDF-based approaches
+)
+
+# Generate comprehensive HTML report
+report_path = modeler.generate_report(
+    output_path="topic_report.html",
+    include_interactive=True,
+    title="Topic Modeling Report"
+)
+
+print(f"Report generated at {report_path}")
+```
+
+### Lightweight Model Options
+For even better CPU performance, try the direct model interfaces:
+
+```python
+from meno.modeling.simple_models.lightweight_models import TFIDFTopicModel, NMFTopicModel
+from meno.visualization.lightweight_viz import plot_topic_landscape
+
+# Load data
+documents = df["text"].tolist()
+
+# Create TF-IDF model (extremely CPU-efficient)
+model = TFIDFTopicModel(
+    auto_detect_topics=True,
+    max_features=2000,  # Limit vocabulary size
+    random_state=42
+)
+
+# Fit the model and get topic info
+model.fit(documents)
+topic_info = model.get_topic_info()
+
+# Create visualization (using PCA instead of UMAP for speed)
+fig = plot_topic_landscape(
+    model=model,
+    documents=documents,
+    method="pca"
+)
+fig.write_html("topic_landscape.html")
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
