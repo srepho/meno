@@ -3,18 +3,51 @@
 
 # # Quality-First CPU Topic Modeling with Meno
 # 
-# This notebook demonstrates how to prioritize quality over speed when running Meno on CPU-bound systems. This approach is ideal when:
+# This script demonstrates how to prioritize quality over speed when running Meno on CPU-bound systems.
+# It features robust API compatibility across different Meno versions and extends visualization options.
 # 
+# ## Usage Guide
+#
+# ### When to Use This Approach
+# 
+# This approach is ideal when:
 # - Processing time is not a critical concern
 # - You want the highest quality results possible
 # - You don't have GPU acceleration available
 # - You need superior topic separation and visualization
+# - You need to ensure compatibility across Meno versions
 # 
-# We'll use:
+# ### Adapting to Your Tasks
+# 
+# To adapt this script for other CPU-bound topic modeling tasks:
+# 
+# 1. **Data Source**: Replace the `generate_quality_sample_data()` function with your data loading logic
+#    - For CSV files: `df = pd.read_csv("your_data.csv")`
+#    - For JSON: `df = pd.read_json("your_data.json")`
+#    - For databases: Use appropriate connector and query
+# 
+# 2. **Configuration**: Modify the `QUALITY_CONFIG` dictionary to match your needs
+#    - Adjust embedding model based on your domain needs
+#    - Modify clustering parameters for your data characteristics
+#    - Tune visualization settings for your specific analysis goals
+# 
+# 3. **Model Path**: Update `LOCAL_MODEL_PATH` to point to your cached model location
+#    - Uncomment the auto-detection code to find locally cached models
+#    - Or specify a custom path to your downloaded model
+# 
+# 4. **Task-Specific Visualizations**: Add custom visualization code in the visualization section
+#    - For time series data: Add temporal analysis visualizations
+#    - For geospatial data: Add map-based visualizations
+#    - For hierarchical data: Enhance the topic hierarchy visualizations
+# 
+# ## Core Components Used
+# 
+# This script employs:
 # - The full-featured `all-MiniLM-L6-v2` embedding model
 # - UMAP dimensionality reduction (slower but better quality than PCA)
 # - BERTopic with HDBSCAN clustering for optimal topic coherence
 # - Detailed visualizations optimized for quality
+# - Robust API compatibility across different Meno versions
 
 # ## 1. Setup and Imports
 # 
@@ -696,10 +729,17 @@ except Exception as e:
     print(f"Could not access BERTopic model directly: {e}")
     print("Skipping BERTopic-specific visualizations which require direct model access.")
 
-# Instead, we'll create alternative visualizations using plotly
+# Create extended visualizations for different types of analysis
 try:
-    print("\nGenerating simple topic word distribution visualizations...")
+    print("\nGenerating extended visualization suite...")
     import plotly.graph_objects as go
+    import plotly.express as px
+    from plotly.subplots import make_subplots
+    
+    # =======================================================================
+    # 1. WORD DISTRIBUTION VISUALIZATIONS
+    # =======================================================================
+    print("\n1. Creating word distribution visualizations...")
     
     # For the top 5 topics, create bar charts of top words
     for topic_id in [t for t in topic_info["Topic"].unique() if t != -1][:5]:
@@ -718,26 +758,194 @@ try:
         words = [word for word, _ in sorted_words]
         counts = [count for _, count in sorted_words]
         
-        # Create bar chart
-        fig = go.Figure(go.Bar(
+        # Create enhanced bar chart with custom styling
+        fig = go.Figure()
+        
+        # Add main bar chart
+        fig.add_trace(go.Bar(
             x=words,
             y=counts,
             text=counts,
             textposition='auto',
+            marker_color='rgba(58, 71, 180, 0.7)',
+            marker_line_color='rgba(8, 48, 107, 1.0)',
+            marker_line_width=1
         ))
         
         fig.update_layout(
-            title=f"Top Words for {topic_labels.get(topic_id, f'Topic {topic_id}')}",
+            title={
+                'text': f"Top Words for {topic_labels.get(topic_id, f'Topic {topic_id}')}",
+                'y':0.95,
+                'x':0.5,
+                'xanchor': 'center',
+                'yanchor': 'top'
+            },
             xaxis_title="Words",
             yaxis_title="Frequency",
             width=1000,
-            height=600
+            height=600,
+            template="plotly_white",
+            # Add a subtle grid for better readability
+            xaxis=dict(
+                showgrid=False,
+                showline=True,
+                linecolor='lightgray',
+                tickangle=-45
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(230, 230, 230, 0.8)',
+                showline=True,
+                linecolor='lightgray'
+            )
         )
         
         fig.write_html(OUTPUT_DIR / f"topic_{topic_id}_word_distribution.html")
-        print(f"Word distribution for Topic {topic_id} saved")
+        print(f"Enhanced word distribution for Topic {topic_id} saved")
+    
+    # =======================================================================
+    # 2. TOPIC PROPORTION VISUALIZATION 
+    # =======================================================================
+    print("\n2. Creating topic proportion visualization...")
+    
+    # Create a pie chart showing distribution of topics
+    topic_counts = topics_df["topic"].value_counts().sort_index()
+    topic_names = [topic_labels.get(topic_id, f"Topic {topic_id}") for topic_id in topic_counts.index]
+    
+    fig = go.Figure(data=[go.Pie(
+        labels=topic_names,
+        values=topic_counts.values,
+        hole=.4,
+        textinfo='percent+label',
+    )])
+    
+    fig.update_layout(
+        title="Distribution of Topics",
+        width=900,
+        height=700,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        )
+    )
+    
+    fig.write_html(OUTPUT_DIR / "topic_proportion_distribution.html")
+    print("Topic proportion visualization saved")
+    
+    # =======================================================================
+    # 3. TOPIC COMPARISON VISUALIZATION
+    # =======================================================================
+    print("\n3. Creating topic comparison visualization...")
+    
+    # Compare top words across topics in a single visualization
+    # Select up to 4 topics for comparison
+    topics_to_compare = [t for t in topic_info["Topic"].unique() if t != -1][:min(4, len(topic_info))]
+    
+    # Create subplots
+    fig = make_subplots(rows=len(topics_to_compare), cols=1, 
+                       subplot_titles=[topic_labels.get(t, f"Topic {t}") for t in topics_to_compare],
+                       vertical_spacing=0.1)
+    
+    # Add bars for each topic
+    for i, topic_id in enumerate(topics_to_compare):
+        # Get top words
+        try:
+            words = get_top_words_for_topic(topics_df, topic_id, top_n=10)
+            if not words:
+                continue
+                
+            # Count occurrences
+            topic_docs = topics_df[topics_df['topic'] == topic_id]['processed_text']
+            word_counts = {}
+            for word in words:
+                word_counts[word] = sum(1 for doc in topic_docs if word in doc.split())
+            
+            # Sort by count
+            sorted_items = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
+            words = [item[0] for item in sorted_items]
+            counts = [item[1] for item in sorted_items]
+            
+            # Use different colors for each topic
+            colors = ['rgba(31, 119, 180, 0.7)', 'rgba(255, 127, 14, 0.7)', 
+                     'rgba(44, 160, 44, 0.7)', 'rgba(214, 39, 40, 0.7)']
+            
+            fig.add_trace(
+                go.Bar(
+                    x=words,
+                    y=counts,
+                    name=f"Topic {topic_id}",
+                    marker_color=colors[i % len(colors)]
+                ),
+                row=i+1, col=1
+            )
+        except Exception as e:
+            print(f"Could not create comparison for topic {topic_id}: {e}")
+    
+    fig.update_layout(
+        height=300 * len(topics_to_compare),
+        width=900,
+        title_text="Topic Word Comparison",
+        showlegend=False
+    )
+    
+    fig.write_html(OUTPUT_DIR / "topic_comparison.html")
+    print("Topic comparison visualization saved")
+    
+    # =======================================================================
+    # 4. INTERACTIVE DOCUMENT-TOPIC EXPLORER
+    # =======================================================================
+    print("\n4. Creating interactive document-topic explorer...")
+    
+    # Create a scatter plot of documents colored by topic
+    try:
+        # Add length of document as a feature
+        topics_df['doc_length'] = topics_df['processed_text'].apply(lambda x: len(x.split()))
+        
+        # Select a sample of documents (to avoid cluttering)
+        sample_size = min(300, len(topics_df))
+        df_sample = topics_df.sample(sample_size)
+        
+        # Create a scatter plot
+        fig = px.scatter(
+            df_sample, 
+            x='doc_length', 
+            y='topic', 
+            color='topic', 
+            hover_data=['text'],
+            opacity=0.7,
+            color_discrete_sequence=px.colors.qualitative.G10,
+            labels={
+                'doc_length': 'Document Length (words)',
+                'topic': 'Topic ID',
+                'text': 'Document Text'
+            }
+        )
+        
+        # Update layout
+        fig.update_layout(
+            title="Document-Topic Explorer",
+            xaxis_title="Document Length (words)",
+            yaxis_title="Topic ID",
+            width=1000,
+            height=700,
+            template="plotly_white"
+        )
+        
+        # Add custom hover template to show excerpt of text
+        fig.update_traces(
+            hovertemplate='<b>Topic:</b> %{y}<br><b>Doc Length:</b> %{x}<br><b>Text:</b> %{customdata[0]:.60}...'
+        )
+        
+        fig.write_html(OUTPUT_DIR / "document_topic_explorer.html")
+        print("Document-topic explorer saved")
+    except Exception as e:
+        print(f"Could not create document-topic explorer: {e}")
+        
 except Exception as e:
-    print(f"Could not create word distribution visualizations: {e}")
+    print(f"Could not create extended visualizations: {e}")
 
 # Measure visualization time
 viz_time = time.time() - start_time
@@ -951,5 +1159,24 @@ if "primary_topic" in df.columns and 'ami' in locals():
 # 3. **Flexible configuration**: Compatible settings for different Meno versions
 # 4. **Alternative implementations**: Custom methods when direct API access isn't available
 # 5. **Progressive enhancement**: Attempts richer features first, falls back to simpler ones
+# 
+# ### Visualization Extensions
+# 
+# The script provides several types of visualizations for different analytical needs:
+# 
+# 1. **Enhanced Word Distribution**: Improved bar charts with better styling for top words per topic
+# 2. **Topic Proportion Distribution**: Interactive pie charts showing relative sizes of topics
+# 3. **Multi-Topic Comparison**: Side-by-side comparison of key words across topics
+# 4. **Document-Topic Explorer**: Interactive scatter plot to explore documents by topic and length
+# 
+# ### Adapting to Other Domain-Specific Topic Modeling Tasks
+# 
+# To adapt this script for other domains:
+# 
+# - **Medical Text Analysis**: Adjust preprocessing to handle medical terminology; consider using domain-specific embeddings
+# - **Legal Document Processing**: Increase `min_cluster_size` for longer documents; add specialized visualizations for legal citations
+# - **Customer Feedback Analysis**: Add sentiment analysis components; create time-based topic evolution visualizations
+# - **Academic Literature Review**: Enhance citation tracking; add author and journal metadata to topic exploration
+# - **Financial Document Analysis**: Add named entity recognition for financial terms; create entity-topic relationship visualizations
 # 
 # This approach is ideal when you prioritize result quality over processing speed, especially for more nuanced datasets where topics have subtle differences or overlap, and need to ensure compatibility across different Meno versions.
