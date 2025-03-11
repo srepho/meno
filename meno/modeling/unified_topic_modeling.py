@@ -86,7 +86,7 @@ class UnifiedTopicModeler(BaseTopicModel):
         """
         # Create embedding model if specified as string
         if isinstance(self.embedding_model, str):
-            self.embedding_model = ModernTextEmbedding(model_name=self.embedding_model)
+            self.embedding_model = DocumentEmbedding(model_name=self.embedding_model)
         
         # Create model based on method
         if self.method == "bertopic":

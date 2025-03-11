@@ -26,7 +26,7 @@ except ImportError:
     POLARS_AVAILABLE = False
 
 # Local imports
-from ..modeling.embeddings import EmbeddingModel
+from ..modeling.embeddings import DocumentEmbedding
 from ..modeling.unified_topic_modeling import UnifiedTopicModeler
 
 # Set up logging
@@ -51,7 +51,7 @@ class StreamingProcessor:
     
     def __init__(
         self,
-        embedding_model: Union[str, EmbeddingModel] = "all-MiniLM-L6-v2",
+        embedding_model: Union[str, DocumentEmbedding] = "all-MiniLM-L6-v2",
         topic_model: Optional[Union[str, UnifiedTopicModeler]] = "bertopic",
         batch_size: int = 1000,
         temp_dir: Optional[Union[str, Path]] = None,
@@ -82,7 +82,7 @@ class StreamingProcessor:
         
         # Set up embedding model
         if isinstance(embedding_model, str):
-            self.embedding_model = EmbeddingModel(
+            self.embedding_model = DocumentEmbedding(
                 model_name=embedding_model,
                 device="cpu"  # Always start with CPU for better compatibility
             )
@@ -93,8 +93,7 @@ class StreamingProcessor:
         if isinstance(topic_model, str):
             self.topic_model = UnifiedTopicModeler(
                 method=topic_model,
-                embedding_model=self.embedding_model,
-                verbose=verbose
+                embedding_model=self.embedding_model
             )
         else:
             self.topic_model = topic_model

@@ -9,7 +9,7 @@ import pytest
 from pathlib import Path
 
 from meno.modeling.streaming_processor import StreamingProcessor
-from meno.modeling.embeddings import EmbeddingModel
+from meno.modeling.embeddings import DocumentEmbedding
 
 # Skip tests if required dependencies are not available
 try:
@@ -160,7 +160,7 @@ def test_create_embeddings_stream(temp_dir, sample_data):
     assert len(embedding_batches) == len(doc_stream)
     
     # Check embedding dimensions
-    model = EmbeddingModel(model_name="all-MiniLM-L6-v2")
+    model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
     expected_dim = model.embedding_dimension
     
     for batch in embedding_batches:
@@ -279,7 +279,7 @@ def test_fit_topic_model_stream(temp_dir, sample_data):
     )
     
     # Generate embeddings for all documents
-    model = EmbeddingModel(model_name="all-MiniLM-L6-v2")
+    model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
     all_embeddings = model.embed_documents(sample_data["text"].tolist())
     
     # Create an embeddings stream
@@ -424,7 +424,7 @@ def test_apply_to_dataframe(temp_dir, sample_data):
     )
     
     # Generate embeddings for all documents
-    model = EmbeddingModel(model_name="all-MiniLM-L6-v2")
+    model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
     all_embeddings = model.embed_documents(sample_data["text"].tolist())
     
     # Create an embeddings stream

@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import logging
 
-from .config import MenoConfig, get_config
+from .config import MenoConfig, load_config
 
 logger = logging.getLogger(__name__)
 
