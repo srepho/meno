@@ -77,12 +77,14 @@ class MenoWorkflow:
         local_model_path: Optional[str] = None,
         local_files_only: bool = False,
         offline_mode: bool = False,
+        auto_create_config: bool = True,
     ):
         """Initialize the workflow with an optional existing modeler instance."""
         # Load workflow configuration
         self.config = load_config(
             config_path=config_path,
-            config_type="workflow"
+            config_type="workflow",
+            auto_create=auto_create_config
         )
         
         # Apply overrides if provided
@@ -1184,6 +1186,7 @@ class MenoWorkflow:
 def create_workflow(
     config_path: Optional[Union[str, Path]] = None,
     config_overrides: Optional[Dict[str, Any]] = None,
+    auto_create_config: bool = True,
 ) -> MenoWorkflow:
     """Create a new MenoWorkflow instance.
     
@@ -1193,6 +1196,8 @@ def create_workflow(
         Path to configuration file, by default None.
     config_overrides : Optional[Dict[str, Any]], optional
         Dictionary of configuration overrides, by default None.
+    auto_create_config : bool, optional
+        Whether to automatically create a config file if none exists, by default True.
         
     Returns
     -------
@@ -1202,12 +1207,14 @@ def create_workflow(
     return MenoWorkflow(
         config_path=config_path,
         config_overrides=config_overrides,
+        auto_create_config=auto_create_config,
     )
 
 
 def load_workflow_config(
     config_path: Optional[Union[str, Path]] = None,
     config_overrides: Optional[Dict[str, Any]] = None,
+    auto_create: bool = True,
 ) -> WorkflowMenoConfig:
     """Load a workflow configuration.
     
@@ -1217,13 +1224,15 @@ def load_workflow_config(
         Path to configuration file, by default None.
     config_overrides : Optional[Dict[str, Any]], optional
         Dictionary of configuration overrides, by default None.
+    auto_create : bool, optional
+        Whether to automatically create a config file if none exists, by default True.
         
     Returns
     -------
     WorkflowMenoConfig
         Loaded and validated configuration.
     """
-    config = load_config(config_path=config_path, config_type="workflow")
+    config = load_config(config_path=config_path, config_type="workflow", auto_create=auto_create)
     if config_overrides:
         config = merge_configs(config, config_overrides)
     return config

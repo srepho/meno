@@ -58,10 +58,11 @@ class MenoTopicModeler:
         config_overrides: Optional[Dict[str, Any]] = None,
         embedding_model: Optional[Any] = None,
         offline_mode: bool = False,
+        auto_create_config: bool = True,
     ):
         """Initialize the topic modeler with configuration."""
         # Load configuration
-        self.config = load_config(config_path)
+        self.config = load_config(config_path, auto_create=auto_create_config)
         
         # Add offline_mode to config overrides if specified
         if offline_mode:

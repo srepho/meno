@@ -369,9 +369,49 @@ class WorkflowMenoConfig(BaseModel):
     reporting: ReportingConfig = Field(default_factory=ReportingConfig)
 
 
+def create_default_config_file(config_type: str = "standard", output_path: Optional[Union[str, Path]] = None) -> str:
+    """Create a default configuration file.
+    
+    Parameters
+    ----------
+    config_type : str, optional
+        Type of configuration to create, by default "standard"
+        Options: "standard", "workflow"
+    output_path : Optional[Union[str, Path]], optional
+        Path to save the configuration file, by default None
+        If None, saves to the current directory with a default name
+        
+    Returns
+    -------
+    str
+        Path to the created configuration file
+    """
+    # Create default config object
+    if config_type == "workflow":
+        config = WorkflowMenoConfig()
+        default_filename = "meno_workflow_config.yaml"
+    else:
+        config = MenoConfig()
+        default_filename = "meno_config.yaml"
+    
+    # Determine output path
+    if output_path is None:
+        output_path = Path.cwd() / default_filename
+    else:
+        output_path = Path(output_path)
+    
+    # Convert to dict and save to YAML
+    config_dict = config.model_dump()
+    with open(output_path, 'w') as f:
+        yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+    
+    print(f"Created default {config_type} configuration file at {output_path}")
+    return str(output_path)
+
 def load_config(
     config_path: Optional[Union[str, Path]] = None,
-    config_type: str = "standard"
+    config_type: str = "standard",
+    auto_create: bool = True
 ) -> Union[MenoConfig, WorkflowMenoConfig]:
     """Load and validate configuration from a YAML file.
     
@@ -383,6 +423,8 @@ def load_config(
     config_type : str, optional
         Type of configuration to load, by default "standard"
         Options: "standard", "workflow"
+    auto_create : bool, optional
+        Whether to automatically create a config file if none exists, by default True
     
     Returns
     -------
@@ -422,30 +464,42 @@ def load_config(
                 with open(config_path, 'r') as f:
                     config_dict = yaml.safe_load(f)
             except FileNotFoundError:
-                # If all else fails, use hardcoded default values
-                print(f"Warning: Config file {config_path} not found. Using default configuration.")
-                if config_type == "workflow":
-                    return WorkflowMenoConfig()
+                # If auto_create is enabled, create a default config file
+                if auto_create:
+                    new_config_path = create_default_config_file(config_type)
+                    with open(new_config_path, 'r') as f:
+                        config_dict = yaml.safe_load(f)
                 else:
-                    return MenoConfig()
+                    # If all else fails, use hardcoded default values
+                    print(f"Warning: Config file {config_path} not found. Using default configuration.")
+                    if config_type == "workflow":
+                        return WorkflowMenoConfig()
+                    else:
+                        return MenoConfig()
     else:
         # Try to load YAML config from specified file
         try:
             with open(config_path, 'r') as f:
                 config_dict = yaml.safe_load(f)
         except FileNotFoundError:
-            # If file not found, use hardcoded default values
-            print(f"Warning: Config file {config_path} not found. Using default configuration.")
-            if config_type == "workflow":
-                return WorkflowMenoConfig()
+            if auto_create:
+                # Create config at the specified path
+                create_default_config_file(config_type, config_path)
+                with open(config_path, 'r') as f:
+                    config_dict = yaml.safe_load(f)
             else:
-                return MenoConfig()
+                # If file not found, use hardcoded default values
+                print(f"Warning: Config file {config_path} not found. Using default configuration.")
+                if config_type == "workflow":
+                    return WorkflowMenoConfig()
+                else:
+                    return MenoConfig()
     
     # Validate with pydantic
     if config_type == "workflow":
         # Check if workflow section exists, if not, add it
         if "workflow" not in config_dict:
-            config_dict["workflow"] = WorkflowConfig().dict()
+            config_dict["workflow"] = WorkflowConfig().model_dump()
         return WorkflowMenoConfig(**config_dict)
     else:
         return MenoConfig(**config_dict)

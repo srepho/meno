@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meno"
-version = "1.2.0"
+version = "1.2.2"
 description = "Topic modeling toolkit for messy text data"
 readme = "README.md"
 requires-python = ">=3.8,<3.14"
@@ -41,19 +41,53 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Optional web interface dependencies
+# Simplified installation options
+lightweight = [
+    "scikit-learn>=1.2.0,<2.0.0",
+    "plotly>=5.14.0,<6.0.0",
+    "wordcloud>=1.9.0,<2.0.0",
+]
+cpu = [
+    "sentence-transformers>=2.2.2,<3.0.0", 
+    "transformers>=4.28.0,<5.0.0",
+    "torch>=2.0.0,<3.0.0",
+    "plotly>=5.14.0,<6.0.0",
+    "umap-learn>=0.5.3,<0.6.0",
+    "hdbscan>=0.8.29,<0.9.0", 
+    "bertopic>=0.15.0,<0.16.0",
+    "gensim>=4.3.0,<5.0.0",
+    "spacy>=3.5.0,<4.0.0",
+    "wordcloud>=1.9.0,<2.0.0",
+    "en_core_web_sm>=3.5.0,<4.0.0",
+]
+gpu = [
+    "sentence-transformers>=2.2.2,<3.0.0", 
+    "transformers>=4.28.0,<5.0.0",
+    "torch>=2.0.0,<3.0.0",
+    "plotly>=5.14.0,<6.0.0",
+    "umap-learn>=0.5.3,<0.6.0",
+    "hdbscan>=0.8.29,<0.9.0", 
+    "bertopic>=0.15.0,<0.16.0",
+    "gensim>=4.3.0,<5.0.0",
+    "spacy>=3.5.0,<4.0.0",
+    "wordcloud>=1.9.0,<2.0.0",
+    "en_core_web_sm>=3.5.0,<4.0.0",
+    "bitsandbytes>=0.41.0,<1.0.0",
+    "accelerate>=0.20.0,<1.0.0",
+    "safetensors>=0.3.1,<0.4.0",
+]
+
+# Legacy and specialized options
 web = [
     "dash>=2.10.0,<3.0.0",
     "dash-bootstrap-components>=1.5.0,<2.0.0",
     "plotly>=5.14.0,<6.0.0",
 ]
-# Optional embeddings dependencies (CPU only)
 embeddings = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",
     "torch>=2.0.0,<3.0.0",
 ]
-# Optional embeddings dependencies with GPU support
 embeddings-gpu = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",
@@ -61,50 +95,39 @@ embeddings-gpu = [
     "accelerate>=0.20.0,<1.0.0",
     "bitsandbytes>=0.41.0,<1.0.0",
 ]
-# Optional LDA dependencies
 lda = [
     "gensim>=4.3.0,<5.0.0",
 ]
-# Optional visualization dependencies
 viz = [
     "plotly>=5.14.0,<6.0.0",
     "umap-learn>=0.5.3,<0.6.0",
 ]
-# Optional clustering dependencies
 clustering = [
     "hdbscan>=0.8.29,<0.9.0",
 ]
-# Optional NLP dependencies
 nlp = [
     "spacy>=3.5.0,<4.0.0",
 ]
-# Optional active learning dependencies
 active = [
     "cleanlab>=2.3.0,<3.0.0",
 ]
-# Optional topic modeling approaches
 additional_models = [
     "bertopic>=0.15.0,<0.16.0",
     "top2vec>=1.0.27,<2.0.0",
     "nmf-topic-modeling>=0.2.0,<0.3.0",
     "contextualized-topic-models>=2.5.0,<3.0.0",
 ]
-# Simple models with minimal dependencies
 simple_models = [
     "scikit-learn>=1.2.0,<2.0.0",  # For KMeans, NMF, LSA/TruncatedSVD
 ]
-# Optional optimization for large datasets
 optimization = [
     "polars>=1.11.0,<1.15.0",
     "pyarrow>=11.0.0",
 ]
-
-# Memory-efficient embeddings
 memory_efficient = [
     "optimum>=1.15.0,<2.0.0",  # For model quantization
     "bitsandbytes>=0.41.0,<1.0.0",  # For 8-bit optimization
 ]
-# Minimal installation with core topic modeling capabilities 
 minimal = [
     "sentence-transformers>=2.2.2,<3.0.0", 
     "transformers>=4.28.0,<5.0.0",
@@ -117,23 +140,19 @@ minimal = [
     "spacy>=3.5.0,<4.0.0",
     "wordcloud>=1.9.0,<2.0.0",
 ]
-# Add spacy model for minimal installation to avoid download on first use
 spacy_model = [
     "en_core_web_sm>=3.5.0,<4.0.0",
 ]
-# LLM topic labeling dependencies (local models)
 llm = [
     "transformers>=4.28.0,<5.0.0",
     "torch>=2.0.0,<3.0.0",
     "tqdm>=4.65.0,<5.0.0",
     "accelerate>=0.20.0,<0.22.0",
 ]
-# LLM topic labeling with OpenAI
 llm_openai = [
     "openai>=1.0.0,<2.0.0",
     "tqdm>=4.65.0,<5.0.0",
 ]
-# Full installation with all optional dependencies (CPU)
 full = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",
@@ -152,7 +171,6 @@ full = [
     "openai>=1.0.0,<2.0.0",           # For LLM topic labeling with OpenAI
     "tqdm>=4.65.0,<5.0.0",
 ]
-# Full installation with GPU support
 full-gpu = [
     "sentence-transformers>=2.2.2,<3.0.0",
     "transformers>=4.28.0,<5.0.0",

@@ -6,7 +6,7 @@ Features advanced BERTopic integration with model merging, topic manipulation,
 dynamic topic modeling, and LLM-based topic labeling for intuitive topic names.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.2.2"
 
 # Import key components for easy access
 from .meno import MenoTopicModeler
@@ -14,7 +14,7 @@ from .workflow import (
     MenoWorkflow, create_workflow, 
     load_workflow_config, save_workflow_config
 )
-from .utils.config import WorkflowMenoConfig
+from .utils.config import WorkflowMenoConfig, create_default_config_file
 
 # Re-export key functions
 from .preprocessing import correct_spelling, expand_acronyms, normalize_text
@@ -112,6 +112,7 @@ __all__ = [
     "load_workflow_config",
     "save_workflow_config",
     "WorkflowMenoConfig",
+    "create_default_config_file",
     
     # Preprocessing functions
     "correct_spelling",
