@@ -14,16 +14,20 @@ Meno is a toolkit for topic modeling on messy text data, featuring an interactiv
 
 ```bash
 # Basic installation with core dependencies
-pip install "numpy<2.0.0"  # NumPy 1.x is required for compatibility
 pip install meno
 
 # Recommended: Minimal installation with essential topic modeling dependencies
-pip install "numpy<2.0.0"
 pip install "meno[minimal]"
 
-# CPU-optimized installation without NVIDIA packages
-pip install "numpy<2.0.0"
+# Installation with LLM topic labeling support
+pip install "meno[llm]"  # For local HuggingFace models
+pip install "meno[llm_openai]"  # For OpenAI API integration
+
+# CPU-optimized installation
 pip install "meno[embeddings]" -f https://download.pytorch.org/whl/torch_stable.html
+
+# Complete installation with all features
+pip install "meno[full]"
 ```
 
 ### Offline/Air-gapped Environment Installation
@@ -71,7 +75,7 @@ See `examples/local_model_example.py` for detailed offline usage examples.
 
 ## Quick Start
 
-### Basic Topic Modeling
+### Basic Topic Modeling with LLM Labeling
 
 ```python
 from meno import MenoTopicModeler
@@ -80,10 +84,20 @@ import pandas as pd
 # Load your data
 df = pd.read_csv("documents.csv")
 
-# Initialize and run basic topic modeling
-modeler = MenoTopicModeler()
+# Initialize with LLM labeling enabled
+modeler = MenoTopicModeler(
+    use_llm_labeling=True,  # Enable LLM labeling for human-readable topic names
+    llm_model_type="local",  # Use local model (alternatives: "openai", "auto")
+    llm_model_name="google/flan-t5-small"  # Small, fast model for demonstration
+)
+
+# Preprocess and discover topics
 processed_docs = modeler.preprocess(df, text_column="text")
 topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=5)
+
+# Print topics with LLM-generated names
+topic_info = modeler.get_topic_info()
+print(topic_info[["Topic", "Count", "Name"]])
 
 # Visualize results
 fig = modeler.visualize_embeddings()
@@ -91,6 +105,61 @@ fig.write_html("topic_embeddings.html")
 
 # Generate comprehensive HTML report
 report_path = modeler.generate_report(output_path="topic_report.html")
+```
+
+### Advanced BERTopic Features Workflow
+
+```python
+from meno.modeling.bertopic_model import BERTopicModel
+from meno.modeling.embeddings import DocumentEmbedding
+import pandas as pd
+from datetime import datetime, timedelta
+
+# Load your data
+df = pd.read_csv("documents.csv")
+documents = df["text"].tolist()
+
+# Create timestamps for dynamic topic modeling
+today = datetime.now()
+timestamps = [today - timedelta(days=i % 30) for i in range(len(documents))]
+
+# Initialize embedding model
+embedding_model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
+
+# Create BERTopic model with LLM labeling
+model = BERTopicModel(
+    embedding_model=embedding_model,
+    use_llm_labeling=True,  # Enable LLM topic labeling
+    min_topic_size=5,
+    verbose=True
+)
+
+# Perform dynamic topic modeling with timestamps
+topics, probs, topic_evolution = model.fit_transform_with_timestamps(
+    documents=documents,
+    timestamps=timestamps
+)
+
+# Visualize how topics change over time
+time_fig = model.visualize_topics_over_time()
+time_fig.write_html("topics_over_time.html")
+
+# Create a second model for a different dataset
+second_model = BERTopicModel(
+    embedding_model=embedding_model,
+    use_llm_labeling=True
+)
+second_model.fit(other_documents)
+
+# Merge both models into a unified model
+merged_model = model.merge_models(
+    models=[second_model],
+    documents=documents + other_documents
+)
+
+# Visualize the merged model's topic network
+merged_fig = merged_model.visualize_topics()
+merged_fig.write_html("merged_model_topics.html")
 ```
 
 ### Interactive Workflow
@@ -109,8 +178,12 @@ data = pd.DataFrame({
     ]
 })
 
-# Initialize and run workflow
-workflow = MenoWorkflow()
+# Initialize workflow with LLM labeling
+workflow = MenoWorkflow(
+    use_llm_labeling=True,  # Enable LLM topic naming
+    llm_model_type="local",
+    llm_model_name="google/flan-t5-small"
+)
 workflow.load_data(data=data, text_column="text")
 
 # Generate interactive acronym report
@@ -129,7 +202,7 @@ workflow.correct_spelling({"vehical": "vehicle", "recieved": "received"})
 workflow.preprocess_documents()
 workflow.discover_topics(num_topics=2)
 
-# Generate comprehensive report
+# Generate comprehensive report with LLM-labeled topics
 workflow.generate_comprehensive_report("final_report.html", open_browser=True)
 ```
 
