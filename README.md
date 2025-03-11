@@ -93,7 +93,7 @@ modeler = MenoTopicModeler(
 
 # Preprocess and discover topics
 processed_docs = modeler.preprocess(df, text_column="text")
-topics_df = modeler.discover_topics(method="embedding_cluster", num_topics=5)
+topics_df = modeler.discover_topics(method="embedding_cluster", auto_detect_topics=True)
 
 # Print topics with LLM-generated names
 topic_info = modeler.get_topic_info()
@@ -200,7 +200,7 @@ workflow.correct_spelling({"vehical": "vehicle", "recieved": "received"})
 
 # Preprocess and model topics
 workflow.preprocess_documents()
-workflow.discover_topics(num_topics=2)
+workflow.discover_topics(auto_detect_topics=True)
 
 # Generate comprehensive report with LLM-labeled topics
 workflow.generate_comprehensive_report("final_report.html", open_browser=True)
@@ -297,39 +297,32 @@ Meno streamlines topic modeling on messy text data, with a special focus on data
 
 ## Installation Options
 
+| Installation Method | Command | Features Included |
+|---------------------|---------|------------------|
+| Basic | `pip install meno` | Core functionality, basic preprocessing, simple topic models |
+| Minimal | `pip install "meno[minimal]"` | Essential topic modeling dependencies, lightweight models |
+| LLM Topic Labeling | `pip install "meno[llm]"` | Local HuggingFace models for topic naming |
+| OpenAI Integration | `pip install "meno[llm_openai]"` | OpenAI API for topic naming |
+| CPU-optimized | `pip install "meno[embeddings]"` | Optimized for CPU-only environments |
+| BERTopic & Top2Vec | `pip install "meno[additional_models]"` | Advanced topic modeling approaches |
+| GPU Acceleration | `pip install "meno[embeddings-gpu]"` | GPU-accelerated embeddings |
+| LDA Models | `pip install "meno[lda]"` | Traditional LDA topic modeling |
+| Visualization | `pip install "meno[viz]"` | Enhanced visualization capabilities |
+| NLP Processing | `pip install "meno[nlp]"` | Advanced NLP preprocessing capabilities |
+| Large Datasets | `pip install "meno[optimization]"` | Polars for large dataset optimization |
+| Memory Efficiency | `pip install "meno[memory_efficient]"` | Quantized models, reduced memory usage |
+| Web Interface | `pip install "meno[web]"` | Interactive web UI for exploration |
+| Complete (CPU) | `pip install "meno[full]"` | All features (CPU optimized) |
+| Complete (GPU) | `pip install "meno[full-gpu]"` | All features with GPU acceleration |
+| Development | `pip install "meno[dev,test]"` | Development and testing tools |
+
 ```bash
-# For additional topic modeling approaches (BERTopic, Top2Vec)
-pip install "meno[additional_models]"
+# Example: Install with LLM topic labeling support
+pip install "meno[llm]"  # For local HuggingFace models
+pip install "meno[llm_openai]"  # For OpenAI API integration
 
-# For embeddings with GPU acceleration
-pip install "meno[embeddings-gpu]"
-
-# For LDA topic modeling
-pip install "meno[lda]"
-
-# For visualization capabilities
-pip install "meno[viz]"
-
-# For NLP processing capabilities
-pip install "meno[nlp]"
-
-# For large dataset optimization using Polars
-pip install "meno[optimization]"
-
-# For memory-efficient embeddings
-pip install "meno[memory_efficient]"
-
-# For web interface and interactive UI
-pip install "meno[web]"
-
-# For all features (CPU only)
-pip install "meno[full]"
-
-# For all features with GPU acceleration
-pip install "meno[full-gpu]"
-
-# For development
-pip install "meno[dev,test]"
+# Example: Install with CPU optimization
+pip install "meno[embeddings]" -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
 ## Examples
@@ -433,7 +426,7 @@ embedding_model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
 
 # Create BERTopic model with LLM topic labeling
 model = BERTopicModel(
-    num_topics=8,
+    auto_detect_topics=True,  # Let the model determine the optimal number of topics
     embedding_model=embedding_model,
     min_topic_size=5,
     use_llm_labeling=True,  # Enable LLM labeling
@@ -663,7 +656,7 @@ from meno.modeling.simple_models.lightweight_models import (
 )
 
 # Create a TF-IDF based model (extremely fast and lightweight)
-tfidf_model = TFIDFTopicModel(num_topics=10, max_features=2000)
+tfidf_model = TFIDFTopicModel(auto_detect_topics=True, max_features=2000)
 tfidf_model.fit(documents)
 
 # Get topic information and visualize
@@ -671,7 +664,7 @@ topic_info = tfidf_model.get_topic_info()
 print(topic_info)
 
 # Create an NMF model for more interpretable topics
-nmf_model = NMFTopicModel(num_topics=8, max_features=1500)
+nmf_model = NMFTopicModel(auto_detect_topics=True, max_features=1500)
 nmf_model.fit(documents)
 
 # Compare document-topic distributions
@@ -685,7 +678,7 @@ fig.write_html("nmf_topics.html")
 # Simple K-means based model with embeddings
 from meno.modeling.embeddings import DocumentEmbedding
 embedding_model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
-simple_model = SimpleTopicModel(num_topics=5, embedding_model=embedding_model)
+simple_model = SimpleTopicModel(auto_detect_topics=True, embedding_model=embedding_model)
 simple_model.fit(documents)
 ```
 
@@ -702,9 +695,9 @@ from meno.visualization.lightweight_viz import (
 )
 
 # Create multiple models for comparison
-tfidf_model = TFIDFTopicModel(num_topics=5)
-nmf_model = NMFTopicModel(num_topics=5)
-lsa_model = LSATopicModel(num_topics=5)
+tfidf_model = TFIDFTopicModel(auto_detect_topics=True)
+nmf_model = NMFTopicModel(auto_detect_topics=True)
+lsa_model = LSATopicModel(auto_detect_topics=True)
 
 # Fit all models on the same data
 for model in [tfidf_model, nmf_model, lsa_model]:
@@ -752,8 +745,8 @@ from meno.web_interface import launch_web_interface
 from meno.modeling.simple_models.lightweight_models import TFIDFTopicModel, NMFTopicModel
 
 # Create and train some models
-tfidf_model = TFIDFTopicModel(num_topics=5)
-nmf_model = NMFTopicModel(num_topics=5)
+tfidf_model = TFIDFTopicModel(auto_detect_topics=True)
+nmf_model = NMFTopicModel(auto_detect_topics=True)
 tfidf_model.fit(documents)
 nmf_model.fit(documents)
 
@@ -867,7 +860,7 @@ documents = df["text"].tolist()
 
 # Method 1: Automatic labeling during model fitting
 model = BERTopicModel(
-    num_topics=8,
+    auto_detect_topics=True,
     embedding_model="all-MiniLM-L6-v2",
     use_llm_labeling=True,
     llm_model_type="local",
@@ -876,7 +869,7 @@ model = BERTopicModel(
 model.fit(documents)
 
 # Method 2: Apply labeling after model fitting
-model = BERTopicModel(num_topics=8, embedding_model="all-MiniLM-L6-v2")
+model = BERTopicModel(auto_detect_topics=True, embedding_model="all-MiniLM-L6-v2")
 model.fit(documents)
 
 # Get original topic info
@@ -896,7 +889,7 @@ print("LLM-generated topic names:")
 print(model.get_topic_info()[["Topic", "Name"]])
 
 # Method 3: Standalone labeler for any topic model
-topic_model = BERTopicModel(num_topics=5)
+topic_model = BERTopicModel(auto_detect_topics=True)
 topic_model.fit(documents)
 
 # Create LLM labeler
