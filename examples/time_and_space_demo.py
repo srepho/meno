@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from meno import MenoTopicModeler
 import os
 import json
+import uuid  # For generating claim/customer IDs
 
 # Set up a sample dataset with time, location, and category information
 def create_sample_dataset(n_samples=1000, start_date=None, end_date=None, random_seed=42):
@@ -25,6 +26,11 @@ def create_sample_dataset(n_samples=1000, start_date=None, end_date=None, random
     
     # Calculate date range in days
     date_range = (end_date - start_date).days
+    
+    # Generate customer and claim IDs
+    n_customers = int(n_samples * 0.4)  # Each customer may have multiple claims
+    customer_ids = [f"C{uuid.uuid4().hex[:8]}" for _ in range(n_customers)]
+    claim_ids = [f"CLM{uuid.uuid4().hex[:8]}" for _ in range(n_samples)]
     
     # Australian state capitals with approximate coordinates
     locations = {
@@ -77,7 +83,7 @@ def create_sample_dataset(n_samples=1000, start_date=None, end_date=None, random
     for i in range(n_samples):
         # Randomly generate time with more summer incidents (Dec-Feb in Australia)
         days_offset = np.random.choice(range(date_range), p=get_seasonal_weights(date_range))
-        date = start_date + timedelta(days=days_offset)
+        date = start_date + timedelta(days=int(days_offset))
         
         # Randomly select location with population-based weights
         location_name = np.random.choice(list(locations.keys()), 
@@ -128,6 +134,11 @@ def create_sample_dataset(n_samples=1000, start_date=None, end_date=None, random
         # Generate a random "importance" value
         importance = np.random.randint(1, 10)
         
+        # Assign a customer ID (some customers have multiple claims)
+        # Weight towards earlier customer IDs to simulate repeat customers
+        customer_idx = min(int(np.random.beta(1.5, 5) * n_customers), n_customers - 1)
+        customer_id = customer_ids[customer_idx]
+        
         # Create record
         record = {
             "text": text,
@@ -139,7 +150,9 @@ def create_sample_dataset(n_samples=1000, start_date=None, end_date=None, random
             "longitude": location_info["lon"] + lon_jitter/10,
             "category": category,
             "topic": topic,
-            "importance": importance
+            "importance": importance,
+            "claim_id": claim_ids[i],
+            "customer_id": customer_id
         }
         
         data.append(record)
@@ -286,7 +299,7 @@ def get_australia_states_geojson():
 def main():
     """Run the time and space visualization demonstration."""
     print("Generating synthetic Australian insurance dataset...")
-    df = create_sample_dataset(n_samples=1000)
+    df = create_sample_dataset(n_samples=1500)  # Generate more samples for better entity tracking
     
     # Save the dataset
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -302,6 +315,121 @@ def main():
     with open(geojson_path, "w") as f:
         json.dump(geojson, f)
     print(f"GeoJSON saved to {geojson_path}")
+    
+    # Create entity tracking visualizations
+    print("\nCreating entity flow visualizations...")
+    
+    # Sort by customer ID and date for proper transition tracking
+    df_sorted = df.sort_values(by=['customer_id', 'date'])
+    
+    # Create entity transition visualization (Sankey diagram)
+    from meno.visualization.enhanced_viz.entity_flow import (
+        visualize_entity_transitions, 
+        create_entity_flow_sankey, 
+        filter_entity_transitions,
+        analyze_entity_metrics,
+        visualize_entity_metrics
+    )
+    
+    fig_transitions = visualize_entity_transitions(
+        df=df_sorted,
+        entity_id_column='customer_id',
+        topic_column='topic',
+        time_column='date',
+        min_transition_count=3,  # Filter to transitions that occur at least 3 times
+        title="Customer Transitions Between Topics"
+    )
+    fig_transitions.write_html(os.path.join(output_dir, "customer_topic_transitions.html"))
+    
+    # Create time-segmented entity flow visualization
+    fig_flow = create_entity_flow_sankey(
+        df=df_sorted,
+        entity_id_column='customer_id',
+        topic_column='topic',
+        time_column='date',
+        value_column='importance',
+        time_segments=4,  # Divide the year into 4 quarters
+        title="Customer Flow Between Topics Over Time"
+    )
+    fig_flow.write_html(os.path.join(output_dir, "customer_topic_flow.html"))
+    
+    # Also create a claim-based flow to show how individual claims move between topics
+    # This is useful for tracking how a single claim's categorization may change over time
+    df_claims = df_sorted.copy()
+    # Add some artificial topic changes for the same claim to simulate recategorization
+    claim_updates = []
+    for i, claim_id in enumerate(df_claims['claim_id'].unique()[:50]):  # Change topics for some claims
+        claim_data = df_claims[df_claims['claim_id'] == claim_id].iloc[0].copy()
+        # Create a follow-up entry with a different topic
+        claim_data['date'] = claim_data['date'] + timedelta(days=np.random.randint(5, 30))
+        all_topics = df_claims['topic'].unique()
+        current_topic = claim_data['topic']
+        # Pick a different topic
+        new_topics = [t for t in all_topics if t != current_topic]
+        claim_data['topic'] = np.random.choice(new_topics)
+        claim_updates.append(claim_data)
+    
+    # Add the updates to the dataframe
+    df_claims = pd.concat([df_claims, pd.DataFrame(claim_updates)], ignore_index=True)
+    df_claims = df_claims.sort_values(by=['claim_id', 'date'])
+    
+    fig_claim_flow = create_entity_flow_sankey(
+        df=df_claims,
+        entity_id_column='claim_id',
+        topic_column='topic',
+        time_column='date',
+        time_segments=3,
+        title="Claim Recategorization Flow Between Topics"
+    )
+    fig_claim_flow.write_html(os.path.join(output_dir, "claim_topic_flow.html"))
+    
+    # Generate advanced entity metrics and visualizations
+    print("\nAnalyzing entity flow metrics...")
+    
+    # Filter to only Auto category for a more focused analysis
+    auto_claims = filter_entity_transitions(
+        df=df_claims,
+        entity_id_column='claim_id',
+        topic_column='topic',
+        time_column='date',
+        categories=['Auto'],
+        category_column='category'
+    )
+    
+    # Calculate entity metrics for claims
+    claim_metrics = analyze_entity_metrics(
+        df=auto_claims,
+        entity_id_column='claim_id',
+        topic_column='topic',
+        time_column='date'
+    )
+    
+    # Create visualizations from the metrics
+    claim_figures = visualize_entity_metrics(
+        metrics=claim_metrics,
+        title_prefix="Auto Claims Analysis"
+    )
+    
+    # Save the metric visualizations
+    for name, fig in claim_figures.items():
+        fig.write_html(os.path.join(output_dir, f"claim_metrics_{name}.html"))
+    
+    # Also analyze customer journey metrics for all customers
+    customer_metrics = analyze_entity_metrics(
+        df=df_sorted,
+        entity_id_column='customer_id',
+        topic_column='topic',
+        time_column='date'
+    )
+    
+    customer_figures = visualize_entity_metrics(
+        metrics=customer_metrics,
+        title_prefix="Customer Journey Analysis"
+    )
+    
+    # Save the customer metric visualizations
+    for name, fig in customer_figures.items():
+        fig.write_html(os.path.join(output_dir, f"customer_metrics_{name}.html"))
     
     # Initialize the topic modeler
     modeler = MenoTopicModeler()
