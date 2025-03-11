@@ -12,22 +12,27 @@ Meno is a toolkit for topic modeling on messy text data, featuring an interactiv
 
 ## Installation
 
+We offer simplified installation options based on your needs:
+
 ```bash
-# Basic installation with core dependencies
-pip install meno
+# Lightweight (basic topic modeling, minimal dependencies)
+pip install "meno[lightweight]"
 
-# Recommended: Minimal installation with essential topic modeling dependencies
-pip install "meno[minimal]"
+# Standard (full-featured, CPU-optimized)
+pip install "meno[cpu]" -f https://download.pytorch.org/whl/torch_stable.html
 
-# Installation with LLM topic labeling support
-pip install "meno[llm]"  # For local HuggingFace models
-pip install "meno[llm_openai]"  # For OpenAI API integration
+# GPU-accelerated (maximum performance)
+pip install "meno[gpu]"
+```
 
-# CPU-optimized installation
-pip install "meno[embeddings]" -f https://download.pytorch.org/whl/torch_stable.html
+For more installation options and detailed information, see our [Simplified Installation Guide](SIMPLIFIED_INSTALL.md).
 
-# Complete installation with all features
-pip install "meno[full]"
+```bash
+# Legacy options:
+pip install "meno[minimal]"        # Essential topic modeling
+pip install "meno[llm]"            # Local HuggingFace models
+pip install "meno[llm_openai]"     # OpenAI API integration
+pip install "meno[full]"           # Complete installation
 ```
 
 ### Offline/Air-gapped Environment Installation
