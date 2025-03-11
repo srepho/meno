@@ -34,6 +34,7 @@ modeling:
   embeddings:
     model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Default model
     batch_size: 32
+    local_files_only: false  # Whether to use only local files
     
   # LDA settings (for classical topic modeling)
   lda:

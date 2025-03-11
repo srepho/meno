@@ -131,6 +131,7 @@ class ModelingConfig(BaseModel):
     lda: LDAConfig = Field(default_factory=LDAConfig)
     clustering: ClusteringConfig = Field(default_factory=ClusteringConfig)
     topic_matching: TopicMatchingConfig = Field(default_factory=TopicMatchingConfig)
+    auto_detect_topics: bool = True
 
 
 class UMAPConfig(BaseModel):
@@ -207,7 +208,7 @@ class WorkflowFeaturesConfig(BaseModel):
     acronym_detection: bool = True
     spelling_correction: bool = True
     interactive_reports: bool = True
-    auto_open_browser: bool = True
+    auto_open_browser: bool = False
 
 
 class WorkflowReportPathsConfig(BaseModel):

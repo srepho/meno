@@ -1,0 +1,63 @@
+# Lightweight configuration template for Meno
+# For use with large datasets or minimal dependencies
+
+preprocessing:
+  # Normalization settings
+  normalization:
+    lowercase: true
+    remove_punctuation: true
+    remove_stopwords: true
+    lemmatize: false  # Lemmatization requires additional spaCy dependencies
+  
+  # Acronym expansion (efficient settings)
+  acronyms:
+    enabled: true
+    min_length: 2
+    domain: null  # Set to domain-specific dictionary if needed
+    contextual_expansion: true
+
+  # Spelling correction (efficient settings)
+  spelling:
+    enabled: false  # Disable by default to improve performance
+    min_word_length: 4
+    max_distance: 1
+    keyboard_proximity: false
+
+# Modeling settings
+modeling:
+  # Use lightweight modeling method
+  default_method: "simple_kmeans"  # Options: simple_kmeans, tfidf, nmf, lsa
+  default_num_topics: 15
+  auto_select_method: true  # Auto-select based on dataset size
+  
+  # Embeddings settings
+  embeddings:
+    model_name: "sentence-transformers/paraphrase-MiniLM-L3-v2"  # Small, fast model
+    batch_size: 64
+    use_mmap: true  # Memory mapping for large datasets
+    use_gpu: false  # CPU-only by default
+    max_length: 256  # Limit token length for performance
+  
+  # Clustering settings
+  clustering:
+    random_state: 42
+    min_cluster_size: 5
+    max_features: 2000  # For TF-IDF based methods
+
+# Visualization settings
+visualization:
+  default_plot_type: "topics"  # Simple topic visualization
+  interactive: true
+  default_color_palette: "pastel"
+  
+  # 3D visualization (disabled by default to improve performance)
+  embeddings_3d:
+    enabled: false
+    perplexity: 20
+    n_iter: 300
+
+# Workflow settings
+workflow:
+  cache_embeddings: true  # Cache embeddings to disk
+  verbose: true
+  memory_efficient: true  # Use memory-efficient operations

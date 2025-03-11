@@ -6,10 +6,30 @@ from typing import List, Dict, Optional, Union
 from .unsupervised import LDAModel, EmbeddingClusterModel
 from .supervised import TopicMatcher
 from .embeddings import DocumentEmbedding
+from .simple_models import SimpleTopicModel, TFIDFTopicModel, NMFTopicModel, LSATopicModel
 
-__all__ = [
-    "LDAModel",
-    "EmbeddingClusterModel",
-    "TopicMatcher",
-    "DocumentEmbedding",
-]
+# Import LLM topic labeling if available
+try:
+    from .llm_topic_labeling import LLMTopicLabeler
+    __all__ = [
+        "LDAModel",
+        "EmbeddingClusterModel",
+        "TopicMatcher",
+        "DocumentEmbedding",
+        "SimpleTopicModel",
+        "TFIDFTopicModel",
+        "NMFTopicModel",
+        "LSATopicModel",
+        "LLMTopicLabeler",
+    ]
+except ImportError:
+    __all__ = [
+        "LDAModel",
+        "EmbeddingClusterModel",
+        "TopicMatcher",
+        "DocumentEmbedding",
+        "SimpleTopicModel",
+        "TFIDFTopicModel",
+        "NMFTopicModel",
+        "LSATopicModel",
+    ]

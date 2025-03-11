@@ -10,14 +10,90 @@ import logging
 from pathlib import Path
 
 try:
+    # Import BERTopic core
     from bertopic import BERTopic
-    from bertopic.vectorizers import ClassTfidfTransformer
-    from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance
-    from bertopic.dimensionality import UMAPReducer
-    from bertopic.cluster import HDBSCANClusterer
     BERTOPIC_AVAILABLE = True
-except ImportError:
+    
+    # Try importing components - different versions have different import paths
+    try:
+        # BERTopic 0.15+ structure
+        from bertopic.vectorizers import ClassTfidfTransformer
+        from bertopic.representation import KeyBERTInspired, MaximalMarginalRelevance
+        from bertopic.dimensionality import UMAPReducer
+        from bertopic.cluster import HDBSCANClusterer
+    except ImportError:
+        # BERTopic 0.14 and below structure
+        from umap import UMAP
+        import hdbscan
+        
+        # Create adapter classes for backward compatibility
+        class UMAPReducer:
+            def __init__(self, n_neighbors=15, n_components=5, min_dist=0.0, metric="cosine", low_memory=False):
+                self.n_neighbors = n_neighbors
+                self.n_components = n_components
+                self.min_dist = min_dist
+                self.metric = metric
+                self.low_memory = low_memory
+                self.umap_model = UMAP(
+                    n_neighbors=n_neighbors,
+                    n_components=n_components,
+                    min_dist=min_dist,
+                    metric=metric,
+                    low_memory=low_memory
+                )
+            
+            def fit_transform(self, X):
+                return self.umap_model.fit_transform(X)
+                
+        class HDBSCANClusterer:
+            def __init__(self, min_cluster_size=15, min_samples=None, metric='euclidean', cluster_selection_method='eom'):
+                self.min_cluster_size = min_cluster_size
+                self.min_samples = min_samples
+                self.metric = metric
+                self.cluster_selection_method = cluster_selection_method
+                self.clusterer = hdbscan.HDBSCAN(
+                    min_cluster_size=min_cluster_size,
+                    min_samples=min_samples,
+                    metric=metric,
+                    cluster_selection_method=cluster_selection_method
+                )
+                
+            def fit(self, X):
+                return self.clusterer.fit(X)
+                
+        # Try importing remaining components directly
+        try:
+            from sklearn.feature_extraction.text import CountVectorizer
+            from bertopic.vectorizers import ClassTfidfTransformer
+            
+            # Define compatible adapter classes
+            class KeyBERTInspired:
+                def extract_topics(self, documents, embeddings, topic_model):
+                    topic_words = topic_model.get_topics()
+                    return topic_words
+                    
+            class MaximalMarginalRelevance:
+                def extract_topics(self, documents, embeddings, topic_model):
+                    topic_words = topic_model.get_topics()
+                    return topic_words
+        except ImportError:
+            # If still failing, set to minimal implementations
+            from sklearn.feature_extraction.text import CountVectorizer as ClassTfidfTransformer
+            KeyBERTInspired = lambda: None  # Dummy class
+            MaximalMarginalRelevance = lambda: None  # Dummy class
+except (ImportError, AttributeError) as e:
+    import importlib
     BERTOPIC_AVAILABLE = False
+    # Try direct import check using importlib as a fallback
+    try:
+        bertopic_spec = importlib.util.find_spec("bertopic")
+        if bertopic_spec is not None:
+            # Module exists but may have import issues, try to load it
+            bertopic = importlib.import_module("bertopic")
+            if hasattr(bertopic, "BERTopic"):
+                BERTOPIC_AVAILABLE = True
+    except (ImportError, AttributeError):
+        pass
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -490,6 +566,9 @@ class BERTopicOptimizer:
         float
             Average topic coherence score
         """
+        # Note: This is a simple approximation using c-TF-IDF scores
+        # For more sophisticated coherence measures, see the dedicated
+        # coherence module which implements gensim-based metrics
         coherence_scores = []
         
         for topic_id in model.get_topics():

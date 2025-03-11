@@ -366,6 +366,8 @@ def plot_interactive_wordcloud(
     go.Figure
         Plotly figure object with interactive word cloud
     """
+    import random
+    
     # Get list of topics
     topics = list(topic_words.keys())
     
@@ -376,35 +378,94 @@ def plot_interactive_wordcloud(
     for topic in topics:
         words = topic_words[topic]
         
-        # Sort words by frequency
+        # Sort words by frequency and get top words
         sorted_words = sorted(words.items(), key=lambda x: x[1], reverse=True)
+        top_words = sorted_words[:50] if len(sorted_words) > 50 else sorted_words
         
-        # Create text trace for this topic
-        text_trace = go.Scatter(
-            x=[0.5],
-            y=[0.5],
-            mode="text",
-            text=[" ".join([word for word, _ in sorted_words[:50]])],
-            textfont={
-                "size": [
-                    np.log(frequency * 100) * 10 + 10
-                    for _, frequency in sorted_words[:50]
-                ]
-            },
-            name=topic,
-            visible=(topic == topics[0]),  # Only first topic visible by default
-        )
+        # Normalize frequencies for size calculations
+        max_freq = max([freq for _, freq in top_words]) if top_words else 1
+        min_freq = min([freq for _, freq in top_words]) if top_words else 0
         
-        fig.add_trace(text_trace)
+        # Generate positions for each word to create a proper word cloud
+        # Use a spiral layout to distribute words
+        x_positions = []
+        y_positions = []
+        word_sizes = []
+        word_texts = []
+        
+        # Set boundaries for the word cloud
+        x_range = 0.8  # Use 80% of the horizontal space
+        y_range = 0.8  # Use 80% of the vertical space
+        
+        # Use a spiral algorithm to place words
+        for i, (word, freq) in enumerate(top_words):
+            # Normalize frequency to range [0.3, 1.0]
+            norm_freq = 0.3 + 0.7 * (freq - min_freq) / (max_freq - min_freq) if max_freq > min_freq else 0.5
+            
+            # Calculate font size based on normalized frequency
+            font_size = 10 + 30 * norm_freq
+            
+            # Generate position using outward spiral
+            # More important words (higher freq) closer to center
+            t = i / 10 * 2 * np.pi  # Angle parameter
+            radial_pos = 0.05 + 0.4 * (1 - norm_freq)  # Radial position (important words closer to center)
+            
+            # Add some jitter for natural appearance
+            jitter_x = random.uniform(-0.05, 0.05)
+            jitter_y = random.uniform(-0.05, 0.05)
+            
+            x_pos = 0.5 + radial_pos * np.cos(t) * x_range + jitter_x
+            y_pos = 0.5 + radial_pos * np.sin(t) * y_range + jitter_y
+            
+            x_positions.append(x_pos)
+            y_positions.append(y_pos)
+            word_sizes.append(font_size)
+            word_texts.append(word)
+        
+        # Create a scatter trace with text for this topic
+        for i, (word, x_pos, y_pos, size) in enumerate(zip(word_texts, x_positions, y_positions, word_sizes)):
+            fig.add_trace(
+                go.Scatter(
+                    x=[x_pos],
+                    y=[y_pos],
+                    mode="text",
+                    text=[word],
+                    textfont={
+                        "size": size,
+                        "color": px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]
+                    },
+                    hoverinfo="text",
+                    name=f"{topic}_{word}",
+                    visible=(topic == topics[0]),  # Only first topic visible by default
+                    showlegend=False
+                )
+            )
     
     # Create buttons for dropdown
     buttons = []
     for i, topic in enumerate(topics):
+        # Calculate visible status for each trace
+        # Each topic has multiple traces (one per word)
+        topic_start_idx = 0
+        for j in range(i):
+            word_count = len(topic_words[topics[j]])
+            word_count = min(word_count, 50)  # Max 50 words per topic
+            topic_start_idx += word_count
+            
+        topic_word_count = len(topic_words[topic])
+        topic_word_count = min(topic_word_count, 50)  # Max 50 words per topic
+        
+        # Set visibility for all traces
+        visible_array = [False] * len(fig.data)
+        for j in range(topic_start_idx, topic_start_idx + topic_word_count):
+            if j < len(visible_array):
+                visible_array[j] = True
+        
         button = {
             "method": "update",
             "label": topic,
             "args": [
-                {"visible": [j == i for j in range(len(topics))]},
+                {"visible": visible_array},
                 {"title": f"{title}: {topic}"},
             ],
         }
@@ -423,13 +484,23 @@ def plot_interactive_wordcloud(
         ]
     )
     
-    # Update layout
+    # Update layout for proper word cloud display
     fig.update_layout(
         title=f"{title}: {topics[0]}",
         width=width,
         height=height,
-        xaxis={"visible": False},
-        yaxis={"visible": False},
+        xaxis={
+            "visible": False,
+            "range": [0, 1],
+            "fixedrange": True,
+        },
+        yaxis={
+            "visible": False,
+            "range": [0, 1],
+            "fixedrange": True,
+        },
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
     )
     
     return fig

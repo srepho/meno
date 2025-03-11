@@ -1,5 +1,10 @@
 # Meno - Topic Modeling Toolkit Development Guidelines
 
+## Version Management
+- When updating version numbers in documentation, always use the current date using `date '+%Y-%m-%d'`
+- For version numbers in README and CHANGELOG, format as: `## Version X.Y.Z (YYYY-MM-DD)`
+- Always update all version references consistently
+
 ## Build & Installation
 ```bash
 # Install with conda (recommended)

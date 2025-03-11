@@ -76,6 +76,7 @@ class MenoWorkflow:
         config_overrides: Optional[Dict[str, Any]] = None,
         local_model_path: Optional[str] = None,
         local_files_only: bool = False,
+        offline_mode: bool = False,
     ):
         """Initialize the workflow with an optional existing modeler instance."""
         # Load workflow configuration
@@ -96,12 +97,18 @@ class MenoWorkflow:
                 local_model_path=local_model_path,
                 local_files_only=local_files_only
             )
+            
+        # Add offline_mode to config overrides if specified
+        if offline_mode:
+            config_overrides = config_overrides or {}
+            config_overrides['offline_mode'] = offline_mode
         
         # Set up modeler
         self.modeler = modeler or MenoTopicModeler(
             config_path=config_path,
             config_overrides=config_overrides,
-            embedding_model=embedding_model
+            embedding_model=embedding_model,
+            offline_mode=offline_mode
         )
         
         # Initialize components based on configuration
@@ -977,7 +984,15 @@ class MenoWorkflow:
         )
         
         self.modeling_complete = True
-        logger.info(f"Topic modeling completed using {method} method with {num_topics} topics.")
+        # Get clustering algorithm info if using embedding clustering
+        if method == "embedding_cluster":
+            clustering_algo = self.modeler.config.modeling.clustering.algorithm
+            if clustering_algo == "hdbscan":
+                logger.info(f"Topic modeling completed using {method} method with HDBSCAN clustering (auto-detected {self.modeler.topic_assignments.shape[1]} topics)")
+            else:
+                logger.info(f"Topic modeling completed using {method} method with {clustering_algo} clustering and {num_topics} topics")
+        else:
+            logger.info(f"Topic modeling completed using {method} method with {num_topics} topics")
         return topics_df
     
     def visualize_topics(

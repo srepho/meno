@@ -91,8 +91,9 @@ def sample_config_dict() -> Dict[str, Any]:
         },
         "modeling": {
             "embeddings": {
-                "model_name": "all-MiniLM-L6-v2",
-                "batch_size": 32
+                "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+                "batch_size": 32,
+                "local_files_only": False
             },
             "clustering": {
                 "algorithm": "kmeans",
@@ -142,3 +143,27 @@ def create_test_dataframe(create_test_documents) -> pd.DataFrame:
         "text": documents,
         "doc_id": [f"doc_{i}" for i in range(len(documents))]
     })
+
+
+@pytest.fixture
+def mock_local_model_path():
+    """Create a temporary directory that mocks a local model path."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create structure to mimic a transformer model
+        os.makedirs(os.path.join(temp_dir, "0_BertModel"), exist_ok=True)
+        
+        # Create mock config files
+        with open(os.path.join(temp_dir, "config.json"), 'w') as f:
+            f.write('{"model_type": "bert", "hidden_size": 384}')
+            
+        with open(os.path.join(temp_dir, "vocab.txt"), 'w') as f:
+            f.write("test\nword\n[CLS]\n[SEP]")
+            
+        with open(os.path.join(temp_dir, "modules.json"), 'w') as f:
+            f.write('[{"type": "bert"}]')
+        
+        # Create dummy safetensors file
+        with open(os.path.join(temp_dir, "model.safetensors"), 'wb') as f:
+            f.write(b'MOCK_MODEL_DATA')
+            
+        yield temp_dir

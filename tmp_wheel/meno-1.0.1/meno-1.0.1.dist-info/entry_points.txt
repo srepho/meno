@@ -1,0 +1,2 @@
+[console_scripts]
+meno-config = meno.cli.team_config_cli:main

@@ -45,7 +45,10 @@ class UnifiedTopicModeler(BaseTopicModel):
         num_topics: Optional[int] = 10,
         config_overrides: Optional[Dict[str, Any]] = None,
         embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
-        auto_detect_topics: bool = False
+        auto_detect_topics: bool = False,
+        use_llm_labeling: bool = False,
+        llm_model_type: str = "local",
+        llm_model_name: Optional[str] = None
     ):
         self.method = method
         self.auto_detect_topics = auto_detect_topics
@@ -62,6 +65,12 @@ class UnifiedTopicModeler(BaseTopicModel):
         self.num_topics = num_topics
         self.config_overrides = config_overrides or {}
         self.embedding_model = embedding_model
+        
+        # Store LLM parameters
+        self.use_llm_labeling = use_llm_labeling
+        self.llm_model_type = llm_model_type
+        self.llm_model_name = llm_model_name
+        
         self.model = self._create_model()
         self.is_fitted = False
         self.topics = {}
@@ -84,6 +93,9 @@ class UnifiedTopicModeler(BaseTopicModel):
             return BERTopicModel(
                 n_topics=self.num_topics,
                 embedding_model=self.embedding_model,
+                use_llm_labeling=self.use_llm_labeling,
+                llm_model_type=self.llm_model_type,
+                llm_model_name=self.llm_model_name,
                 **self.config_overrides
             )
         elif self.method == "top2vec":
@@ -97,6 +109,9 @@ class UnifiedTopicModeler(BaseTopicModel):
             return BERTopicModel(
                 n_topics=self.num_topics,
                 embedding_model=self.embedding_model,
+                use_llm_labeling=self.use_llm_labeling,
+                llm_model_type=self.llm_model_type,
+                llm_model_name=self.llm_model_name,
                 **self.config_overrides
             )
         else:
@@ -218,6 +233,69 @@ class UnifiedTopicModeler(BaseTopicModel):
             return self.model.visualize_topics(**kwargs)
         else:
             raise NotImplementedError(f"Visualization not implemented for {self.method}")
+            
+    def apply_llm_labeling(
+        self,
+        documents: Union[List[str], pd.Series],
+        model_type: Optional[str] = None,
+        model_name: Optional[str] = None,
+        detailed: bool = True
+    ) -> "UnifiedTopicModeler":
+        """Apply LLM-based topic labeling to improve topic names.
+        
+        Parameters
+        ----------
+        documents : Union[List[str], pd.Series]
+            The original documents used for topic modeling
+        model_type : Optional[str], optional
+            Type of LLM to use, by default None
+            If None, uses the model_type specified during initialization
+            Options: "local", "openai", "auto"
+        model_name : Optional[str], optional
+            Name of the model to use, by default None
+            If None, uses the model_name specified during initialization
+        detailed : bool, optional
+            Whether to generate detailed topic descriptions, by default True
+            
+        Returns
+        -------
+        UnifiedTopicModeler
+            The modeler with updated topic names
+            
+        Raises
+        ------
+        ValueError
+            If the model has not been fitted yet
+        NotImplementedError
+            If the underlying model doesn't support LLM labeling
+        """
+        if not self.is_fitted:
+            raise ValueError("Model must be fitted before applying LLM labeling")
+            
+        # Use instance parameters if not specified
+        if model_type is None:
+            model_type = self.llm_model_type
+            
+        if model_name is None:
+            model_name = self.llm_model_name
+            
+        # Check if the underlying model supports LLM labeling
+        if hasattr(self.model, 'apply_llm_labeling'):
+            self.model.apply_llm_labeling(
+                documents=documents,
+                model_type=model_type,
+                model_name=model_name,
+                detailed=detailed
+            )
+            
+            # Update our topic dictionaries
+            self.topics = getattr(self.model, 'topics', {})
+            
+            return self
+        else:
+            raise NotImplementedError(
+                f"LLM topic labeling is not implemented for {self.method}"
+            )
             
     def calculate_coherence(
         self,
@@ -438,7 +516,11 @@ def create_topic_modeler(
     num_topics: Optional[int] = 10,
     config_overrides: Optional[Dict[str, Any]] = None,
     embedding_model: Optional[Union[str, DocumentEmbedding]] = None,
-    auto_detect_topics: bool = False
+    auto_detect_topics: bool = False,
+    offline_mode: bool = False,
+    use_llm_labeling: bool = False,
+    llm_model_type: str = "local",
+    llm_model_name: Optional[str] = None
 ) -> BaseTopicModel:
     """Create a topic modeler with the specified method.
     
@@ -462,6 +544,18 @@ def create_topic_modeler(
         Whether to automatically detect the optimal number of topics, by default False
         If True, num_topics will be ignored and the model will determine the best
         number of topics based on the data
+    offline_mode : bool, optional
+        Whether to bypass module availability checks and assume modules are available,
+        by default False. This is useful for environments with manually installed
+        packages or restricted import capabilities.
+    use_llm_labeling : bool, optional
+        Whether to use LLM-based topic labeling, by default False
+    llm_model_type : str, optional
+        Type of LLM to use for topic labeling, by default "local"
+        Options: "local", "openai", "auto"
+    llm_model_name : Optional[str], optional
+        Name of the LLM to use for topic labeling, by default None
+        If None, defaults to appropriate model based on type
     
     Returns
     -------
@@ -486,11 +580,30 @@ def create_topic_modeler(
         model_config = config_overrides.copy()
         if 'auto_detect_topics' in model_config:
             del model_config['auto_detect_topics']
+        
+        # Handle offline mode for BERTopic
+        if offline_mode:
+            # In offline mode, we override the import check result
+            import sys
+            from importlib.util import find_spec
+            
+            # Check if bertopic might be available but import check failed
+            bertopic_spec = find_spec("bertopic")
+            if bertopic_spec is not None:
+                # Force module availability flag to True if in offline mode
+                import meno.modeling.bertopic_model
+                meno.modeling.bertopic_model.BERTOPIC_AVAILABLE = True
+                logger.info("Offline mode enabled: Using BERTopic module regardless of import check result")
+            else:
+                logger.warning("Offline mode enabled but bertopic module not found in sys.path")
             
         return BERTopicModel(
             num_topics=num_topics,  # Use standardized parameter name
             embedding_model=embedding_model,
             auto_detect_topics=auto_detect_topics,
+            use_llm_labeling=use_llm_labeling,
+            llm_model_type=llm_model_type,
+            llm_model_name=llm_model_name,
             **model_config
         )
     elif method == "top2vec":
@@ -498,6 +611,22 @@ def create_topic_modeler(
         model_config = config_overrides.copy()
         if 'auto_detect_topics' in model_config:
             del model_config['auto_detect_topics']
+        
+        # Handle offline mode for Top2Vec
+        if offline_mode:
+            # In offline mode, we override the import check result
+            import sys
+            from importlib.util import find_spec
+            
+            # Check if top2vec might be available but import check failed
+            top2vec_spec = find_spec("top2vec")
+            if top2vec_spec is not None:
+                # Force module availability flag to True if in offline mode
+                import meno.modeling.top2vec_model
+                meno.modeling.top2vec_model.TOP2VEC_AVAILABLE = True
+                logger.info("Offline mode enabled: Using Top2Vec module regardless of import check result")
+            else:
+                logger.warning("Offline mode enabled but top2vec module not found in sys.path")
             
         return Top2VecModel(
             num_topics=num_topics,  # Use standardized parameter name
@@ -507,10 +636,20 @@ def create_topic_modeler(
         )
     
     # Use the unified interface for other methods
+    
+    # Add offline mode to config overrides to pass it on to underlying models
+    if offline_mode and config_overrides is not None:
+        config_overrides['offline_mode'] = offline_mode
+    elif offline_mode:
+        config_overrides = {'offline_mode': offline_mode}
+    
     return UnifiedTopicModeler(
         method=method,
         num_topics=num_topics,
         config_overrides=config_overrides,
         embedding_model=embedding_model,
-        auto_detect_topics=auto_detect_topics
+        auto_detect_topics=auto_detect_topics,
+        use_llm_labeling=use_llm_labeling,
+        llm_model_type=llm_model_type,
+        llm_model_name=llm_model_name
     )

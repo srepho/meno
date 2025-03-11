@@ -1,0 +1,96 @@
+# Default configuration for meno topic modeling
+
+# Preprocessing settings
+preprocessing:
+  # Text normalization
+  normalization:
+    lowercase: true
+    remove_punctuation: true
+    remove_numbers: false
+    lemmatize: true
+    language: "en"  # Language for spaCy model
+    
+  # Stopwords
+  stopwords:
+    use_default: true
+    custom: []  # Additional stopwords to remove
+    keep: []    # Words to keep even if in default stopwords
+    
+  # Spelling correction
+  spelling:
+    enabled: true
+    max_distance: 2  # Levenshtein distance for fuzzy matching
+    min_word_length: 4  # Only correct words longer than this
+    custom_dictionary: {}  # Custom word mappings
+    
+  # Acronym expansion
+  acronyms:
+    enabled: true
+    custom_mappings: {}  # Custom acronym mappings
+
+# Model settings
+modeling:
+  # Embedding model
+  embeddings:
+    model_name: "sentence-transformers/all-MiniLM-L6-v2"  # Default model
+    batch_size: 32
+    
+  # LDA settings (for classical topic modeling)
+  lda:
+    num_topics: 10
+    passes: 20
+    iterations: 400
+    alpha: "auto"  # Can be "auto", "symmetric", "asymmetric" or a float
+    eta: "auto"    # Can be "auto", "symmetric" or a float
+    
+  # Clustering settings (for embedding-based topic modeling)
+  clustering:
+    algorithm: "hdbscan"  # Options: "hdbscan", "kmeans", "agglomerative"
+    min_cluster_size: 15  # For HDBSCAN
+    min_samples: 5        # For HDBSCAN
+    cluster_selection_method: "eom"  # For HDBSCAN
+    n_clusters: 10        # For KMeans/Agglomerative
+    
+  # Topic matching settings (for supervised approach)
+  topic_matching:
+    threshold: 0.6  # Similarity threshold for topic assignment
+    assign_multiple: false  # Whether to assign multiple topics if above threshold
+    max_topics_per_doc: 3   # Max number of topics to assign if multiple
+
+# Visualization settings
+visualization:
+  # UMAP settings for dimensionality reduction
+  umap:
+    n_neighbors: 15
+    n_components: 2
+    min_dist: 0.1
+    metric: "cosine"
+    
+  # Plot settings
+  plots:
+    width: 900
+    height: 600
+    colorscale: "Viridis"
+    marker_size: 5
+    opacity: 0.7
+    
+  # Word cloud settings
+  wordcloud:
+    max_words: 100
+    background_color: "white"
+    width: 800
+    height: 400
+
+# Reporting settings
+reporting:
+  # HTML report settings
+  html:
+    title: "Topic Modeling Results"
+    include_interactive: true
+    max_examples_per_topic: 5
+    include_raw_data: false
+    
+  # Export settings
+  export:
+    formats: ["csv", "json"]
+    include_embeddings: false

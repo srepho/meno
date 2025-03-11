@@ -2,9 +2,11 @@
 
 A toolkit for topic modeling with both traditional (LDA) and
 modern embedding-based approaches, visualization, and reporting.
+Features advanced BERTopic integration with model merging, topic manipulation,
+dynamic topic modeling, and LLM-based topic labeling for intuitive topic names.
 """
 
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 
 # Import key components for easy access
 from .meno import MenoTopicModeler
@@ -16,6 +18,13 @@ from .utils.config import WorkflowMenoConfig
 
 # Re-export key functions
 from .preprocessing import correct_spelling, expand_acronyms, normalize_text
+
+# Re-export LLM topic labeling
+try:
+    from .modeling.llm_topic_labeling import LLMTopicLabeler
+except ImportError:
+    # Graceful fallback if dependencies are missing
+    pass
 
 # Re-export lightweight models for easy access
 try:
@@ -108,6 +117,9 @@ __all__ = [
     "correct_spelling",
     "expand_acronyms",
     "normalize_text",
+    
+    # LLM topic labeling
+    "LLMTopicLabeler",
     
     # Lightweight models
     "SimpleTopicModel",

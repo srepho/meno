@@ -1,6 +1,18 @@
-# Lightweight Topic Modeling Components
+# Meno Integrated Components
 
-## Overview
+## Advanced BERTopic Features and LLM Topic Labeling (v1.2.0)
+
+In version 1.2.0, we've integrated the full suite of BERTopic's advanced functionality while maintaining backward compatibility and enhancing the user experience with LLM-based topic labeling. The key features include:
+
+1. **Model Merging** - Combine multiple topic models into one unified model
+2. **Topic Manipulation** - Merge similar topics, reduce topic count, update topics
+3. **Dynamic Topic Modeling** - Analyze how topics evolve over time with timestamped data
+4. **Semi-supervised Topic Modeling** - Guide topic discovery with seed topics
+5. **LLM-based Topic Labeling** - Generate human-readable topic names using language models
+
+All examples and documentation demonstrate these capabilities working seamlessly together, providing a powerful topic modeling ecosystem.
+
+## Lightweight Topic Modeling Components (v1.1.0)
 
 We've successfully integrated lightweight topic modeling components that work without requiring heavy dependencies like UMAP and HDBSCAN. These components include:
 

@@ -1,4 +1,4 @@
-# Meno: Topic Modeling Toolkit (v1.1.1)
+# Meno: Topic Modeling Toolkit (v1.2.0)
 
 <p align="center">
   <img src="meno.webp" alt="Meno Logo" width="250"/>
@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org)
 [![GitHub Stars](https://img.shields.io/github/stars/srepho/meno?style=social)](https://github.com/srepho/meno)
 
-Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization. It includes both high-powered models and lightweight alternatives that work without heavy dependencies.
+Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization. It includes both high-powered models and lightweight alternatives that work without heavy dependencies. The latest version (1.2.0) adds advanced BERTopic features including model merging, topic manipulation, dynamic topic modeling, and LLM-based topic labeling for more intuitive topic names.
 
 ## Installation
 
@@ -132,6 +132,22 @@ workflow.discover_topics(num_topics=2)
 # Generate comprehensive report
 workflow.generate_comprehensive_report("final_report.html", open_browser=True)
 ```
+
+## What's New in v1.2.0
+
+- **Advanced BERTopic Features** - Full support for powerful BERTopic capabilities:
+  - **Model Merging** - Combine multiple topic models into one unified model
+  - **Topic Manipulation** - Merge similar topics, reduce topic count, and update topics
+  - **Dynamic Topic Modeling** - Analyze how topics evolve over time with timestamped data
+  - **Semi-supervised Topic Modeling** - Guide topic discovery with seed topics
+- **LLM-based Topic Labeling** - Generate human-readable topic names using:
+  - Local HuggingFace models like FLAN-T5 and OPT
+  - OpenAI models like GPT-3.5/4 (with API key)
+  - Automatic integration during model fitting or as post-processing
+- **Comprehensive Examples** - New examples demonstrating all advanced features:
+  - `advanced_bertopic_features.py` - Showcases all extended capabilities
+  - `llm_topic_labeling_example.py` - Demonstrates topic labeling options
+  - `workflow_with_llm_labeling.py` - End-to-end pipeline with labeled topics
 
 ## What's New in v1.1.0
 
@@ -326,6 +342,67 @@ modeler = MenoTopicModeler()
 modeler.preprocess(df, text_column="processed_text")
 
 # Continue with topic modeling...
+```
+
+### Advanced BERTopic Features
+
+```python
+from meno.modeling.bertopic_model import BERTopicModel
+from meno.modeling.embeddings import DocumentEmbedding
+import pandas as pd
+
+# Load data
+df = pd.read_csv("documents.csv")
+documents = df["text"].tolist()
+
+# Create embedding model
+embedding_model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
+
+# Create BERTopic model with LLM topic labeling
+model = BERTopicModel(
+    num_topics=8,
+    embedding_model=embedding_model,
+    min_topic_size=5,
+    use_llm_labeling=True,  # Enable LLM labeling
+    llm_model_type="local",  # Use local model (or "openai")
+    llm_model_name="google/flan-t5-small"  # Or any other HuggingFace model
+)
+
+# Fit model
+model.fit(documents)
+
+# Print topics with LLM-generated names
+topic_info = model.get_topic_info()
+print(topic_info[["Topic", "Count", "Name"]])
+
+# Topic manipulation: merge similar topics
+topics_to_merge = [[0, 1], [2, 3, 4]]  # Merge topics 0&1 and 2&3&4
+model.merge_topics(topics_to_merge, documents=documents)
+
+# Reduce to a specific number of topics
+model.reduce_topics(documents, nr_topics=5)
+
+# Create a second model for a different dataset
+second_model = BERTopicModel(num_topics=6, embedding_model=embedding_model)
+second_model.fit(other_documents)
+
+# Merge models
+merged_model = model.merge_models(
+    models=[second_model],
+    documents=documents + other_documents,
+    min_similarity=0.7
+)
+
+# Dynamic topic modeling with timestamps
+topics, probs, timestamps = model.fit_transform_with_timestamps(
+    documents=documents_with_time,
+    timestamps=timestamp_list,
+    global_tuning=True
+)
+
+# Visualize topics
+model.visualize_topics().write_html("topic_similarity.html")
+model.visualize_topics_over_time().write_html("topics_over_time.html")
 ```
 
 ### BERTopic Integration
@@ -703,19 +780,83 @@ See `examples/feedback_visualization_example.py`, `examples/feedback_visualizati
 
 See the example scripts in the [examples directory](examples/) for more detailed usage.
 
+### LLM Topic Labeling
+
+```python
+from meno.modeling.bertopic_model import BERTopicModel
+from meno.modeling.embeddings import DocumentEmbedding
+from meno.modeling.llm_topic_labeling import LLMTopicLabeler
+import pandas as pd
+
+# Load your data
+df = pd.read_csv("documents.csv")
+documents = df["text"].tolist()
+
+# Method 1: Automatic labeling during model fitting
+model = BERTopicModel(
+    num_topics=8,
+    embedding_model="all-MiniLM-L6-v2",
+    use_llm_labeling=True,
+    llm_model_type="local",
+    llm_model_name="google/flan-t5-small"
+)
+model.fit(documents)
+
+# Method 2: Apply labeling after model fitting
+model = BERTopicModel(num_topics=8, embedding_model="all-MiniLM-L6-v2")
+model.fit(documents)
+
+# Get original topic info
+print("Original topic names:")
+print(model.get_topic_info()[["Topic", "Name"]])
+
+# Apply LLM labeling
+model.apply_llm_labeling(
+    documents=documents,
+    model_type="local",
+    model_name="google/flan-t5-small",
+    detailed=True
+)
+
+# Get updated topic info
+print("LLM-generated topic names:")
+print(model.get_topic_info()[["Topic", "Name"]])
+
+# Method 3: Standalone labeler for any topic model
+topic_model = BERTopicModel(num_topics=5)
+topic_model.fit(documents)
+
+# Create LLM labeler
+labeler = LLMTopicLabeler(
+    model_type="openai",
+    model_name="gpt-3.5-turbo",
+    temperature=0.7
+)
+
+# Generate topic names
+topic_names = labeler.label_topics(
+    topic_model=topic_model,
+    example_docs_per_topic=None,  # Optional document examples
+    detailed=True
+)
+
+for topic_id, name in topic_names.items():
+    print(f"Topic {topic_id}: {name}")
+```
+
 ## Future Development
 
-With v1.1.0 enhancing our lightweight components, we're now focusing on:
+With v1.2.0 adding advanced BERTopic features and LLM topic labeling, we're now focusing on:
 
 1. **Incremental Learning** - Support for streaming data and updating models
-2. **Advanced Model Integration** - Better integration with external models
-3. **Multilingual Support** - Expand beyond English
-4. **Domain-Specific Fine-Tuning** - Adapt models to specific industries
-5. **Explainable AI Features** - Better interpret topic assignments
-6. **Interactive Dashboards** - More powerful visualization tools
-7. **Cloud Integration** - Native support for cloud-based services
-8. **Export/Import Format** - Standard format for sharing models and results
-9. **Extension API** - Plugin system for custom models and visualizations
+2. **Multilingual Support** - Expand beyond English with better language handling
+3. **Domain-Specific Fine-Tuning** - Adapt models to specific industries
+4. **Explainable AI Features** - Better interpret topic assignments
+5. **Interactive Dashboards** - More powerful visualization tools
+6. **Cloud Integration** - Native support for cloud-based services
+7. **Export/Import Format** - Standard format for sharing models and results
+8. **Extension API** - Plugin system for custom models and visualizations
+9. **Enhanced LLM Integration** - More language model options and applications
 
 See our [detailed roadmap](ROADMAP.md) for more information and the [INTEGRATED_COMPONENTS_SUMMARY.md](INTEGRATED_COMPONENTS_SUMMARY.md) for details on our recent work.
 

@@ -8,6 +8,7 @@ import numpy as np
 from pathlib import Path
 import jinja2
 import plotly.graph_objects as go
+import webbrowser
 
 from ..visualization.static_plots import plot_topic_distribution, plot_topic_word_clouds
 from ..visualization.interactive_plots import (
@@ -264,6 +265,19 @@ DEFAULT_TEMPLATE = """
             margin-top: 5px;
         }
         
+        .coherence-details {
+            margin-top: 8px;
+            padding: 6px;
+            background-color: rgba(52, 152, 219, 0.1);
+            border-radius: 4px;
+            text-align: left;
+        }
+        
+        .coherence-details ul {
+            margin: 0;
+            padding-left: 15px;
+        }
+        
         .export-btn {
             background-color: var(--primary-color);
             color: white;
@@ -435,7 +449,27 @@ DEFAULT_TEMPLATE = """
                     <div class="summary-card">
                         <div class="summary-value">{{ topic_coherence }}</div>
                         <div class="summary-label">Topic Coherence</div>
+                        {% if topic_coherence_by_type %}
+                        <div class="coherence-details">
+                            <ul style="font-size: 0.8rem; margin-top: 5px; padding-left: 15px;">
+                                {% for metric_name, value in topic_coherence_by_type.items() %}
+                                <li><strong>{{ metric_name }}:</strong> {{ value }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
                     </div>
+                    {% endif %}
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background-color: var(--light-bg); border-radius: 8px;">
+                    <h3 style="margin-top: 0;">Model Information</h3>
+                    <p><strong>Model Type:</strong> {{ model_info.get('type', 'Unknown') }}</p>
+                    {% if model_info.get('clustering') %}
+                    <p><strong>Clustering Algorithm:</strong> {{ model_info.get('clustering') }}</p>
+                    {% endif %}
+                    {% if model_info.get('num_topics') %}
+                    <p><strong>Number of Topics:</strong> {{ model_info.get('num_topics') }}</p>
                     {% endif %}
                 </div>
             </div>
@@ -559,6 +593,8 @@ def generate_html_report(
     template: Optional[str] = None,
     similarity_matrix: Optional[np.ndarray] = None,
     topic_words: Optional[Dict[str, Dict[str, float]]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    open_browser: bool = False,
 ) -> str:
     """Generate an HTML report of topic modeling results.
     
@@ -581,12 +617,20 @@ def generate_html_report(
         Matrix of topic similarities, shape (n_topics, n_topics), by default None
     topic_words : Optional[Dict[str, Dict[str, float]]], optional
         Dictionary mapping topic names to word frequency dictionaries, by default None
+    metadata : Optional[Dict[str, Any]], optional
+        Additional metadata about the model and process, by default None
+        Can include 'modeling_method', 'clustering_algorithm', 'n_topics', etc.
+    open_browser : bool, optional
+        Whether to automatically open the report in a web browser, by default False
     
     Returns
     -------
     str
         Path to the generated report
     """
+    # Initialize a set to track used words across topics for distinctiveness
+    generate_html_report._used_words = set()
+    
     # Default configuration
     default_config = {
         "title": "Topic Modeling Results",
@@ -687,11 +731,39 @@ def generate_html_report(
             if isinstance(top_words_row, str):
                 top_words = top_words_row
         elif topic_words and topic_name in topic_words:
-            # Use top words from topic_words if available
+            # Use top words from topic_words if available, but ensure distinctiveness
             words = topic_words[topic_name]
-            top_words = ", ".join(
-                sorted(words.keys(), key=lambda k: words[k], reverse=True)[:10]
-            )
+            
+            # Get the top 15 words by score to have a good pool to choose from
+            top_word_candidates = sorted(words.keys(), key=lambda k: words[k], reverse=True)[:15]
+            
+            # Use the initialized tracking set for used words across topics
+            
+            # Get distinctive top words - prefer unused words when possible
+            distinctive_words = []
+            for word in top_word_candidates:
+                # Check if this word is distinctive enough (not used in other topics)
+                if len(distinctive_words) < 5:  # Get at least 5 top words
+                    distinctive_words.append(word)
+                    generate_html_report._used_words.add(word)
+                elif word not in generate_html_report._used_words:
+                    # If we have 5+ words but found an unused one, add it
+                    distinctive_words.append(word)
+                    generate_html_report._used_words.add(word)
+                
+                # Stop if we have 10 words
+                if len(distinctive_words) >= 10:
+                    break
+            
+            # If we got fewer than 5 distinctive words, add more from the top words
+            if len(distinctive_words) < 5:
+                for word in top_word_candidates:
+                    if word not in distinctive_words:
+                        distinctive_words.append(word)
+                    if len(distinctive_words) >= 10:
+                        break
+            
+            top_words = ", ".join(distinctive_words)
         
         # Get example documents
         examples = topic_group["text"].head(config["max_examples_per_topic"]).tolist()
@@ -774,15 +846,86 @@ def generate_html_report(
         avg_words = documents["text"].str.split().str.len().mean()
         avg_words_per_doc = f"{avg_words:.1f}"
     
-    # Topic coherence score (placeholder - would be calculated by modeling)
+    # Topic coherence scores
     topic_coherence = None
+    topic_coherence_by_type = {}
+    
+    # Check for general coherence column
     if "coherence" in topic_assignments.columns:
         topic_coherence = f"{topic_assignments['coherence'].mean():.2f}"
     
+    # Check for specific coherence metrics
+    for col in topic_assignments.columns:
+        if col.startswith("coherence_"):
+            metric_name = col[10:]  # Remove "coherence_" prefix
+            metric_value = topic_assignments[col].mean()
+            topic_coherence_by_type[metric_name] = f"{metric_value:.2f}"
+            
+            # If no general coherence is set, use c_v or the first available
+            if topic_coherence is None:
+                if metric_name == "c_v":
+                    topic_coherence = f"{metric_value:.2f}"
+                elif not topic_coherence_by_type:  # First metric
+                    topic_coherence = f"{metric_value:.2f}"
+    
+    # Detect modeling method and clustering algorithm used
+    model_info = {}
+    
+    # First use metadata if available
+    if metadata and 'modeling_method' in metadata:
+        method = metadata['modeling_method']
+        if method == 'lda':
+            model_info['type'] = 'LDA'
+            model_info['num_topics'] = metadata.get('n_topics', len(topics_info))
+        elif method == 'embedding_cluster':
+            model_info['type'] = 'Embedding Clustering'
+            model_info['clustering'] = metadata.get('clustering_algorithm', 'Unknown')
+            if model_info['clustering'] != 'hdbscan':
+                model_info['num_topics'] = metadata.get('n_clusters', len(topics_info))
+        else:
+            model_info['type'] = method.title()
+    # If no metadata, analyze topic_assignments structure to determine model type
+    elif isinstance(topic_assignments, pd.DataFrame):
+        topic_columns = topic_assignments.columns.tolist()
+        # Check for LDA-specific format (columns are numeric topics)
+        if any(col.isdigit() for col in topic_columns):
+            model_info['type'] = 'LDA'
+            model_info['num_topics'] = sum(1 for col in topic_columns if col.isdigit() or col.startswith('topic_'))
+        # Check for embedding clustering format
+        elif 'topic' in topic_columns:
+            model_info['type'] = 'Embedding Clustering'
+            # Try to determine clustering algorithm
+            if 'topic_probability' in topic_columns:
+                model_info['clustering'] = 'HDBSCAN'
+            else:
+                # Check column distribution pattern for KMeans vs Agglomerative
+                topic_counts = documents['topic'].value_counts()
+                if topic_counts.std() / topic_counts.mean() < 0.5:  # Low variation suggests KMeans
+                    model_info['clustering'] = 'KMeans'
+                else:
+                    model_info['clustering'] = 'Agglomerative/HDBSCAN'
+        else:
+            model_info['type'] = 'Unknown'
+    else:
+        model_info['type'] = 'Unknown'
+    
+    # Model description for display
+    model_description = f"{model_info.get('type', 'Unknown')}"
+    if 'clustering' in model_info:
+        model_description += f" with {model_info.get('clustering')} clustering"
+    if 'num_topics' in model_info:
+        model_description += f" ({model_info.get('num_topics')} topics)"
+    
     # Create context for template
     from datetime import datetime
+    # Include model info in the title if not explicitly set
+    if config["title"] == "Topic Modeling Results":
+        title = f"Topic Modeling Results - {model_description}"
+    else:
+        title = config["title"]
+        
     context = {
-        "title": config["title"],
+        "title": title,
         "document_count": len(documents),
         "topic_count": len(topics_info),
         "generation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -796,7 +939,10 @@ def generate_html_report(
         "topic_assignments_table": topic_assignments_table,
         "avg_words_per_doc": avg_words_per_doc,
         "topic_coherence": topic_coherence,
+        "topic_coherence_by_type": topic_coherence_by_type,
         "full_data_json": full_data_json,
+        "model_info": model_info,
+        "model_description": model_description,
     }
     
     # Render template
@@ -805,6 +951,10 @@ def generate_html_report(
     # Write to file
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
+    
+    # Open in browser if requested
+    if open_browser:
+        webbrowser.open(f'file://{os.path.abspath(output_path)}')
     
     return str(output_path)
 

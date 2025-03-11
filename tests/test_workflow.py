@@ -39,6 +39,36 @@ def test_create_workflow():
     assert workflow.spelling_corrector is not None
     assert workflow.documents is None
     assert workflow.text_column is None
+    
+    # Test with local_model_path parameter
+    with mock.patch("meno.workflow.DocumentEmbedding") as mock_embed:
+        mock_embed.return_value = mock.MagicMock()
+        
+        workflow = create_workflow(
+            config_overrides={
+                "modeling": {
+                    "embeddings": {
+                        "local_files_only": True
+                    }
+                }
+            }
+        )
+        
+        assert mock_embed.called
+        
+        # Test with explicit local_model_path
+        mock_embed.reset_mock()
+        workflow = create_workflow(
+            config_overrides={
+                "modeling": {
+                    "embeddings": {
+                        "local_model_path": "/mock/path"
+                    }
+                }
+            }
+        )
+        
+        assert mock_embed.called
 
 # Test data loading
 def test_load_data(sample_data):

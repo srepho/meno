@@ -1,4 +1,8 @@
-"""Integration tests for the meno package."""
+"""Integration tests for the meno package.
+
+These tests verify that the components work together correctly and 
+should test end-to-end functionality including the local model loading features.
+"""
 
 import os
 import tempfile
@@ -116,7 +120,8 @@ class TestMenoTopicModeler:
             "modeling": {
                 "embeddings": {
                     "model_name": "test-model",
-                    "batch_size": 64
+                    "batch_size": 64,
+                    "local_files_only": True
                 }
             }
         }
@@ -128,6 +133,7 @@ class TestMenoTopicModeler:
         assert modeler.config.preprocessing.normalization.remove_numbers is True
         assert modeler.config.modeling.embeddings.model_name == "test-model"
         assert modeler.config.modeling.embeddings.batch_size == 64
+        assert modeler.config.modeling.embeddings.local_files_only is True
     
     def test_preprocess_list_input(self, sample_texts):
         """Test preprocessing with list input."""

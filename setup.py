@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="meno",
-    version="1.1.2",
+    version="1.2.0",
     description="Topic modeling toolkit for messy text data",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -69,6 +69,27 @@ setup(
             "bertopic>=0.15.0,<0.16.0",
             "top2vec>=1.0.27,<2.0.0",
             "wordcloud>=1.9.0,<2.0.0",
+            "openai>=1.0.0,<2.0.0",
+            "tqdm>=4.65.0,<5.0.0",
+        ],
+        "llm": [
+            "transformers>=4.28.0,<5.0.0",
+            "torch>=2.0.0,<3.0.0",
+            "tqdm>=4.65.0,<5.0.0",
+            "accelerate>=0.20.0,<0.22.0",
+        ],
+        "llm_openai": [
+            "openai>=1.0.0,<2.0.0",
+            "tqdm>=4.65.0,<5.0.0",
+        ],
+        "gpu": [
+            "bitsandbytes>=0.39.0,<0.40.0",
+            "accelerate>=0.20.0,<0.22.0",
+            "safetensors>=0.3.1,<0.4.0",
+        ],
+        "openai": [
+            "openai>=1.0.0,<2.0.0",
+            "tqdm>=4.65.0,<5.0.0",
         ],
     },
     entry_points={

@@ -1,0 +1,70 @@
+# Configuration template for large datasets (100,000+ documents)
+# Optimized for performance and memory efficiency
+
+preprocessing:
+  # Normalization settings (keep minimal)
+  normalization:
+    lowercase: true
+    remove_punctuation: true
+    remove_stopwords: true
+    lemmatize: false  # Skip lemmatization for performance
+  
+  # Disable acronym expansion for large datasets
+  acronyms:
+    enabled: false
+  
+  # Disable spelling correction for large datasets
+  spelling:
+    enabled: false
+
+# Modeling settings
+modeling:
+  # Use very lightweight modeling method
+  default_method: "tfidf"  # TF-IDF with KMeans is fastest
+  default_num_topics: 30  # More topics for large diverse datasets
+  auto_select_method: true
+  
+  # Limit vocabulary size for performance
+  max_features: 5000
+  
+  # Embeddings settings (only if needed)
+  embeddings:
+    model_name: "sentence-transformers/paraphrase-MiniLM-L3-v2"  # Small model
+    batch_size: 128  # Larger batch size
+    use_mmap: true  # Essential for large datasets
+    cache_dir: "~/.meno/cache/embeddings"  # Cache embeddings to disk
+    use_gpu: false  # Set to true if GPU available with sufficient memory
+    max_length: 128  # Limit token length for extreme performance
+  
+  # Clustering settings
+  clustering:
+    random_state: 42
+    min_cluster_size: 30  # Larger min size for big datasets
+    max_features: 5000  # Limit features for TF-IDF
+
+# Visualization settings
+visualization:
+  default_plot_type: "topics"  # Basic visualization
+  interactive: false  # Static plots are more efficient
+  sample_size: 10000  # Sample for visualization
+  
+  # Disable heavy visualizations
+  embeddings_plot:
+    enabled: false
+  
+  topic_network:
+    enabled: false
+
+# Workflow settings
+workflow:
+  streaming: true  # Enable streaming for large files
+  batch_size: 10000  # Process in large batches
+  cache_embeddings: true
+  use_polars: true  # Use Polars instead of Pandas if available
+  memory_efficient: true
+  progress_bar: true
+  
+  # Reporting settings
+  reporting:
+    max_docs_in_report: 1000  # Limit docs in report
+    include_raw_data: false  # Skip raw data in report

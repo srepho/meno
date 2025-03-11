@@ -7,11 +7,12 @@ scikit-learn rather than more complex libraries like UMAP, HDBSCAN, etc.
 import numpy as np
 import pandas as pd
 import logging
-from typing import List, Dict, Optional, Union, Tuple, Any, Callable
+from typing import List, Dict, Optional, Union, Tuple, Any, Callable, Set
 from pathlib import Path
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF, TruncatedSVD
+from sklearn.metrics.pairwise import cosine_similarity
 
 from meno.modeling.base import BaseTopicModel
 from meno.modeling.embeddings import DocumentEmbedding
@@ -41,19 +42,39 @@ class SimpleTopicModel(BaseTopicModel):
         num_topics: int = 10,
         embedding_model: Optional[DocumentEmbedding] = None,
         random_state: int = 42,
+        min_topic_similarity_threshold: float = 0.75,
+        auto_reduce_topics: bool = True,
         **kwargs
     ):
-        """Initialize the simple topic model."""
+        """Initialize the simple topic model.
+        
+        Parameters
+        ----------
+        num_topics : int, optional
+            Number of topics to extract, by default 10
+        embedding_model : Optional[DocumentEmbedding], optional
+            Model to use for document embeddings, by default None (creates a new instance)
+        random_state : int, optional
+            Random seed for reproducibility, by default 42
+        min_topic_similarity_threshold : float, optional
+            Threshold for detecting duplicate topics (0.0-1.0), by default 0.75
+            Higher values mean topics need to be more similar to be considered duplicates
+        auto_reduce_topics : bool, optional
+            Whether to automatically reduce the number of topics by merging similar ones, by default True
+        """
         super().__init__(num_topics=num_topics, **kwargs)
         self.num_topics = num_topics
         self.embedding_model = embedding_model or DocumentEmbedding()
         self.random_state = random_state
+        self.min_topic_similarity_threshold = min_topic_similarity_threshold
+        self.auto_reduce_topics = auto_reduce_topics
         self.model = None
         self.vectorizer = None
         self.topics = {}
         self.topic_words = {}
         self.topic_sizes = {}
         self.is_fitted = False
+        self.merged_topics = {}
         
     def fit(
         self,
@@ -83,6 +104,12 @@ class SimpleTopicModel(BaseTopicModel):
         if embeddings is None:
             logger.info("Computing document embeddings...")
             embeddings = self.embedding_model.embed_documents(documents)
+        
+        # If requested num_topics is too large for the dataset, reduce it
+        actual_num_topics = min(self.num_topics, len(documents) - 1)
+        if actual_num_topics < self.num_topics:
+            logger.warning(f"Reducing requested topics from {self.num_topics} to {actual_num_topics} due to small dataset size")
+            self.num_topics = actual_num_topics
             
         # Train KMeans
         logger.info(f"Clustering documents into {self.num_topics} topics...")
@@ -104,6 +131,7 @@ class SimpleTopicModel(BaseTopicModel):
         self.topic_sizes = {}
         self.topics = {}
         
+        # First pass: extract topic keywords and create initial topic labels
         for topic_id in range(self.num_topics):
             # Get documents in this cluster
             cluster_docs = [i for i, cluster in enumerate(self.clusters) if cluster == topic_id]
@@ -123,16 +151,160 @@ class SimpleTopicModel(BaseTopicModel):
                 
                 # Create topic label
                 if top_terms:
-                    self.topics[topic_id] = f"{top_terms[0].title()}: {', '.join(top_terms[1:4])}"
+                    # Handle case when top_terms might be numpy array
+                    if isinstance(top_terms[0], np.ndarray) or not hasattr(top_terms[0], 'title'):
+                        first_term = str(top_terms[0])
+                        other_terms = [str(t) for t in top_terms[1:4]]
+                    else:
+                        first_term = top_terms[0].title()
+                        other_terms = top_terms[1:4]
+                    
+                    self.topics[topic_id] = f"{first_term}: {', '.join(other_terms)}"
                 else:
                     self.topics[topic_id] = f"Topic {topic_id}"
             else:
                 self.topics[topic_id] = f"Topic {topic_id}"
                 self.topic_words[topic_id] = []
         
+        # Second pass: identify and merge similar topics if auto_reduce_topics is enabled
+        if self.auto_reduce_topics:
+            self._merge_similar_topics()
+        
         self.is_fitted = True
         logger.info("Simple topic model fitting complete.")
         return self
+    
+    def _merge_similar_topics(self) -> None:
+        """Identify and merge similar topics to reduce topic count.
+        
+        This method compares topic vectors using cosine similarity to find and merge
+        duplicate topics that exceed the similarity threshold.
+        """
+        # Skip if no topics or only one topic
+        if len(self.topic_words) <= 1:
+            return
+        
+        # Create topic term vectors from topic words
+        topic_term_vectors = {}
+        all_terms = set()
+        
+        # Collect all unique terms across topics
+        for topic_id, words in self.topic_words.items():
+            # Convert any numpy arrays to strings
+            string_words = [str(word) for word in words]
+            all_terms.update(string_words)
+        
+        all_terms = list(all_terms)
+        term_index = {term: i for i, term in enumerate(all_terms)}
+        
+        # Create term vectors for each topic
+        for topic_id, words in self.topic_words.items():
+            vector = np.zeros(len(all_terms))
+            for i, word in enumerate(words):
+                # Convert word to string if it's not already
+                word_str = str(word)
+                # Weight by position (descending)
+                weight = 1.0 - (i / len(words))
+                if word_str in term_index:  # Ensure the string is in the index
+                    vector[term_index[word_str]] = weight
+            topic_term_vectors[topic_id] = vector
+        
+        # Compute similarity between topics
+        topic_ids = list(topic_term_vectors.keys())
+        merged_topics = {}  # Map of {merged_topic_id: primary_topic_id}
+        merged_topic_ids = set()  # Topics that have been merged into others
+        
+        for i in range(len(topic_ids)):
+            topic_i = topic_ids[i]
+            
+            # Skip if this topic has already been merged into another
+            if topic_i in merged_topic_ids:
+                continue
+                
+            for j in range(i + 1, len(topic_ids)):
+                topic_j = topic_ids[j]
+                
+                # Skip if this topic has already been merged into another
+                if topic_j in merged_topic_ids:
+                    continue
+                
+                # Calculate cosine similarity
+                vec_i = topic_term_vectors[topic_i]
+                vec_j = topic_term_vectors[topic_j]
+                
+                # Handle zero vectors
+                if np.all(vec_i == 0) or np.all(vec_j == 0):
+                    continue
+                    
+                similarity = np.dot(vec_i, vec_j) / (np.linalg.norm(vec_i) * np.linalg.norm(vec_j))
+                
+                # If similarity exceeds threshold, merge topics
+                if similarity >= self.min_topic_similarity_threshold:
+                    # Keep the topic with more documents
+                    if self.topic_sizes.get(topic_i, 0) >= self.topic_sizes.get(topic_j, 0):
+                        primary_topic, merged_topic = topic_i, topic_j
+                    else:
+                        primary_topic, merged_topic = topic_j, topic_i
+                    
+                    logger.info(f"Merging similar topics: {self.topics[merged_topic]} -> {self.topics[primary_topic]} (similarity: {similarity:.2f})")
+                    
+                    # Record the merge
+                    merged_topics[merged_topic] = primary_topic
+                    merged_topic_ids.add(merged_topic)
+                    
+                    # Combine topic sizes
+                    self.topic_sizes[primary_topic] = self.topic_sizes.get(primary_topic, 0) + self.topic_sizes.get(merged_topic, 0)
+                    
+                    # Update cluster assignments
+                    self.clusters = np.array([
+                        primary_topic if c == merged_topic else c
+                        for c in self.clusters
+                    ])
+        
+        # Store merged topics for reference
+        self.merged_topics = merged_topics
+        
+        # If topics were merged, update topic count
+        if merged_topics:
+            # Count actual topics after merging
+            active_topics = set(self.topics.keys()) - merged_topic_ids
+            logger.info(f"Reduced topics from {self.num_topics} to {len(active_topics)} by merging similar topics")
+            
+            # Create a mapping for topic IDs to make them sequential
+            id_map = {old_id: new_id for new_id, old_id in enumerate(sorted(active_topics))}
+            
+            # Update topic attributes with new IDs
+            new_topics = {}
+            new_topic_words = {}
+            new_topic_sizes = {}
+            
+            for old_id in active_topics:
+                new_id = id_map[old_id]
+                new_topics[new_id] = self.topics[old_id]
+                new_topic_words[new_id] = self.topic_words[old_id]
+                new_topic_sizes[new_id] = self.topic_sizes[old_id]
+            
+            # Update instance variables
+            self.topics = new_topics
+            self.topic_words = new_topic_words
+            self.topic_sizes = new_topic_sizes
+            
+            # Update num_topics attribute
+            self.num_topics = len(active_topics)
+            
+            # Update cluster assignments with new topic IDs
+            id_map_with_merged = {}
+            for old_id in range(max(self.clusters) + 1):
+                # If topic was merged, map to the new ID of its primary topic
+                if old_id in merged_topics:
+                    primary_old_id = merged_topics[old_id]
+                    # The primary topic might itself have been remapped
+                    id_map_with_merged[old_id] = id_map.get(primary_old_id, 0)
+                else:
+                    id_map_with_merged[old_id] = id_map.get(old_id, 0)
+            
+            # Apply the mapping to clusters
+            self.clusters = np.array([id_map_with_merged.get(c, 0) for c in self.clusters])
     
     def transform(
         self,
@@ -512,7 +684,15 @@ class TFIDFTopicModel(BaseTopicModel):
                 
                 # Create topic label
                 if top_terms:
-                    self.topics[topic_id] = f"{top_terms[0].title()}: {', '.join(top_terms[1:4])}"
+                    # Handle case when top_terms might be numpy array
+                    if isinstance(top_terms[0], np.ndarray) or not hasattr(top_terms[0], 'title'):
+                        first_term = str(top_terms[0])
+                        other_terms = [str(t) for t in top_terms[1:4]]
+                    else:
+                        first_term = top_terms[0].title()
+                        other_terms = top_terms[1:4]
+                    
+                    self.topics[topic_id] = f"{first_term}: {', '.join(other_terms)}"
                 else:
                     self.topics[topic_id] = f"Topic {topic_id}"
             else:
@@ -897,7 +1077,15 @@ class NMFTopicModel(BaseTopicModel):
             
             # Create topic label
             if top_terms:
-                self.topics[topic_id] = f"{top_terms[0].title()}: {', '.join(top_terms[1:4])}"
+                # Handle case when top_terms might be numpy array
+                if isinstance(top_terms[0], np.ndarray) or not hasattr(top_terms[0], 'title'):
+                    first_term = str(top_terms[0])
+                    other_terms = [str(t) for t in top_terms[1:4]]
+                else:
+                    first_term = top_terms[0].title()
+                    other_terms = top_terms[1:4]
+                
+                self.topics[topic_id] = f"{first_term}: {', '.join(other_terms)}"
             else:
                 self.topics[topic_id] = f"Topic {topic_id}"
         

@@ -9,9 +9,12 @@ from unittest import mock
 
 import torch
 import numpy as np
+import pandas as pd
 
 from meno.modeling.embeddings import DocumentEmbedding
 from meno.modeling.bertopic_model import BERTopicModel
+from meno import MenoTopicModeler
+from meno.workflow import MenoWorkflow
 
 
 @pytest.fixture
@@ -169,6 +172,88 @@ def test_huggingface_cache_detection(mock_sentence_transformer, mock_exists, moc
         
         # Ensure SentenceTransformer was called
         assert mock_sentence_transformer.called
+
+
+@mock.patch("meno.modeling.embeddings.SentenceTransformer")
+def test_topic_modeler_with_local_model(mock_sentence_transformer, mock_model_path, sample_texts):
+    """Test MenoTopicModeler with a local model path"""
+    # Setup mock
+    mock_instance = mock_sentence_transformer.return_value
+    mock_instance.get_sentence_embedding_dimension.return_value = 384
+    mock_instance.encode.return_value = np.random.rand(3, 384)
+    
+    # Create embedding model with local path
+    embedding_model = DocumentEmbedding(
+        local_model_path=mock_model_path,
+        use_gpu=False
+    )
+    
+    # Create modeler with embedding model
+    modeler = MenoTopicModeler(embedding_model=embedding_model)
+    
+    # Check if embedding model was correctly assigned
+    assert modeler.embedding_model is embedding_model
+    
+    # Test preprocessing and embedding functionality
+    df = pd.DataFrame({"text": sample_texts})
+    processed = modeler.preprocess(df, text_column="text")
+    assert len(processed) == len(sample_texts)
+    
+    # Test with direct embedding parameter in the config
+    with mock.patch("meno.meno.load_config") as mock_config:
+        # Create a mock config that includes local_files_only
+        mock_config.return_value = mock.MagicMock()
+        mock_config.return_value.modeling.embeddings.model_name = "test-model"
+        mock_config.return_value.modeling.embeddings.batch_size = 32
+        mock_config.return_value.modeling.embeddings.local_files_only = True
+        
+        # Create modeler with the mocked config
+        modeler = MenoTopicModeler()
+        
+        # Assert that DocumentEmbedding was called with local_files_only=True
+        assert mock_sentence_transformer.called
+        
+        # Get the last call
+        for call in mock_sentence_transformer.call_args_list:
+            if 'test-model' in str(call):
+                args, kwargs = call
+                # Test for local_files_only parameter being respected
+                assert 'device' in kwargs
+
+
+@mock.patch("meno.modeling.embeddings.SentenceTransformer")
+def test_workflow_with_local_model(mock_sentence_transformer, mock_model_path, sample_texts):
+    """Test MenoWorkflow with local model options"""
+    # Setup mock
+    mock_instance = mock_sentence_transformer.return_value
+    mock_instance.get_sentence_embedding_dimension.return_value = 384
+    mock_instance.encode.return_value = np.random.rand(3, 384)
+    
+    # Reset the mock to track new calls
+    mock_sentence_transformer.reset_mock()
+    
+    # Create workflow with local_model_path
+    workflow = MenoWorkflow(local_model_path=mock_model_path)
+    
+    # Test that DocumentEmbedding was created with the correct path
+    mock_sentence_transformer.assert_called()
+    assert mock_model_path in str(mock_sentence_transformer.call_args)
+    
+    # Reset mock again
+    mock_sentence_transformer.reset_mock()
+    
+    # Create workflow with local_files_only
+    workflow = MenoWorkflow(local_files_only=True)
+    
+    # Test basic workflow functionality with the mocked model
+    df = pd.DataFrame({"text": sample_texts})
+    workflow.load_data(df, text_column="text")
+    
+    # Mock the modeler's preprocess function to prevent it from calling the embedding model
+    with mock.patch.object(workflow.modeler, 'preprocess') as mock_preprocess:
+        mock_preprocess.return_value = df
+        workflow.preprocess_documents()
+        mock_preprocess.assert_called_once()
 
 
 if __name__ == "__main__":

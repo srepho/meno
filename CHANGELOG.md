@@ -5,6 +5,32 @@ All notable changes to the Meno project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-11-03
+
+### Added
+- **Advanced BERTopic Features:**
+  - Added `merge_models()` to combine multiple topic models
+  - Added topic manipulation functions: `merge_topics()`, `reduce_topics()`, `update_topics()`
+  - Added dynamic topic modeling with `fit_transform_with_timestamps()`
+  - Added semi-supervised topic modeling with `fit_with_seed_topics()`
+  - Comprehensive examples in `examples/advanced_bertopic_features.py`
+
+- **LLM Topic Labeling:**
+  - Added `LLMTopicLabeler` class for generating human-readable topic names
+  - Support for both local HuggingFace models and OpenAI API
+  - Integrated labeling into BERTopicModel with `use_llm_labeling` parameter
+  - Added post-fit labeling with `apply_llm_labeling()` method
+  - Example implementations in `examples/llm_topic_labeling_example.py`
+  - End-to-end workflow example in `examples/workflow_with_llm_labeling.py`
+
+### Improved
+- Enhanced topic coherence evaluation with new metrics
+- Added topic hierarchy visualization with `plot_topic_hierarchy()`
+- Improved documentation for advanced BERTopic features
+- Added comprehensive docstrings for all new methods
+- Updated README with examples of advanced features
+- Better error handling in model fitting and evaluation
+
 ## [1.1.2] - 2025-08-12
 
 ### Fixed

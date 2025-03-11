@@ -9,7 +9,9 @@ import pandas as pd
 import numpy as np
 from meno.modeling.unified_topic_modeling import create_topic_modeler
 from meno.modeling.embeddings import DocumentEmbedding
-from meno.visualization.static_plots import create_topic_visualization
+from meno.visualization.static_plots import plot_topic_distribution  # Replace with an existing function
+from meno.reporting.html_generator import generate_html_report
+from pathlib import Path
 
 
 # Sample data
@@ -58,11 +60,13 @@ embedding_model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
 # 1. Using BERTopic with automatic topic detection
 print("\n1. BERTopic with automatic topic detection")
 
-# Create topic modeler with auto_detect_topics=True
+# Create topic modeler with auto_detect_topics=True 
+# Add offline_mode=True to bypass potential import issues
 bertopic_model = create_topic_modeler(
     method="bertopic",
     auto_detect_topics=True,  # Enable automatic topic detection
     embedding_model=embedding_model,
+    offline_mode=True,        # Enable offline mode to bypass import checks
     config_overrides={
         'min_topic_size': 2,  # Lower threshold to allow more topics
         'n_neighbors': 5,     # Adjust UMAP parameters for small dataset
@@ -140,10 +144,50 @@ print(f"Topics: {list(topic_info['Topic'])}")
 
 # Create visualization
 try:
-    fig = create_topic_visualization(unified_model, documents_series)
-    print("\nTopic visualization created successfully. You can display it in a notebook or save it.")
+    # Use a simpler visualization since create_topic_visualization is not available
+    topics = unified_model.transform(documents_series)[0]
+    fig = plot_topic_distribution(topics)
+    print("\nTopic distribution visualization created successfully. You can display it in a notebook or save it.")
 except Exception as e:
     print(f"Could not create visualization due to: {e}")
+
+# 4. Demonstrating the open_browser=False default
+print("\n4. Generating HTML report with open_browser=False (default)")
+
+# Create output directory
+output_dir = Path("examples/output/auto_topic")
+output_dir.mkdir(parents=True, exist_ok=True)
+
+# Prepare document DataFrame
+docs_df = pd.DataFrame({
+    'text': documents_series,
+    'topic': unified_model.transform(documents_series)[0]
+})
+
+# Generate topic assignments DataFrame
+topics, probs = unified_model.transform(documents_series)
+topic_assignments = pd.DataFrame({
+    'doc_id': range(len(docs_df)),
+    'topic': topics,
+    'topic_probability': np.max(probs, axis=1) if len(probs.shape) > 1 else probs
+})
+
+# Generate HTML report without opening the browser
+report_path = generate_html_report(
+    documents=docs_df,
+    topic_assignments=topic_assignments,
+    output_path=output_dir / "auto_topics_report.html",
+    config={
+        "title": "Auto-Detected Topics Report",
+        "include_interactive": True,
+        "include_raw_data": True
+    },
+    # open_browser parameter defaults to False so browser won't open automatically
+)
+
+print(f"Report generated at: {report_path}")
+print("Notice the browser does not open automatically (new default behavior)")
+print("You can open the report manually or set open_browser=True to open automatically")
 
 print("\nAuto-detection is useful when:")
 print("1. You have no prior knowledge about how many topics to expect")

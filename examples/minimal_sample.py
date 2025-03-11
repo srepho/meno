@@ -46,7 +46,13 @@ def main():
     
     # Generate embeddings and discover topics
     modeler.embed_documents()
-    topics_df = modeler.discover_topics(num_topics=3)
+    topics_df = modeler.discover_topics(
+        # Use lightweight model with duplicate topic detection enabled
+        modeling_approach="lightweight",
+        num_topics=10,  # Start with more topics, will be automatically reduced
+        min_topic_similarity_threshold=0.6,
+        auto_reduce_topics=True
+    )
     
     # Create visualizations
     umap_fig = modeler.visualize_embeddings(return_figure=True)

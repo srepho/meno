@@ -56,14 +56,25 @@ class MenoTopicModeler:
         self,
         config_path: Optional[Union[str, Path]] = None,
         config_overrides: Optional[Dict[str, Any]] = None,
+        embedding_model: Optional[Any] = None,
+        offline_mode: bool = False,
     ):
         """Initialize the topic modeler with configuration."""
         # Load configuration
         self.config = load_config(config_path)
         
+        # Add offline_mode to config overrides if specified
+        if offline_mode:
+            config_overrides = config_overrides or {}
+            config_overrides['offline_mode'] = offline_mode
+        
         # Apply overrides if provided
         if config_overrides:
             self.config = merge_configs(self.config, config_overrides)
+            
+        # Store embedding model and offline mode if provided
+        self.custom_embedding_model = embedding_model
+        self.offline_mode = offline_mode
             
         # Initialize components
         self._initialize_components()
@@ -90,11 +101,26 @@ class MenoTopicModeler:
             stopwords_config=self.config.preprocessing.stopwords,
         )
         
-        # Initialize embedding model
-        self.embedding_model = DocumentEmbedding(
-            model_name=self.config.modeling.embeddings.model_name,
-            batch_size=self.config.modeling.embeddings.batch_size,
-        )
+        # Initialize embedding model if not provided
+        try:
+            if hasattr(self, 'custom_embedding_model') and self.custom_embedding_model is not None:
+                self.embedding_model = self.custom_embedding_model
+                logger.debug(f"Using custom embedding model: {type(self.embedding_model)}")
+            else:
+                self.embedding_model = DocumentEmbedding(
+                    model_name=self.config.modeling.embeddings.model_name,
+                    batch_size=self.config.modeling.embeddings.batch_size,
+                    local_files_only=self.config.modeling.embeddings.local_files_only if hasattr(self.config.modeling.embeddings, 'local_files_only') else False,
+                )
+                logger.debug(f"Initialized embedding model: {self.config.modeling.embeddings.model_name}")
+            
+            # Verify the embedding model is properly initialized
+            if not hasattr(self.embedding_model, 'embed_documents'):
+                logger.warning(f"Embedding model doesn't have embed_documents method. Type: {type(self.embedding_model)}")
+                
+        except Exception as e:
+            logger.error(f"Error initializing embedding model: {e}")
+            raise ValueError(f"Failed to initialize embedding model: {e}")
         
         logger.debug("Components initialized")
     
@@ -166,6 +192,17 @@ class MenoTopicModeler:
             raise ValueError("Documents must be preprocessed before embedding")
         
         logger.info(f"Generating embeddings for {len(self.documents)} documents")
+        
+        # Verify that embedding_model is a proper object with embed_documents method
+        if self.embedding_model is None:
+            raise ValueError("Embedding model is not initialized")
+            
+        if isinstance(self.embedding_model, str):
+            raise ValueError(f"Embedding model is a string '{self.embedding_model}' instead of an initialized model object. This usually happens when the model failed to load properly.")
+            
+        if not hasattr(self.embedding_model, 'embed_documents'):
+            raise ValueError(f"Embedding model does not have an 'embed_documents' method. Type: {type(self.embedding_model)}")
+        
         self.document_embeddings = self.embedding_model.embed_documents(
             self.documents["processed_text"]
         )
@@ -178,7 +215,10 @@ class MenoTopicModeler:
     def discover_topics(
         self,
         method: str = "embedding_cluster",
+        modeling_approach: str = "bertopic",
         num_topics: Optional[int] = None,
+        min_topic_similarity_threshold: float = 0.75,
+        auto_reduce_topics: bool = True,
     ) -> pd.DataFrame:
         """Discover topics in an unsupervised manner.
         
@@ -187,9 +227,17 @@ class MenoTopicModeler:
         method : str, optional
             Method to use for topic discovery, by default "embedding_cluster"
             Options: "lda", "embedding_cluster"
+        modeling_approach : str, optional
+            Specific modeling approach to use, by default "bertopic"
+            Options: "bertopic", "lightweight", "nmf", "lsa", "tfidf"
         num_topics : Optional[int], optional
             Number of topics to discover, by default None
             If None, uses the value from config
+        min_topic_similarity_threshold : float, optional
+            Threshold for detecting duplicate topics (0.0-1.0), by default 0.75
+            Higher values mean topics need to be more similar to be considered duplicates
+        auto_reduce_topics : bool, optional
+            Whether to automatically reduce the number of topics by merging similar ones, by default True
         
         Returns
         -------
@@ -203,9 +251,12 @@ class MenoTopicModeler:
             logger.info("Document embeddings not found, generating them now")
             self.embed_documents()
         
-        # Set num_topics from config if not provided
+        # Set num_topics from config if not provided, respecting auto_detect_topics setting
         if num_topics is None:
-            if method == "lda":
+            if self.config.modeling.auto_detect_topics:
+                # Auto-detect topics if configured to do so
+                num_topics = None
+            elif method == "lda":
                 num_topics = self.config.modeling.lda.num_topics
             else:
                 if self.config.modeling.clustering.algorithm == "hdbscan":
@@ -228,16 +279,105 @@ class MenoTopicModeler:
             
         elif method == "embedding_cluster":
             logger.info(
-                f"Discovering topics using embedding clustering with algorithm={self.config.modeling.clustering.algorithm}"
+                f"Discovering topics using embedding clustering with algorithm={self.config.modeling.clustering.algorithm}, "
+                f"n_clusters={num_topics if num_topics is not None else 'auto-detected'}, "
+                f"min_cluster_size={self.config.modeling.clustering.min_cluster_size}, "
+                f"min_samples={self.config.modeling.clustering.min_samples}"
             )
-            cluster_model = EmbeddingClusterModel(
-                algorithm=self.config.modeling.clustering.algorithm,
-                n_clusters=num_topics,
-                min_cluster_size=self.config.modeling.clustering.min_cluster_size,
-                min_samples=self.config.modeling.clustering.min_samples,
-                cluster_selection_method=self.config.modeling.clustering.cluster_selection_method,
-            )
-            topic_assignments = cluster_model.fit_transform(self.document_embeddings)
+            # If lightweight approach is selected, use the appropriate model
+            if modeling_approach.lower() == "lightweight":
+                # Import dynamically to avoid circular imports
+                from meno.modeling.simple_models import SimpleTopicModel, TFIDFTopicModel, NMFTopicModel, LSATopicModel
+                
+                logger.info(f"Using lightweight topic modeling with {num_topics} topics (auto_reduce={auto_reduce_topics})")
+                model = SimpleTopicModel(
+                    num_topics=num_topics if num_topics else 10,
+                    embedding_model=self.embedding_model,
+                    min_topic_similarity_threshold=min_topic_similarity_threshold,
+                    auto_reduce_topics=auto_reduce_topics,
+                    random_state=42
+                )
+                model.fit(self.documents["processed_text"], self.document_embeddings)
+                clusters, topic_matrix = model.transform(self.documents["processed_text"], self.document_embeddings)
+                
+                # Create assignments dataframe with descriptive topic labels
+                topic_assignments = pd.DataFrame(
+                    topic_matrix, 
+                    columns=[model.topics[i] for i in range(len(model.topics))],
+                    index=self.documents.index
+                )
+                topic_assignments["topic"] = [model.topics[c] for c in clusters]
+                
+            elif modeling_approach.lower() == "tfidf":
+                # Use TF-IDF based topic modeling which doesn't require embeddings
+                from meno.modeling.simple_models import TFIDFTopicModel
+                
+                logger.info(f"Using TF-IDF topic modeling with {num_topics} topics (auto_reduce={auto_reduce_topics})")
+                model = TFIDFTopicModel(
+                    num_topics=num_topics if num_topics else 10,
+                    random_state=42
+                )
+                model.fit(self.documents["processed_text"])
+                _, topic_matrix = model.transform(self.documents["processed_text"])
+                
+                # Create assignments dataframe with descriptive topic labels
+                topic_assignments = pd.DataFrame(
+                    topic_matrix, 
+                    columns=[model.topics[i] for i in range(len(model.topics))],
+                    index=self.documents.index
+                )
+                topic_assignments["topic"] = model.get_document_info(self.documents["processed_text"])["Name"]
+                
+            elif modeling_approach.lower() == "nmf":
+                # Use NMF based topic modeling
+                from meno.modeling.simple_models import NMFTopicModel
+                
+                logger.info(f"Using NMF topic modeling with {num_topics} topics")
+                model = NMFTopicModel(
+                    num_topics=num_topics if num_topics else 10,
+                    random_state=42
+                )
+                model.fit(self.documents["processed_text"])
+                topic_matrix = model.transform(self.documents["processed_text"])
+                
+                # Create assignments dataframe with descriptive topic labels
+                topic_assignments = pd.DataFrame(
+                    topic_matrix, 
+                    columns=[model.topics[i] for i in range(len(model.topics))],
+                    index=self.documents.index
+                )
+                topic_assignments["topic"] = model.get_document_info(self.documents["processed_text"])["Name"]
+                
+            elif modeling_approach.lower() == "lsa":
+                # Use LSA based topic modeling
+                from meno.modeling.simple_models import LSATopicModel
+                
+                logger.info(f"Using LSA topic modeling with {num_topics} topics")
+                model = LSATopicModel(
+                    num_topics=num_topics if num_topics else 10,
+                    random_state=42
+                )
+                model.fit(self.documents["processed_text"])
+                topic_matrix = model.transform(self.documents["processed_text"])
+                
+                # Create assignments dataframe with descriptive topic labels
+                topic_assignments = pd.DataFrame(
+                    topic_matrix, 
+                    columns=[model.topics[i] for i in range(len(model.topics))],
+                    index=self.documents.index
+                )
+                topic_assignments["topic"] = model.get_document_info(self.documents["processed_text"])["Name"]
+                
+            else:
+                # Default to standard embedding clustering (bertopic approach)
+                cluster_model = EmbeddingClusterModel(
+                    algorithm=self.config.modeling.clustering.algorithm,
+                    n_clusters=num_topics,
+                    min_cluster_size=self.config.modeling.clustering.min_cluster_size,
+                    min_samples=self.config.modeling.clustering.min_samples,
+                    cluster_selection_method=self.config.modeling.clustering.cluster_selection_method,
+                )
+                topic_assignments = cluster_model.fit_transform(self.document_embeddings)
             
         else:
             raise ValueError(f"Unknown method: {method}")
@@ -251,6 +391,9 @@ class MenoTopicModeler:
                 topic_assignments,
                 index=self.documents.index,
             )
+            
+        # Store modeling method for later reference
+        self._last_modeling_method = method
         
         # Add topic assignments to documents DataFrame
         if "topic" not in self.topic_assignments.columns:
@@ -260,7 +403,16 @@ class MenoTopicModeler:
             # For methods that already assigned a topic column
             self.documents["topic"] = self.topic_assignments["topic"]
         
-        logger.info(f"Discovered {self.topic_assignments.shape[1]} topics")
+        # Get more descriptive information about the model used
+        model_description = f"Model: {method}"
+        if method == "embedding_cluster":
+            model_description += f", Clustering: {self.config.modeling.clustering.algorithm}"
+            if self.config.modeling.clustering.algorithm != "hdbscan":
+                model_description += f", n_clusters: {num_topics}"
+        elif method == "lda":
+            model_description += f", Topics: {num_topics}"
+        
+        logger.info(f"Discovered {self.topic_assignments.shape[1]} topics using {model_description}")
         return self.documents
     
     def match_topics(
@@ -805,6 +957,7 @@ class MenoTopicModeler:
         max_samples_per_topic: Optional[int] = None,
         similarity_matrix: Optional[np.ndarray] = None,
         topic_words: Optional[Dict[str, Dict[str, float]]] = None,
+        open_browser: Optional[bool] = None,
     ) -> str:
         """Generate an HTML report of the topic modeling results.
         
@@ -832,6 +985,9 @@ class MenoTopicModeler:
             Matrix of topic similarities, shape (n_topics, n_topics), by default None
         topic_words : Optional[Dict[str, Dict[str, float]]], optional
             Dictionary mapping topic names to word frequency dictionaries, by default None
+        open_browser : Optional[bool], optional
+            Whether to automatically open the report in a web browser, by default None
+            If None, uses the default value (False)
         
         Returns
         -------
@@ -883,18 +1039,51 @@ class MenoTopicModeler:
         if topic_words is None and "processed_text" in self.documents.columns:
             logger.info("Generating topic word frequencies for the report")
             topic_words = {}
+            
+            # First pass: calculate TF-IDF style word importance
+            # Get all documents
+            all_docs = self.documents["processed_text"]
+            
+            # Get total word counts across all documents
+            all_words = " ".join(all_docs).lower().split()
+            total_word_counts = {}
+            for word in set(all_words):
+                if len(word) > 3:  # Only include words with more than 3 characters
+                    total_word_counts[word] = all_words.count(word)
+            
+            # Now calculate topic-specific word frequencies with TF-IDF influence
             for topic in self.documents["topic"].unique():
                 # Get documents for this topic
                 topic_docs = self.documents[self.documents["topic"] == topic]["processed_text"]
                 
-                # Create a word frequency dictionary
-                words = " ".join(topic_docs).lower().split()
+                # Create a word frequency dictionary 
+                topic_words_text = " ".join(topic_docs).lower().split()
                 word_freq = {}
-                for word in set(words):
-                    if len(word) > 3:  # Only include words with more than 3 characters
-                        word_freq[word] = words.count(word)
+                
+                # Filter to unique words with minimum length
+                unique_words = set([w for w in topic_words_text if len(w) > 3])
+                
+                for word in unique_words:
+                    # Count in this topic
+                    topic_count = topic_words_text.count(word)
+                    
+                    # Calculate a TF-IDF style score to emphasize distinctive words
+                    # Higher score for words that appear more in this topic than overall
+                    if word in total_word_counts:
+                        # Calculate the word's importance for this topic vs all topics
+                        # Higher values = more distinctive to this topic
+                        distinctiveness = (topic_count / len(topic_words_text)) / (total_word_counts[word] / len(all_words))
+                        word_freq[word] = topic_count * distinctiveness
                 
                 topic_words[topic] = word_freq
+        
+        # Add metadata about modeling method for the report
+        metadata = {}
+        if hasattr(self, '_last_modeling_method'):
+            metadata['modeling_method'] = self._last_modeling_method
+            if self._last_modeling_method == 'embedding_cluster':
+                metadata['clustering_algorithm'] = self.config.modeling.clustering.algorithm
+                metadata['n_clusters'] = num_topics if 'num_topics' in locals() else self.config.modeling.clustering.n_clusters
         
         # Call the report generator with all the data
         report_path = generate_html_report(
@@ -905,6 +1094,8 @@ class MenoTopicModeler:
             config=report_config,
             similarity_matrix=similarity_matrix,
             topic_words=topic_words,
+            metadata=metadata,
+            open_browser=open_browser if open_browser is not None else False,
         )
         
         logger.info(f"Report generated at {report_path}")
