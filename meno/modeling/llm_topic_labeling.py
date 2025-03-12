@@ -4,7 +4,7 @@ This module provides a way to generate human-readable topic names using Language
 (LLMs). It supports both local models via HuggingFace and remote models via OpenAI.
 """
 
-from typing import List, Dict, Optional, Union, Any, Tuple, ClassVar, Callable
+from typing import List, Dict, Optional, Union, Any, Tuple, ClassVar, Callable, Generator
 import numpy as np
 import pandas as pd
 import logging
@@ -14,6 +14,12 @@ import re
 import warnings
 from tqdm import tqdm
 import importlib.util
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import time
+from collections import deque
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +37,76 @@ if TRANSFORMERS_AVAILABLE:
         TORCH_AVAILABLE = False
 else:
     TORCH_AVAILABLE = False
+
+
+class RateLimiter:
+    """Rate limiter to control the rate of API requests.
+    
+    This class implements a token bucket algorithm to rate limit requests.
+    
+    Parameters
+    ----------
+    requests_per_minute : int, optional
+        Maximum number of requests per minute, by default 60
+    burst_limit : int, optional
+        Maximum number of requests that can be made in a burst, by default None
+        If None, burst_limit equals requests_per_minute
+    """
+    
+    def __init__(self, requests_per_minute: int = 60, burst_limit: Optional[int] = None):
+        """Initialize the rate limiter."""
+        self.requests_per_minute = max(1, requests_per_minute)
+        self.burst_limit = burst_limit if burst_limit is not None else requests_per_minute
+        self.token_bucket = min(self.requests_per_minute, self.burst_limit)
+        self.last_refill_time = datetime.now()
+        self.refill_rate = self.requests_per_minute / 60.0  # tokens per second
+        self.lock = threading.Lock()
+    
+    def _refill_bucket(self) -> None:
+        """Refill the token bucket based on elapsed time."""
+        now = datetime.now()
+        time_passed = (now - self.last_refill_time).total_seconds()
+        self.last_refill_time = now
+        
+        # Calculate tokens to add based on time passed
+        new_tokens = time_passed * self.refill_rate
+        
+        # Add tokens to bucket, up to burst limit
+        self.token_bucket = min(self.token_bucket + new_tokens, self.burst_limit)
+    
+    def acquire(self) -> bool:
+        """Acquire a token from the bucket, waiting if necessary.
+        
+        Returns
+        -------
+        bool
+            True if token acquired, False if it would exceed the rate limit
+        """
+        with self.lock:
+            # Refill the bucket first
+            self._refill_bucket()
+            
+            # Check if we can take a token
+            if self.token_bucket >= 1:
+                self.token_bucket -= 1
+                return True
+            else:
+                # Calculate wait time to get a token
+                wait_time = (1 - self.token_bucket) / self.refill_rate
+                
+                # If wait time is reasonable (less than 5 seconds), wait and retry
+                if wait_time <= 5.0:
+                    time.sleep(wait_time)
+                    self._refill_bucket()
+                    self.token_bucket -= 1
+                    return True
+                
+                return False
+    
+    def wait_for_token(self) -> None:
+        """Wait until a token is available and acquire it."""
+        while not self.acquire():
+            time.sleep(0.1)  # Small sleep to avoid busy waiting
 
 
 class LLMTopicLabeler:
@@ -63,6 +139,23 @@ class LLMTopicLabeler:
     openai_api_key : Optional[str], optional
         OpenAI API key, by default None
         If None and model_type="openai", will try to use the OPENAI_API_KEY environment variable
+    api_endpoint : Optional[str], optional
+        Custom API endpoint URL for OpenAI API, by default None
+        Can be used for self-hosted models, proxies, or Azure OpenAI endpoints
+    api_version : Optional[str], optional
+        API version to use with OpenAI API, by default None
+        Useful when using Azure OpenAI or other custom OpenAI API deployments
+    max_token_limit : Optional[int], optional
+        Maximum allowed token length for prompts, by default None
+        If exceeded, will fail with a warning unless enable_fallback is True
+    max_parallel_requests : int, optional
+        Maximum number of parallel requests to make when batching, by default 4
+    requests_per_minute : Optional[int], optional
+        Maximum number of requests per minute for rate limiting, by default None
+        If None, no rate limiting is applied
+    burst_limit : Optional[int], optional
+        Maximum number of requests that can be made in a burst for rate limiting, by default None
+        If None, burst_limit equals requests_per_minute
     
     Attributes
     ----------
@@ -74,6 +167,8 @@ class LLMTopicLabeler:
         The loaded model (if using local model)
     tokenizer : Any
         The tokenizer for the model (if using local model)
+    rate_limiter : Optional[RateLimiter]
+        Rate limiter for controlling API request rate
     """
     
     def __init__(
@@ -86,12 +181,30 @@ class LLMTopicLabeler:
         device: str = "auto",
         verbose: bool = False,
         openai_api_key: Optional[str] = None,
+        api_endpoint: Optional[str] = None, 
+        api_version: Optional[str] = None,
+        max_token_limit: Optional[int] = None,
+        max_parallel_requests: int = 4,
+        requests_per_minute: Optional[int] = None,
+        burst_limit: Optional[int] = None,
     ):
         """Initialize the LLM topic labeler."""
         self.verbose = verbose
         self.enable_fallback = enable_fallback
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
+        self.max_token_limit = max_token_limit
+        self.max_parallel_requests = max_parallel_requests
+        
+        # Initialize rate limiter if requests_per_minute is specified
+        self.rate_limiter = None
+        if requests_per_minute is not None:
+            self.rate_limiter = RateLimiter(
+                requests_per_minute=requests_per_minute,
+                burst_limit=burst_limit
+            )
+            if self.verbose:
+                logger.info(f"Rate limiter initialized with {requests_per_minute} requests per minute")
         
         # Determine model type
         if model_type == "auto":
@@ -125,12 +238,32 @@ class LLMTopicLabeler:
                 )
             
             import openai
+            
+            # Set up client configuration
+            client_kwargs = {}
+            
+            # Configure API key
             if openai_api_key:
-                openai.api_key = openai_api_key
+                client_kwargs["api_key"] = openai_api_key
                 
-            self.client = openai.OpenAI()
+            # Configure custom API endpoint (base URL)
+            if api_endpoint:
+                client_kwargs["base_url"] = api_endpoint
+                
+            # Configure API version 
+            if api_version:
+                client_kwargs["api_version"] = api_version
+                
+            # Initialize OpenAI client with parameters
+            self.client = openai.OpenAI(**client_kwargs)
                 
             logger.info(f"Using OpenAI model: {self.model_name}")
+            
+            # Log custom API configuration if used
+            if api_endpoint:
+                logger.info(f"Using custom API endpoint: {api_endpoint}")
+            if api_version:
+                logger.info(f"Using API version: {api_version}")
                 
         elif self.model_type == "local":
             if not TRANSFORMERS_AVAILABLE:
@@ -346,8 +479,53 @@ class LLMTopicLabeler:
             base_prompt += "\nGenerate a descriptive topic name that captures the specific subject matter:"
         else:
             base_prompt += "\nTopic name:"
-            
+        
+        # Check token limit if specified
+        if self.max_token_limit is not None:
+            token_count = self._count_tokens(base_prompt)
+            if token_count > self.max_token_limit:
+                if self.enable_fallback:
+                    logger.warning(
+                        f"Prompt token count ({token_count}) exceeds limit ({self.max_token_limit}). "
+                        "Using fallback labeling instead."
+                    )
+                    raise ValueError(f"Token limit exceeded: {token_count} > {self.max_token_limit}")
+                else:
+                    raise ValueError(
+                        f"Prompt token count ({token_count}) exceeds limit ({self.max_token_limit}) "
+                        "and fallback is disabled."
+                    )
+                
         return base_prompt
+        
+    def _count_tokens(self, text: str) -> int:
+        """Count the number of tokens in a text string.
+        
+        Parameters
+        ----------
+        text : str
+            The text to count tokens for
+            
+        Returns
+        -------
+        int
+            The number of tokens in the text
+        """
+        if self.model_type == "openai":
+            # Use tiktoken if available, otherwise estimate
+            try:
+                import tiktoken
+                encoding = tiktoken.encoding_for_model(self.model_name)
+                return len(encoding.encode(text))
+            except ImportError:
+                # Rough estimate based on GPT tokenization pattern (approx 4 chars per token)
+                return len(text) // 4
+        elif self.model_type == "local" and hasattr(self, "tokenizer"):
+            # Use the model's tokenizer if available
+            return len(self.tokenizer.encode(text))
+        else:
+            # Rough estimate based on average token length
+            return len(text.split())
     
     def _generate_openai(self, prompt: str) -> str:
         """Generate a topic name using OpenAI API.
@@ -363,6 +541,12 @@ class LLMTopicLabeler:
             Generated topic name
         """
         try:
+            # Apply rate limiting if enabled
+            if self.rate_limiter is not None:
+                self.rate_limiter.wait_for_token()
+                if self.verbose:
+                    logger.debug("Rate limiter token acquired for OpenAI request")
+            
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
@@ -403,6 +587,12 @@ class LLMTopicLabeler:
             Generated topic name
         """
         try:
+            # Apply rate limiting if enabled
+            if self.rate_limiter is not None:
+                self.rate_limiter.wait_for_token()
+                if self.verbose:
+                    logger.debug("Rate limiter token acquired for local model request")
+                    
             # Generate text
             outputs = self.pipeline(
                 prompt,
@@ -461,12 +651,58 @@ class LLMTopicLabeler:
         else:
             return main_theme
     
+    def _process_topic_batch(
+        self,
+        topic_batch: List[Tuple[int, List[str], Optional[List[str]], bool]],
+    ) -> List[Tuple[int, str]]:
+        """Process a batch of topics in parallel.
+        
+        Parameters
+        ----------
+        topic_batch : List[Tuple[int, List[str], Optional[List[str]], bool]]
+            List of tuples containing (topic_id, keywords, example_docs, detailed)
+            
+        Returns
+        -------
+        List[Tuple[int, str]]
+            List of tuples containing (topic_id, topic_name)
+        """
+        results = []
+        
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=self.max_parallel_requests) as executor:
+            # Submit all tasks
+            future_to_topic = {
+                executor.submit(
+                    self.generate_topic_name, 
+                    keywords, 
+                    example_docs, 
+                    detailed
+                ): (topic_id, keywords)
+                for topic_id, keywords, example_docs, detailed in topic_batch
+            }
+            
+            # Process completed tasks
+            for future in concurrent.futures.as_completed(future_to_topic):
+                topic_id, keywords = future_to_topic[future]
+                try:
+                    topic_name = future.result()
+                    results.append((topic_id, topic_name))
+                except Exception as e:
+                    logger.warning(f"Failed to generate name for topic {topic_id}: {e}")
+                    # Fallback to simple naming
+                    topic_names = self._fallback_labeling(keywords)
+                    results.append((topic_id, topic_names))
+                    
+        return results
+
     def label_topics(
         self,
         topic_model: Any,
         example_docs_per_topic: Optional[Dict[int, List[str]]] = None,
         detailed: bool = False,
         progress_bar: bool = True,
+        batch_size: Optional[int] = None,
     ) -> Dict[int, str]:
         """Label all topics in a topic model.
         
@@ -480,6 +716,9 @@ class LLMTopicLabeler:
             Whether to generate detailed topic descriptions, by default False
         progress_bar : bool, optional
             Whether to show a progress bar, by default True
+        batch_size : Optional[int], optional
+            Size of batches for parallel processing, by default None
+            If None, will process all topics in appropriate batch sizes based on max_parallel_requests
             
         Returns
         -------
@@ -500,10 +739,10 @@ class LLMTopicLabeler:
         # Filter out outlier topic if present
         if -1 in topic_ids:
             topic_ids.remove(-1)
-            
-        # Process each topic
-        iterable = tqdm(topic_ids, desc="Labeling topics") if progress_bar else topic_ids
-        for topic_id in iterable:
+        
+        # Prepare topic data for processing
+        topic_data = []
+        for topic_id in topic_ids:
             # Get keywords for the topic
             if hasattr(topic_model, "get_topic"):
                 # BERTopic or compatible model
@@ -523,7 +762,7 @@ class LLMTopicLabeler:
                 else:
                     keywords = []
                     
-            # Skip if no keywords
+            # Skip if no keywords (process immediately)
             if not keywords:
                 topic_names[topic_id] = f"Topic {topic_id}"
                 continue
@@ -533,14 +772,29 @@ class LLMTopicLabeler:
             if example_docs_per_topic and topic_id in example_docs_per_topic:
                 example_docs = example_docs_per_topic[topic_id]
                 
-            # Generate a name for this topic
-            try:
-                topic_name = self.generate_topic_name(keywords, example_docs, detailed)
-                topic_names[topic_id] = topic_name
-            except Exception as e:
-                logger.warning(f"Failed to generate name for topic {topic_id}: {e}")
-                # Fallback to simple naming
-                topic_names[topic_id] = self._fallback_labeling(keywords)
+            # Add to processing queue
+            topic_data.append((topic_id, keywords, example_docs, detailed))
+        
+        # Set batch size if not provided
+        if batch_size is None:
+            batch_size = min(len(topic_data), max(1, self.max_parallel_requests * 2))
+        
+        # Process in batches
+        if progress_bar:
+            batches = [topic_data[i:i+batch_size] for i in range(0, len(topic_data), batch_size)]
+            with tqdm(total=len(topic_data), desc="Labeling topics") as pbar:
+                for batch in batches:
+                    results = self._process_topic_batch(batch)
+                    for topic_id, topic_name in results:
+                        topic_names[topic_id] = topic_name
+                    pbar.update(len(batch))
+        else:
+            # Process without progress bar
+            for i in range(0, len(topic_data), batch_size):
+                batch = topic_data[i:i+batch_size]
+                results = self._process_topic_batch(batch)
+                for topic_id, topic_name in results:
+                    topic_names[topic_id] = topic_name
                 
         return topic_names
     
@@ -550,6 +804,7 @@ class LLMTopicLabeler:
         example_docs_per_topic: Optional[Dict[int, List[str]]] = None,
         detailed: bool = False,
         progress_bar: bool = True,
+        batch_size: Optional[int] = None,
     ) -> Any:
         """Update a topic model with LLM-generated topic names.
         
@@ -563,6 +818,8 @@ class LLMTopicLabeler:
             Whether to generate detailed topic descriptions, by default False
         progress_bar : bool, optional
             Whether to show a progress bar, by default True
+        batch_size : Optional[int], optional
+            Size of batches for parallel processing, by default None
             
         Returns
         -------
@@ -574,7 +831,8 @@ class LLMTopicLabeler:
             topic_model,
             example_docs_per_topic,
             detailed,
-            progress_bar
+            progress_bar,
+            batch_size
         )
         
         # Update the model's topic names
@@ -615,6 +873,10 @@ class LLMTopicLabeler:
             "enable_fallback": self.enable_fallback,
             "device": getattr(self, "device", "auto"),
             "verbose": self.verbose,
+            "max_token_limit": getattr(self, "max_token_limit", None),
+            "max_parallel_requests": getattr(self, "max_parallel_requests", 4),
+            "requests_per_minute": getattr(self.rate_limiter, "requests_per_minute", None) if self.rate_limiter else None,
+            "burst_limit": getattr(self.rate_limiter, "burst_limit", None) if self.rate_limiter else None,
         }
         
         with open(path, "w") as f:
@@ -645,3 +907,74 @@ class LLMTopicLabeler:
         config.update(kwargs)
         
         return cls(**config)
+
+
+# Example usage for Jupyter Notebook
+def batch_label_topics_example():
+    """Example of how to use the extended LLM topic labeling with batching, token limiting,
+    and rate limiting in a Jupyter notebook.
+    
+    This function is intended to be used as a reference for how to use the new features.
+    """
+    # Import required modules
+    import pandas as pd
+    from meno.modeling.bertopic_model import BERTopicModel
+    from meno.modeling.llm_topic_labeling import LLMTopicLabeler
+    
+    # 1. Create a topic model and fit it
+    # Example assuming you already have a topic model:
+    # topic_model = BERTopicModel()
+    # topic_model.fit(documents)
+    
+    # 2. Create LLM topic labeler with token limit, parallel processing, and rate limiting
+    labeler = LLMTopicLabeler(
+        model_type="openai",         # Using OpenAI as an example for rate limiting
+        model_name="gpt-3.5-turbo",
+        max_token_limit=1000,        # Will fail if prompts exceed this token count
+        max_parallel_requests=4,     # Process up to 4 topics in parallel
+        enable_fallback=True,        # Fall back to simple labeling if LLM fails
+        requests_per_minute=60,      # Limit to 60 requests per minute (OpenAI rate limit)
+        burst_limit=80,              # Allow short bursts up to 80 requests
+        # Optionally configure custom API settings
+        # openai_api_key="your-api-key",  
+        # api_endpoint="https://your-custom-endpoint.com",  # For custom endpoints
+        # api_version="2023-07-01"  # For specific API versions
+    )
+    
+    # 3. Generate topic names in batches with rate limiting
+    # topic_names = labeler.label_topics(
+    #     topic_model=topic_model,
+    #     batch_size=10,             # Process 10 topics per batch
+    #     progress_bar=True,         # Show progress bar
+    #     detailed=True              # Generate detailed topic descriptions
+    # )
+    
+    # 4. Update the model with the generated names
+    # updated_model = labeler.update_model_topic_names(
+    #     topic_model=topic_model,
+    #     batch_size=10,
+    #     progress_bar=True
+    # )
+    
+    # 5. Using different rate limits for different providers
+    # For Azure OpenAI (lower rate limits)
+    # azure_labeler = LLMTopicLabeler(
+    #     model_type="openai",
+    #     model_name="gpt-4",
+    #     requests_per_minute=20,                    # Lower rate limit for Azure
+    #     burst_limit=25,                            # Lower burst limit
+    #     openai_api_key="your_azure_key",          
+    #     api_endpoint="https://your-resource.openai.azure.com",  # Azure endpoint
+    #     api_version="2023-05-15",                 # Azure API version
+    #     max_parallel_requests=2                   # Lower parallelism to respect rate limits
+    # )
+    
+    # For local models (higher rate limits, limited by hardware)
+    # local_labeler = LLMTopicLabeler(
+    #     model_type="local",
+    #     model_name="google/flan-t5-small",
+    #     requests_per_minute=100,    # Higher limit since it's local
+    #     max_parallel_requests=2     # Limited by GPU memory or CPU
+    # )
+    
+    return "See the example code for how to use the LLM topic labeler with batching, token limiting, and rate limiting"
