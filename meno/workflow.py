@@ -146,6 +146,7 @@ class MenoWorkflow:
         time_column: Optional[str] = None,
         geo_column: Optional[str] = None,
         category_column: Optional[str] = None,
+        deduplicate: bool = False,
     ) -> pd.DataFrame:
         """Load data from a DataFrame or file path.
         
@@ -161,6 +162,10 @@ class MenoWorkflow:
             Name of the column containing geographic data, by default None.
         category_column : Optional[str], optional
             Name of the column containing category data, by default None.
+        deduplicate : bool, optional
+            Whether to deduplicate documents before processing, by default False.
+            When True, only unique documents are passed to the topic modeling algorithm,
+            and the resulting topics are then joined back to all documents.
             
         Returns
         -------
@@ -173,11 +178,30 @@ class MenoWorkflow:
         else:
             self.documents = data.copy()
             
+        # Deduplicate if requested
+        self.original_documents = None
+        self.doc_hash_column = None
+        
+        if deduplicate:
+            logger.info("Deduplicating documents before processing")
+            # Create a hash of each document text for deduplication and later joining
+            self.documents['doc_hash'] = self.documents[text_column].apply(lambda x: hash(str(x)))
+            self.doc_hash_column = 'doc_hash'
+            
+            # Store original dataset
+            self.original_documents = self.documents.copy()
+            
+            # Deduplicate based on text content
+            self.documents = self.documents.drop_duplicates(subset=['doc_hash'])
+            
+            logger.info(f"Reduced dataset from {len(self.original_documents)} to {len(self.documents)} unique documents")
+        
         # Store column names
         self.text_column = text_column
         self.time_column = time_column
         self.geo_column = geo_column
         self.category_column = category_column
+        self.deduplicated = deduplicate
         
         # Validate data
         if self.text_column not in self.documents.columns:
@@ -1045,6 +1069,26 @@ class MenoWorkflow:
         )
         
         self.modeling_complete = True
+        
+        # If we used deduplication, map topics back to original dataset
+        if self.deduplicated and self.original_documents is not None:
+            logger.info("Joining topic assignments back to full dataset with duplicates")
+            
+            # Create a mapping from hash to topic
+            topic_map = topics_df[['doc_hash', 'topic']].set_index('doc_hash').to_dict()['topic']
+            
+            # Apply topics to original dataset by using the hash values
+            self.original_topics_df = self.original_documents.copy()
+            self.original_topics_df['topic'] = self.original_documents[self.doc_hash_column].map(topic_map)
+            
+            # If topic probabilities are available, map those too
+            if 'topic_probability' in topics_df.columns:
+                prob_map = topics_df[['doc_hash', 'topic_probability']].set_index('doc_hash').to_dict()['topic_probability']
+                self.original_topics_df['topic_probability'] = self.original_documents[self.doc_hash_column].map(prob_map)
+            
+            logger.info(f"Successfully mapped topics to all {len(self.original_topics_df)} documents (including duplicates)")
+        else:
+            self.original_topics_df = None
         # Get clustering algorithm info if using embedding clustering
         if method == "embedding_cluster":
             clustering_algo = self.modeler.config.modeling.clustering.algorithm
@@ -1054,7 +1098,11 @@ class MenoWorkflow:
                 logger.info(f"Topic modeling completed using {method} method with {clustering_algo} clustering and {num_topics} topics")
         else:
             logger.info(f"Topic modeling completed using {method} method with {num_topics} topics")
-        return topics_df
+        # Return the appropriate topic assignments
+        if self.deduplicated and self.original_topics_df is not None:
+            return self.original_topics_df
+        else:
+            return topics_df
     
     def visualize_topics(
         self,

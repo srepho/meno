@@ -69,6 +69,7 @@ class DocumentEmbedding:
         cache_dir: Optional[str] = None,
         use_mmap: bool = True,
         precision: str = "float32",
+        quantize: bool = False,
         local_files_only: bool = False,
     ):
         """Initialize the document embedding model.
@@ -90,7 +91,9 @@ class DocumentEmbedding:
         use_mmap : bool, optional
             Whether to use memory-mapped storage for large embedding matrices, by default True
         precision : str, optional
-            Precision for storing embeddings, by default "float32". Options: "float32", "float16"
+            Precision for storing embeddings, by default "float32". Options: "float32", "float16", "int8"
+        quantize : bool, optional
+            Whether to use quantization for model weights, by default False
         local_files_only : bool, optional
             Whether to use only local files and not download from Hugging Face, by default False
         """
@@ -100,11 +103,12 @@ class DocumentEmbedding:
         self.local_model_path = local_model_path
         self.use_mmap = use_mmap
         self.precision = precision
+        self.quantize = quantize
         self.local_files_only = local_files_only
         
         # Validate precision
-        if precision not in ["float32", "float16"]:
-            raise ValueError("precision must be 'float32' or 'float16'")
+        if precision not in ["float32", "float16", "int8"]:
+            raise ValueError("precision must be 'float32', 'float16', or 'int8'")
         
         # Set up cache directory
         if cache_dir is None:
@@ -169,7 +173,57 @@ class DocumentEmbedding:
                         )
                     
                     logger.info(f"Downloading model: {model_name}")
-                    self.model = SentenceTransformer(model_name, device=self.device)
+                    
+                    # Apply quantization if requested
+                    if self.quantize and self.device == "cpu":
+                        try:
+                            import torch.nn as nn
+                            # Try to load bitsandbytes for 8-bit quantization
+                            try:
+                                import bitsandbytes as bnb
+                                has_bnb = True
+                                logger.info("Using bitsandbytes for model quantization")
+                            except ImportError:
+                                has_bnb = False
+                                logger.warning("bitsandbytes not available, falling back to standard model")
+                            
+                            # Load the model
+                            self.model = SentenceTransformer(model_name, device=self.device)
+                            
+                            # Apply weight quantization if bitsandbytes is available
+                            if has_bnb and self.precision == "int8":
+                                logger.info("Applying 8-bit quantization to model weights")
+                                for name, module in self.model.named_modules():
+                                    if isinstance(module, nn.Linear):
+                                        try:
+                                            # Replace with 8-bit quantized version
+                                            quantized_module = bnb.nn.Linear8bitLt(
+                                                module.in_features, 
+                                                module.out_features, 
+                                                bias=module.bias is not None
+                                            )
+                                            # Copy weights and bias
+                                            quantized_module.weight.data = module.weight.data
+                                            if module.bias is not None:
+                                                quantized_module.bias.data = module.bias.data
+                                                
+                                            # Replace the module - find parent module and replace child
+                                            parent_name, child_name = name.rsplit(".", 1) if "." in name else ("", name)
+                                            if parent_name:
+                                                parent = self.model
+                                                for part in parent_name.split("."):
+                                                    parent = getattr(parent, part)
+                                                setattr(parent, child_name, quantized_module)
+                                            else:
+                                                setattr(self.model, child_name, quantized_module)
+                                        except Exception as e:
+                                            logger.warning(f"Failed to quantize layer {name}: {e}")
+                        except Exception as e:
+                            logger.warning(f"Failed to apply quantization, using standard model: {e}")
+                            self.model = SentenceTransformer(model_name, device=self.device)
+                    else:
+                        self.model = SentenceTransformer(model_name, device=self.device)
+                    
                     # Save for future use
                     try:
                         self.model.save(model_cache_path)
@@ -222,7 +276,12 @@ class DocumentEmbedding:
     
     def _get_numpy_dtype(self) -> np.dtype:
         """Get NumPy dtype based on precision setting."""
-        return np.float16 if self.precision == "float16" else np.float32
+        if self.precision == "float16":
+            return np.float16
+        elif self.precision == "int8":
+            return np.int8
+        else:
+            return np.float32
     
     def _compute_text_hash(self, text: str) -> str:
         """Compute a hash for a text string for cache lookups."""

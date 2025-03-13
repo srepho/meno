@@ -2,15 +2,17 @@
 
 This module provides a way to generate human-readable topic names using Language Models
 (LLMs). It supports both local models via HuggingFace and remote models via OpenAI.
+It also supports batch processing of texts for classification with efficient token usage.
 """
 
-from typing import List, Dict, Optional, Union, Any, Tuple, ClassVar, Callable, Generator
+from typing import List, Dict, Optional, Union, Any, Tuple, ClassVar, Callable, Generator, Set, Type
 import numpy as np
 import pandas as pd
 import logging
 from pathlib import Path
 import json
 import re
+import os
 import warnings
 from tqdm import tqdm
 import importlib.util
@@ -18,8 +20,12 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import time
-from collections import deque
+import hashlib
+import functools
+import pickle
+from collections import deque, defaultdict
 from datetime import datetime, timedelta
+from difflib import SequenceMatcher
 
 logger = logging.getLogger(__name__)
 
@@ -110,11 +116,12 @@ class RateLimiter:
 
 
 class LLMTopicLabeler:
-    """LLM-based topic labeler to generate human-readable topic names.
+    """LLM-based topic labeler to generate human-readable topic names and classify texts.
     
     This class provides methods to generate descriptive topic names for topic models
     using Language Models (LLMs). It supports both local HuggingFace models and
-    OpenAI API if available.
+    OpenAI API if available. It also supports batch processing of texts for classification
+    with efficient token usage.
     
     Parameters
     ----------
@@ -156,6 +163,26 @@ class LLMTopicLabeler:
     burst_limit : Optional[int], optional
         Maximum number of requests that can be made in a burst for rate limiting, by default None
         If None, burst_limit equals requests_per_minute
+    system_prompt_template : Optional[str], optional
+        Template for system prompt in OpenAI messages, by default None
+        Uses a default template if None
+    user_prompt_template : Optional[str], optional
+        Template for user prompt in OpenAI messages, by default None
+        Uses a default template if None
+    batch_size : Optional[int], optional
+        Maximum number of texts to process in a single API call, by default 20
+        Actual batch size may be smaller depending on token limits
+    deduplicate : bool, optional
+        Whether to deduplicate similar texts before processing, by default False
+    deduplication_threshold : float, optional
+        Similarity threshold for deduplication (0.0-1.0), by default 0.92
+        Higher values are more strict (require more similarity to consider as duplicates)
+    enable_cache : bool, optional
+        Whether to cache classification results to disk, by default True
+    cache_dir : Optional[str], optional
+        Directory to store cache files, by default "./.meno_cache"
+    cache_ttl : int, optional
+        Time-to-live for cache entries in seconds, by default 86400 (1 day)
     
     Attributes
     ----------
@@ -169,6 +196,16 @@ class LLMTopicLabeler:
         The tokenizer for the model (if using local model)
     rate_limiter : Optional[RateLimiter]
         Rate limiter for controlling API request rate
+    confidence_scores : Dict[str, float]
+        Dictionary of confidence scores for the last batch of classifications
+        
+    Example
+    -------
+    >>> from meno.modeling.llm_topic_labeling import LLMTopicLabeler
+    >>> labeler = LLMTopicLabeler(model_type="openai", model_name="gpt-3.5-turbo")
+    >>> texts = ["This is about technology and AI", "The stock market fell by 2% today"]
+    >>> results = labeler.classify_texts(texts)
+    >>> confidences = labeler.confidence_scores
     """
     
     def __init__(
@@ -187,6 +224,14 @@ class LLMTopicLabeler:
         max_parallel_requests: int = 4,
         requests_per_minute: Optional[int] = None,
         burst_limit: Optional[int] = None,
+        system_prompt_template: Optional[str] = None,
+        user_prompt_template: Optional[str] = None,
+        batch_size: int = 20,
+        deduplicate: bool = False,
+        deduplication_threshold: float = 0.92,
+        enable_cache: bool = True,
+        cache_dir: Optional[str] = None,
+        cache_ttl: int = 86400,
     ):
         """Initialize the LLM topic labeler."""
         self.verbose = verbose
@@ -195,6 +240,21 @@ class LLMTopicLabeler:
         self.temperature = temperature
         self.max_token_limit = max_token_limit
         self.max_parallel_requests = max_parallel_requests
+        self.batch_size = batch_size
+        self.deduplicate = deduplicate
+        self.deduplication_threshold = deduplication_threshold
+        
+        # Caching settings
+        self.enable_cache = enable_cache
+        self.cache_dir = cache_dir or os.path.join(os.getcwd(), ".meno_cache")
+        self.cache_ttl = cache_ttl
+        
+        # Initialize confidence scores
+        self.confidence_scores = {}
+        
+        # Set default prompt templates
+        self.system_prompt_template = system_prompt_template or "You are a helpful assistant that classifies text into topics."
+        self.user_prompt_template = user_prompt_template or "Classify the following text into the most appropriate topic: {{text}}"
         
         # Initialize rate limiter if requests_per_minute is specified
         self.rate_limiter = None
@@ -205,6 +265,12 @@ class LLMTopicLabeler:
             )
             if self.verbose:
                 logger.info(f"Rate limiter initialized with {requests_per_minute} requests per minute")
+                
+        # Initialize cache
+        if self.enable_cache:
+            os.makedirs(self.cache_dir, exist_ok=True)
+            if self.verbose:
+                logger.info(f"Cache enabled, using directory: {self.cache_dir}")
         
         # Determine model type
         if model_type == "auto":
@@ -527,13 +593,16 @@ class LLMTopicLabeler:
             # Rough estimate based on average token length
             return len(text.split())
     
-    def _generate_openai(self, prompt: str) -> str:
+    def _generate_openai(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Generate a topic name using OpenAI API.
         
         Parameters
         ----------
         prompt : str
             The prompt to send to the API
+        system_prompt : Optional[str], optional
+            System prompt to use, by default None
+            If None, uses a default system prompt
             
         Returns
         -------
@@ -547,10 +616,14 @@ class LLMTopicLabeler:
                 if self.verbose:
                     logger.debug("Rate limiter token acquired for OpenAI request")
             
+            # Use provided system prompt or default
+            if system_prompt is None:
+                system_prompt = "You are a topic modeling assistant that generates concise, descriptive topic names."
+            
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
-                    {"role": "system", "content": "You are a topic modeling assistant that generates concise, descriptive topic names."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=self.temperature,
@@ -571,6 +644,173 @@ class LLMTopicLabeler:
             
         except Exception as e:
             logger.error(f"Error generating with OpenAI: {e}")
+            raise
+            
+    def _batch_generate_openai(
+        self, 
+        prompts: List[str], 
+        system_prompt: Optional[str] = None
+    ) -> Tuple[List[str], Dict[int, float]]:
+        """Generate responses for multiple prompts using a single OpenAI API call.
+        
+        Parameters
+        ----------
+        prompts : List[str]
+            List of prompts to send to the API
+        system_prompt : Optional[str], optional
+            System prompt to use, by default None
+            If None, uses the class's system_prompt_template
+            
+        Returns
+        -------
+        Tuple[List[str], Dict[int, float]]
+            Tuple containing:
+            - List of generated responses
+            - Dictionary mapping prompt indices to confidence scores
+        """
+        # Check cache first for each prompt
+        cached_results = []
+        cached_indices = []
+        confidence_scores = {}
+        
+        if self.enable_cache:
+            for i, prompt in enumerate(prompts):
+                cache_key = self._get_cache_key(prompt, system_prompt or self.system_prompt_template, self.user_prompt_template)
+                cached_result = self._get_cached_result(cache_key)
+                
+                if cached_result:
+                    result, confidence = cached_result
+                    cached_results.append((i, result))
+                    cached_indices.append(i)
+                    confidence_scores[i] = confidence
+                    
+                    if self.verbose:
+                        logger.debug(f"Cache hit for prompt {i}")
+        
+        # Filter out prompts that were found in cache
+        if cached_indices:
+            filtered_prompts = [p for i, p in enumerate(prompts) if i not in cached_indices]
+        else:
+            filtered_prompts = prompts
+            
+        # If all results were in cache, return early
+        if not filtered_prompts:
+            # Reconstruct the full result list
+            all_results = [""] * len(prompts)
+            for i, result in cached_results:
+                all_results[i] = result
+                
+            return all_results, confidence_scores
+                    
+        try:
+            # Apply rate limiting if enabled
+            if self.rate_limiter is not None:
+                self.rate_limiter.wait_for_token()
+                if self.verbose:
+                    logger.debug("Rate limiter token acquired for batch OpenAI request")
+            
+            # Use provided system prompt or default
+            if system_prompt is None:
+                system_prompt = self.system_prompt_template
+            
+            # Create a combined message with all prompts
+            combined_prompt = "Process the following texts and provide a classification for each:\n\n"
+            for i, prompt in enumerate(filtered_prompts):
+                combined_prompt += f"TEXT {i+1}:\n{prompt}\n\n"
+            
+            combined_prompt += "FORMAT YOUR RESPONSE EXACTLY LIKE THIS:\n"
+            combined_prompt += "TEXT 1: [classification] (confidence: HIGH/MEDIUM/LOW)\nTEXT 2: [classification] (confidence: HIGH/MEDIUM/LOW)\n..."
+                
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": combined_prompt}
+                ],
+                temperature=self.temperature,
+                max_tokens=self.max_new_tokens,
+            )
+            
+            # Extract the generated text
+            result = response.choices[0].message.content.strip()
+            
+            # Parse the result to extract individual responses and confidence
+            parsed_results = []
+            result_lines = result.split('\n')
+            
+            # Map from index in filtered_prompts to index in original prompts
+            if cached_indices:
+                idx_map = {new_idx: old_idx for new_idx, old_idx in 
+                          enumerate([i for i in range(len(prompts)) if i not in cached_indices])}
+            else:
+                idx_map = {i: i for i in range(len(filtered_prompts))}
+                
+            for i, prompt in enumerate(filtered_prompts):
+                result_prefix = f"TEXT {i+1}: "
+                
+                for line in result_lines:
+                    if line.startswith(result_prefix):
+                        # Try to extract classification and confidence
+                        confidence_value = 0.7  # Default medium confidence
+                        
+                        # Try to parse confidence if included
+                        confidence_match = re.search(r'\(confidence:\s*(HIGH|MEDIUM|LOW)\)', line, re.IGNORECASE)
+                        if confidence_match:
+                            confidence_level = confidence_match.group(1).upper()
+                            if confidence_level == "HIGH":
+                                confidence_value = 0.9
+                            elif confidence_level == "MEDIUM":
+                                confidence_value = 0.7
+                            elif confidence_level == "LOW":
+                                confidence_value = 0.5
+                                
+                            # Remove the confidence part for the final classification
+                            classification_text = line[:confidence_match.start()].strip()
+                            classification_text = classification_text[len(result_prefix):].strip()
+                        else:
+                            # Just extract the classification without confidence
+                            classification_text = line[len(result_prefix):].strip()
+                        
+                        # Clean up the result
+                        classification = re.sub(r'^["\']|["\']$', '', classification_text)
+                        classification = re.sub(r'\s+', ' ', classification).strip()
+                        
+                        # Map to the original index
+                        orig_idx = idx_map[i]
+                        parsed_results.append((orig_idx, classification))
+                        confidence_scores[orig_idx] = confidence_value
+                        
+                        # Cache the result
+                        if self.enable_cache:
+                            cache_key = self._get_cache_key(prompt, system_prompt, self.user_prompt_template)
+                            self._cache_result(cache_key, classification, confidence_value)
+                            
+                        break
+                else:
+                    # If no match found, add a placeholder
+                    orig_idx = idx_map[i]
+                    parsed_results.append((orig_idx, "Unclassified"))
+                    confidence_scores[orig_idx] = 0.3  # Low confidence for unclassified
+            
+            # Combine cached and new results
+            all_results = [""] * len(prompts)
+            
+            # Add cached results
+            for i, result in cached_results:
+                all_results[i] = result
+                
+            # Add new results
+            for i, result in parsed_results:
+                all_results[i] = result
+                
+            if self.verbose:
+                logger.info(f"Generated {len(parsed_results)} classifications in batch mode")
+                logger.info(f"Used {len(cached_results)} cached results")
+                
+            return all_results, confidence_scores
+            
+        except Exception as e:
+            logger.error(f"Error in batch generation with OpenAI: {e}")
             raise
     
     def _generate_local(self, prompt: str) -> str:
@@ -695,13 +935,283 @@ class LLMTopicLabeler:
                     results.append((topic_id, topic_names))
                     
         return results
+        
+    def classify_texts(
+        self,
+        texts: List[str],
+        categories: Optional[List[str]] = None,
+        system_prompt: Optional[str] = None,
+        user_prompt_template: Optional[str] = None,
+        batch_size: Optional[int] = None,
+        progress_bar: Union[bool, str, Dict[str, Any]] = True,
+        deduplicate: Optional[bool] = None,
+        deduplication_threshold: Optional[float] = None,
+    ) -> List[str]:
+        """Classify a list of texts using LLM.
+        
+        This method efficiently processes multiple texts for classification,
+        using batching and deduplication to optimize API calls.
+        
+        Parameters
+        ----------
+        texts : List[str]
+            List of texts to classify
+        categories : Optional[List[str]], optional
+            List of predefined categories to choose from, by default None
+            If provided, the model will classify into these categories
+        system_prompt : Optional[str], optional
+            Custom system prompt, by default None
+            If None, uses the class's system_prompt_template
+        user_prompt_template : Optional[str], optional
+            Custom user prompt template, by default None
+            If None, uses the class's user_prompt_template
+            Should include {{text}} placeholder for text insertion
+        batch_size : Optional[int], optional
+            Maximum number of texts per batch, by default None
+            If None, uses the class's batch_size
+        progress_bar : bool, optional
+            Whether to show a progress bar, by default True
+        deduplicate : Optional[bool], optional
+            Whether to deduplicate similar texts, by default None
+            If None, uses the class's deduplicate setting
+        deduplication_threshold : Optional[float], optional
+            Similarity threshold for deduplication, by default None
+            If None, uses the class's deduplication_threshold
+            
+        Returns
+        -------
+        List[str]
+            List of classification results (one per input text)
+        """
+        if len(texts) == 0:
+            return []
+            
+        # Set defaults from class attributes if not specified
+        if batch_size is None:
+            batch_size = self.batch_size
+            
+        if deduplicate is None:
+            deduplicate = self.deduplicate
+            
+        if deduplication_threshold is None:
+            deduplication_threshold = self.deduplication_threshold
+            
+        if user_prompt_template is None:
+            user_prompt_template = self.user_prompt_template
+            
+        if system_prompt is None:
+            system_prompt = self.system_prompt_template
+            
+        # Modify system prompt if categories are provided
+        if categories and system_prompt == self.system_prompt_template:
+            category_list = ", ".join(categories)
+            system_prompt = f"You are a helpful assistant that classifies text into one of these categories: {category_list}."
+            
+        # Set up progress tracking
+        total_texts = len(texts)
+        use_simple_progress = False
+        simple_progress_interval = 5  # Default interval
+        
+        # Check if progress_bar is a string or dictionary for configuration
+        if isinstance(progress_bar, str) and progress_bar.lower() == "simple":
+            use_simple_progress = True
+        elif isinstance(progress_bar, dict) and progress_bar.get("type", "") == "simple":
+            use_simple_progress = True
+            # Allow customizing the interval
+            if "interval" in progress_bar and isinstance(progress_bar["interval"], int) and progress_bar["interval"] > 0:
+                simple_progress_interval = progress_bar["interval"]
+        
+        if progress_bar and not use_simple_progress:
+            try:
+                pbar = tqdm(total=total_texts, desc="Classifying texts")
+            except Exception as e:
+                logger.warning(f"Failed to create tqdm progress bar: {e}. Using simple progress.")
+                use_simple_progress = True
+                
+        if use_simple_progress:
+            print(f"Classifying {total_texts} texts... (progress updates every {simple_progress_interval} items)")
+            
+        # Check if we're in OpenAI mode (only OpenAI supports batch processing)
+        if self.model_type != "openai":
+            logger.warning("Batch processing is only available with OpenAI models. Using parallel processing instead.")
+            
+            # Define a function to process a single text
+            def process_text(text):
+                # Format the prompt
+                prompt = user_prompt_template.replace("{{text}}", text)
+                
+                if self.model_type == "openai":
+                    return self._generate_openai(prompt, system_prompt)
+                else:
+                    return self._generate_local(prompt)
+                    
+            # Process texts in parallel
+            results = []
+            
+            # Use ThreadPoolExecutor for parallel processing
+            with ThreadPoolExecutor(max_workers=self.max_parallel_requests) as executor:
+                for i in range(0, len(texts), batch_size):
+                    batch = texts[i:i+batch_size]
+                    
+                    # Submit all tasks
+                    futures = [executor.submit(process_text, text) for text in batch]
+                    
+                    # Process completed tasks
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            result = future.result()
+                            results.append(result)
+                        except Exception as e:
+                            logger.warning(f"Failed to classify text: {e}")
+                            results.append("Unclassified")
+                            
+                        if progress_bar:
+                            if use_simple_progress:
+                                if len(results) % simple_progress_interval == 0:  # Show progress at specified interval
+                                    print(f"  Progress: {len(results)}/{total_texts} texts processed")
+                            else:
+                                pbar.update(1)
+                            
+            if progress_bar:
+                if use_simple_progress:
+                    print(f"  Completed: {total_texts}/{total_texts} texts processed")
+                else:
+                    pbar.close()
+                
+            return results
+            
+        # Deduplication (for OpenAI mode)
+        if deduplicate:
+            # Create duplicate map
+            duplicate_map = self._identify_fuzzy_duplicates(texts, deduplication_threshold)
+            
+            # Create a set of unique text indices
+            unique_indices = set(range(len(texts)))
+            for dup_idx in duplicate_map:
+                unique_indices.discard(dup_idx)
+                
+            # Map unique indices to positions
+            unique_idx_to_pos = {idx: pos for pos, idx in enumerate(sorted(unique_indices))}
+            
+            # Create list of unique texts
+            unique_texts = [texts[idx] for idx in sorted(unique_indices)]
+            
+            logger.info(f"Deduplication reduced {len(texts)} texts to {len(unique_texts)} unique texts")
+        else:
+            unique_texts = texts
+            unique_idx_to_pos = {i: i for i in range(len(texts))}
+            duplicate_map = {}
+        
+        # Process in batches
+        all_results = [""] * len(unique_texts)
+        
+        for i in range(0, len(unique_texts), batch_size):
+            batch = unique_texts[i:i+batch_size]
+            
+            # Format the prompts
+            formatted_batch = [user_prompt_template.replace("{{text}}", text) for text in batch]
+            
+            # Calculate total token usage for this batch
+            if self.max_token_limit is not None:
+                batch_token_count = sum(self._count_tokens(prompt) for prompt in formatted_batch)
+                system_token_count = self._count_tokens(system_prompt)
+                
+                # Add token count for system prompt and formatting
+                total_token_count = batch_token_count + system_token_count + 200  # Extra for formatting
+                
+                if total_token_count > self.max_token_limit:
+                    logger.warning(f"Batch token count ({total_token_count}) exceeds limit ({self.max_token_limit}). Reducing batch size.")
+                    
+                    # Recursively process smaller batches
+                    new_batch_size = max(1, batch_size // 2)
+                    logger.info(f"Reducing batch size to {new_batch_size}")
+                    
+                    sub_results = self.classify_texts(
+                        batch,
+                        categories=categories,
+                        system_prompt=system_prompt,
+                        user_prompt_template=user_prompt_template,
+                        batch_size=new_batch_size,
+                        progress_bar=False,
+                        deduplicate=False
+                    )
+                    
+                    # Add results to our list
+                    for j, result in enumerate(sub_results):
+                        all_results[i + j] = result
+                        
+                    if progress_bar:
+                        pbar.update(len(batch))
+                        
+                    continue
+            
+            # Generate classifications in batch mode
+            try:
+                batch_results, batch_confidences = self._batch_generate_openai(formatted_batch, system_prompt)
+                
+                # Store results and confidences
+                for j, result in enumerate(batch_results):
+                    all_results[i + j] = result
+                    
+                    # Map confidence scores to original indices
+                    text_idx = i + j
+                    self.confidence_scores[text_idx] = batch_confidences.get(j, 0.7)  # Default to medium confidence
+                    
+            except Exception as e:
+                logger.error(f"Batch classification failed: {e}")
+                
+                # Fall back to individual processing
+                logger.info("Falling back to individual processing")
+                
+                for j, text in enumerate(batch):
+                    try:
+                        prompt = user_prompt_template.replace("{{text}}", text)
+                        result = self._generate_openai(prompt, system_prompt)
+                        all_results[i + j] = result
+                        self.confidence_scores[i + j] = 0.7  # Default confidence for fallback
+                    except Exception as e:
+                        logger.warning(f"Failed to classify text: {e}")
+                        all_results[i + j] = "Unclassified"
+                        self.confidence_scores[i + j] = 0.3  # Low confidence for failures
+            
+            if progress_bar:
+                if use_simple_progress:
+                    processed_so_far = i + len(batch)
+                    if processed_so_far % simple_progress_interval == 0 or processed_so_far >= total_texts:
+                        print(f"  Progress: {processed_so_far}/{total_texts} texts processed")
+                else:
+                    pbar.update(len(batch))
+        
+        if progress_bar:
+            if use_simple_progress:
+                print(f"  Completed: {total_texts}/{total_texts} texts processed")
+            else:
+                pbar.close()
+            
+        # Map results back to original texts (dealing with duplicates)
+        if deduplicate:
+            final_results = [""] * len(texts)
+            
+            # First, copy results for unique texts
+            for original_idx, unique_pos in unique_idx_to_pos.items():
+                final_results[original_idx] = all_results[unique_pos]
+                
+            # Then fill in duplicates
+            for dup_idx, original_idx in duplicate_map.items():
+                unique_pos = unique_idx_to_pos.get(original_idx)
+                if unique_pos is not None:
+                    final_results[dup_idx] = all_results[unique_pos]
+                    
+            return final_results
+        else:
+            return all_results
 
     def label_topics(
         self,
         topic_model: Any,
         example_docs_per_topic: Optional[Dict[int, List[str]]] = None,
         detailed: bool = False,
-        progress_bar: bool = True,
+        progress_bar: Union[bool, str] = True,
         batch_size: Optional[int] = None,
     ) -> Dict[int, str]:
         """Label all topics in a topic model.
@@ -877,10 +1387,127 @@ class LLMTopicLabeler:
             "max_parallel_requests": getattr(self, "max_parallel_requests", 4),
             "requests_per_minute": getattr(self.rate_limiter, "requests_per_minute", None) if self.rate_limiter else None,
             "burst_limit": getattr(self.rate_limiter, "burst_limit", None) if self.rate_limiter else None,
+            "system_prompt_template": self.system_prompt_template,
+            "user_prompt_template": self.user_prompt_template,
+            "batch_size": self.batch_size,
+            "deduplicate": self.deduplicate,
+            "deduplication_threshold": self.deduplication_threshold,
+            "enable_cache": self.enable_cache,
+            "cache_dir": self.cache_dir,
+            "cache_ttl": self.cache_ttl,
         }
         
         with open(path, "w") as f:
             json.dump(config, f, indent=2)
+            
+    def _get_cache_key(self, text: str, system_prompt: str, user_prompt_template: str) -> str:
+        """Get cache key for a text and prompt combination.
+        
+        Parameters
+        ----------
+        text : str
+            The text to classify
+        system_prompt : str
+            System prompt
+        user_prompt_template : str
+            User prompt template
+            
+        Returns
+        -------
+        str
+            Cache key
+        """
+        # Create a deterministic hash based on text, system prompt, model name, and temperature
+        content = f"{text}|{system_prompt}|{user_prompt_template}|{self.model_name}|{self.temperature}"
+        return hashlib.md5(content.encode('utf-8')).hexdigest()
+    
+    def _get_cache_path(self, cache_key: str) -> str:
+        """Get cache file path for a cache key.
+        
+        Parameters
+        ----------
+        cache_key : str
+            Cache key
+            
+        Returns
+        -------
+        str
+            Cache file path
+        """
+        return os.path.join(self.cache_dir, f"{cache_key}.pkl")
+    
+    def _cache_result(self, cache_key: str, result: str, confidence: float = 1.0) -> None:
+        """Cache a classification result.
+        
+        Parameters
+        ----------
+        cache_key : str
+            Cache key
+        result : str
+            Classification result
+        confidence : float, optional
+            Confidence score, by default 1.0
+        """
+        if not self.enable_cache:
+            return
+            
+        cache_path = self._get_cache_path(cache_key)
+        
+        # Create cache entry with timestamp
+        cache_entry = {
+            "result": result,
+            "confidence": confidence,
+            "timestamp": time.time(),
+            "model": self.model_name,
+            "temperature": self.temperature,
+        }
+        
+        try:
+            with open(cache_path, "wb") as f:
+                pickle.dump(cache_entry, f)
+        except Exception as e:
+            logger.warning(f"Failed to cache result: {e}")
+    
+    def _get_cached_result(self, cache_key: str) -> Optional[Tuple[str, float]]:
+        """Get cached classification result.
+        
+        Parameters
+        ----------
+        cache_key : str
+            Cache key
+            
+        Returns
+        -------
+        Optional[Tuple[str, float]]
+            (result, confidence) if found and valid, None otherwise
+        """
+        if not self.enable_cache:
+            return None
+            
+        cache_path = self._get_cache_path(cache_key)
+        
+        if not os.path.exists(cache_path):
+            return None
+            
+        try:
+            with open(cache_path, "rb") as f:
+                cache_entry = pickle.load(f)
+                
+            # Check if cache entry is still valid
+            if time.time() - cache_entry["timestamp"] > self.cache_ttl:
+                # Cache expired
+                os.remove(cache_path)
+                return None
+                
+            # Check if model and temperature match
+            if (cache_entry["model"] != self.model_name or 
+                cache_entry["temperature"] != self.temperature):
+                return None
+                
+            return cache_entry["result"], cache_entry["confidence"]
+        except Exception as e:
+            logger.warning(f"Failed to read cache: {e}")
+            return None
             
     @classmethod
     def load(cls, path: Union[str, Path], **kwargs) -> "LLMTopicLabeler":
@@ -907,6 +1534,86 @@ class LLMTopicLabeler:
         config.update(kwargs)
         
         return cls(**config)
+        
+    def _calculate_text_similarity(self, text1: str, text2: str) -> float:
+        """Calculate text similarity ratio between two strings.
+        
+        Parameters
+        ----------
+        text1 : str
+            First text string
+        text2 : str
+            Second text string
+            
+        Returns
+        -------
+        float
+            Similarity score between 0 and 1
+        """
+        return SequenceMatcher(None, text1, text2).ratio()
+    
+    def _generate_text_hash(self, text: str) -> str:
+        """Generate a hash for a text string.
+        
+        Parameters
+        ----------
+        text : str
+            Text to hash
+            
+        Returns
+        -------
+        str
+            Hash string
+        """
+        return hashlib.md5(text.encode('utf-8')).hexdigest()
+        
+    def _identify_fuzzy_duplicates(
+        self, 
+        texts: List[str],
+        threshold: Optional[float] = None
+    ) -> Dict[int, int]:
+        """Identify fuzzy duplicates in a list of texts.
+        
+        Parameters
+        ----------
+        texts : List[str]
+            List of text strings to check for duplicates
+        threshold : Optional[float], optional
+            Similarity threshold, by default None
+            If None, uses the class's deduplication_threshold
+            
+        Returns
+        -------
+        Dict[int, int]
+            Dictionary mapping duplicate indices to their representative index
+        """
+        if threshold is None:
+            threshold = self.deduplication_threshold
+            
+        duplicate_map = {}
+        processed = set()
+        
+        for i, text1 in enumerate(texts):
+            if i in processed:
+                continue
+                
+            processed.add(i)
+            
+            for j in range(i + 1, len(texts)):
+                if j in processed:
+                    continue
+                    
+                text2 = texts[j]
+                
+                # Calculate similarity
+                similarity = self._calculate_text_similarity(text1, text2)
+                
+                # If similar enough, mark as duplicate
+                if similarity >= threshold:
+                    duplicate_map[j] = i
+                    processed.add(j)
+        
+        return duplicate_map
 
 
 # Example usage for Jupyter Notebook
@@ -930,7 +1637,7 @@ def batch_label_topics_example():
     labeler = LLMTopicLabeler(
         model_type="openai",         # Using OpenAI as an example for rate limiting
         model_name="gpt-3.5-turbo",
-        max_token_limit=1000,        # Will fail if prompts exceed this token count
+        max_token_limit=4000,        # Will fail if prompts exceed this token count
         max_parallel_requests=4,     # Process up to 4 topics in parallel
         enable_fallback=True,        # Fall back to simple labeling if LLM fails
         requests_per_minute=60,      # Limit to 60 requests per minute (OpenAI rate limit)
@@ -938,7 +1645,14 @@ def batch_label_topics_example():
         # Optionally configure custom API settings
         # openai_api_key="your-api-key",  
         # api_endpoint="https://your-custom-endpoint.com",  # For custom endpoints
-        # api_version="2023-07-01"  # For specific API versions
+        # api_version="2023-07-01",  # For specific API versions
+        
+        # New parameters
+        system_prompt_template="You are a helpful assistant that classifies text into relevant topics.",
+        user_prompt_template="Classify the following text into the most appropriate topic: {{text}}",
+        batch_size=20,               # Process up to 20 texts in a single API call
+        deduplicate=True,            # Enable deduplication for similar texts
+        deduplication_threshold=0.92 # Similarity threshold for deduplication
     )
     
     # 3. Generate topic names in batches with rate limiting
@@ -969,12 +1683,114 @@ def batch_label_topics_example():
     #     max_parallel_requests=2                   # Lower parallelism to respect rate limits
     # )
     
-    # For local models (higher rate limits, limited by hardware)
-    # local_labeler = LLMTopicLabeler(
-    #     model_type="local",
-    #     model_name="google/flan-t5-small",
-    #     requests_per_minute=100,    # Higher limit since it's local
-    #     max_parallel_requests=2     # Limited by GPU memory or CPU
+    # 6. For text classification with predefined categories:
+    # categories = ["business", "technology", "health", "politics", "entertainment"]
+    # custom_prompt = f"Classify the following text into one of these categories: {', '.join(categories)}.\nText: {{text}}"
+    # classifier = LLMTopicLabeler(
+    #     model_type="openai",
+    #     model_name="gpt-3.5-turbo",
+    #     user_prompt_template=custom_prompt,
+    #     batch_size=20,
+    #     deduplicate=True
     # )
+    # 
+    # # Classify a batch of texts
+    # texts = ["Latest smartphone features AI capabilities", "Stock market rises 2% on economic data"]
+    # results = classifier.classify_texts(texts, categories=categories)
+    
+    # 7. For open classification (no predefined categories):
+    # open_classifier = LLMTopicLabeler(
+    #     model_type="openai",
+    #     model_name="gpt-3.5-turbo",
+    #     system_prompt_template="You are an expert at categorizing content into the most appropriate topic.",
+    #     user_prompt_template="Assign a brief, descriptive topic label (1-3 words) to this text: {{text}}"
+    # )
+    # 
+    # # Classify a batch of texts with open categories
+    # results = open_classifier.classify_texts(large_text_collection, batch_size=50)
     
     return "See the example code for how to use the LLM topic labeler with batching, token limiting, and rate limiting"
+    
+def classify_texts_example():
+    """Example of how to use the new text classification functionality with batching
+    and deduplication to optimize API usage.
+    
+    This function is intended to be used as a reference for how to use the new features.
+    """
+    # Import required modules
+    import pandas as pd
+    from meno.modeling.llm_topic_labeling import LLMTopicLabeler
+    
+    # Example 1: Classifying texts with predefined categories
+    categories = ["business", "technology", "health", "politics", "entertainment"]
+    
+    # Create classifier with predefined categories
+    classifier = LLMTopicLabeler(
+        model_type="openai",
+        model_name="gpt-3.5-turbo",
+        max_token_limit=4000,
+        batch_size=20,
+        deduplicate=True,
+        deduplication_threshold=0.92,
+        system_prompt_template=f"You are a helpful assistant that classifies text into one of these categories: {', '.join(categories)}."
+    )
+    
+    # Example texts for classification
+    texts = [
+        "Apple announces new iPhone with advanced AI features.",
+        "The stock market rose 2% today after positive economic data.",
+        "New research shows benefits of Mediterranean diet for heart health.",
+        "The president signed the climate bill into law yesterday.",
+        "The new superhero movie broke box office records this weekend."
+    ]
+    
+    # Classify texts using predefined categories
+    results = classifier.classify_texts(
+        texts=texts,
+        categories=categories,
+        progress_bar=True
+    )
+    
+    # Create DataFrame with results
+    df_results = pd.DataFrame({
+        "text": texts,
+        "category": results
+    })
+    
+    # Example 2: Open classification (no predefined categories)
+    open_classifier = LLMTopicLabeler(
+        model_type="openai",
+        model_name="gpt-3.5-turbo",
+        system_prompt_template="You are an expert at assigning concise topic labels to content.",
+        user_prompt_template="Assign a brief, descriptive topic label (1-3 words) to this text: {{text}}",
+        batch_size=20,
+        deduplicate=True
+    )
+    
+    # Classify with open topics
+    open_results = open_classifier.classify_texts(texts)
+    
+    # Add to DataFrame
+    df_results["open_category"] = open_results
+    
+    # Example 3: Handling larger datasets efficiently
+    # Large dataset simulation (with some similar texts)
+    large_texts = texts * 20  # Just duplicating for example purposes
+    
+    # Classify efficiently with deduplication
+    efficient_results = classifier.classify_texts(
+        texts=large_texts,
+        categories=categories,
+        batch_size=20,
+        deduplicate=True,
+        deduplication_threshold=0.92
+    )
+    
+    # Create final DataFrame 
+    final_df = pd.DataFrame({
+        "text": texts,
+        "predefined_category": results,
+        "open_category": open_results
+    })
+    
+    return "See the example code for how to use the classify_texts method"

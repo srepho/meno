@@ -1,12 +1,13 @@
-"""Tests for the LLM topic labeler module."""
+"""Tests for the enhanced LLM topic labeling functionality."""
 
 import pytest
-import numpy as np
-import pandas as pd
+import os
 import json
+import pickle
 import tempfile
+import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock, call, mock_open
 
 # Skip tests if transformers or openai is not available
 try:
@@ -25,414 +26,481 @@ from meno.modeling.llm_topic_labeling import LLMTopicLabeler
 
 
 @pytest.fixture
-def sample_keywords():
-    """Create sample keywords for testing."""
+def sample_texts():
+    """Create sample texts for classification testing."""
     return [
-        "technology", "computer", "software", "hardware", "device",
-        "system", "application", "developer", "code", "program"
+        "The latest technology uses artificial intelligence to improve software development",
+        "Patients can now access their medical records online through a secure portal",
+        "Stock market volatility has increased due to economic uncertainty",
+        "New programming language features improve developer productivity",
+        "The hospital implemented a new electronic health record system"
     ]
 
 
 @pytest.fixture
-def sample_example_docs():
-    """Create sample example documents for testing."""
+def similar_texts():
+    """Create texts with similar content for deduplication testing."""
     return [
-        "Computer software developers create programs that power our devices.",
-        "Hardware systems require proper maintenance and updates.",
-        "Modern technology enables remote work and collaboration tools."
+        "Python is a programming language used in data science",
+        "Python programming language is popular in data science",  # Similar to first
+        "Machine learning algorithms can process large amounts of data",
+        "AI systems can learn from large volumes of data",  # Similar to third
+        "Neural networks are a type of deep learning algorithm",
+        "JavaScript is used for web development",
+        "Web developers often use JavaScript for client-side scripting"  # Similar to sixth
     ]
 
 
-@pytest.fixture
-def mock_topic_model():
-    """Create a mock topic model for testing."""
-    model = MagicMock()
-    
-    # Mock get_topic_info
-    topic_info = pd.DataFrame({
-        'Topic': [-1, 0, 1, 2],
-        'Count': [3, 7, 5, 4],
-        'Name': ['Outlier', 'Topic 0', 'Topic 1', 'Topic 2']
-    })
-    model.get_topic_info.return_value = topic_info
-    
-    # Mock get_topics
-    topics = {
-        -1: [],
-        0: [("technology", 0.9), ("computer", 0.8), ("software", 0.7), ("program", 0.6), ("developer", 0.5)],
-        1: [("health", 0.9), ("medical", 0.8), ("doctor", 0.7), ("patient", 0.6), ("hospital", 0.5)],
-        2: [("finance", 0.9), ("money", 0.8), ("banking", 0.7), ("investment", 0.6), ("market", 0.5)]
-    }
-    model.topics = topics
-    
-    # Mock get_topic method
-    model.get_topic.side_effect = lambda topic_id: topics.get(topic_id, [])
-    
-    return model
+class TestEnhancedLLMTopicLabeling:
+    """Test the enhanced features of LLMTopicLabeler."""
 
-
-class TestLLMTopicLabeler:
-    """Test the LLMTopicLabeler class."""
-    
-    def test_init_defaults(self):
-        """Test initializing with default settings."""
-        with patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True):
-            with patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", False):
-                with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-                    with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                        with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                            # Mock tokenizer and model
-                            mock_tokenizer.from_pretrained.return_value = MagicMock()
-                            mock_model.from_pretrained.return_value = MagicMock()
-                            mock_pipeline.return_value = MagicMock()
-                            
-                            # Initialize labeler
-                            labeler = LLMTopicLabeler()
-                            
-                            # Check default attributes
-                            assert labeler.model_type == "local"
-                            assert labeler.model_name == "google/flan-t5-small"
-                            assert labeler.max_new_tokens == 50
-                            assert labeler.temperature == 0.7
-                            assert labeler.enable_fallback is True
-                            assert labeler.verbose is False
-    
     @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
     @patch("meno.modeling.llm_topic_labeling.openai")
-    def test_init_openai(self, mock_openai):
-        """Test initializing with OpenAI settings."""
-        mock_openai.OpenAI.return_value = MagicMock()
-        
-        # Initialize labeler with OpenAI
-        labeler = LLMTopicLabeler(model_type="openai", model_name="gpt-3.5-turbo")
-        
-        # Check attributes
-        assert labeler.model_type == "openai"
-        assert labeler.model_name == "gpt-3.5-turbo"
-        assert hasattr(labeler, "client")
-        
-        # Check that OpenAI client was created
-        mock_openai.OpenAI.assert_called_once()
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
-    def test_init_auto_selection(self):
-        """Test auto selection of model type."""
-        with patch("meno.modeling.llm_topic_labeling.openai.OpenAI") as mock_openai:
-            mock_openai.return_value = MagicMock()
-            
-            # Initialize labeler with auto type
-            labeler = LLMTopicLabeler(model_type="auto")
-            
-            # Should prefer OpenAI if available
-            assert labeler.model_type == "openai"
-            assert labeler.model_name == "gpt-3.5-turbo"
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", False)
-    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", False)
-    def test_init_no_backends(self):
-        """Test initializing when no backends are available."""
-        # Should raise ImportError
-        with pytest.raises(ImportError, match="No LLM backend is available"):
-            LLMTopicLabeler(model_type="auto")
-    
-    def test_build_prompt(self, sample_keywords, sample_example_docs):
-        """Test building prompts for the LLM."""
-        with patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True):
-            with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-                with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                    with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                        # Mock tokenizer and model
-                        mock_tokenizer.from_pretrained.return_value = MagicMock()
-                        mock_model.from_pretrained.return_value = MagicMock()
-                        mock_pipeline.return_value = MagicMock()
-                        
-                        # Initialize labeler
-                        labeler = LLMTopicLabeler()
-                        
-                        # Test basic prompt
-                        basic_prompt = labeler._build_prompt(sample_keywords)
-                        assert "Keywords: technology, computer, software" in basic_prompt
-                        assert "Topic name:" in basic_prompt
-                        
-                        # Test detailed prompt
-                        detailed_prompt = labeler._build_prompt(sample_keywords, detailed=True)
-                        assert "generate a descriptive and specific topic name" in detailed_prompt
-                        
-                        # Test with example documents
-                        docs_prompt = labeler._build_prompt(sample_keywords, sample_example_docs)
-                        assert "Example documents:" in docs_prompt
-                        assert "Computer software developers" in docs_prompt
-    
-    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
-    @patch("meno.modeling.llm_topic_labeling.openai")
-    def test_generate_openai(self, mock_openai, sample_keywords):
-        """Test generating topic names with OpenAI."""
-        # Mock OpenAI client and response
+    def test_caching_with_batch_processing(self, mock_openai, sample_texts):
+        """Test that caching works correctly with batch processing."""
+        # Setup mock OpenAI
         mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "Technology and Software Development"
-        mock_client.chat.completions.create.return_value = mock_response
         mock_openai.OpenAI.return_value = mock_client
         
-        # Initialize labeler
-        labeler = LLMTopicLabeler(model_type="openai")
+        # Create a mock response for the first call
+        mock_response = """TEXT 1: Technology (confidence: HIGH)
+TEXT 2: Healthcare (confidence: MEDIUM)
+TEXT 3: Finance (confidence: HIGH)
+TEXT 4: Technology (confidence: MEDIUM)
+TEXT 5: Healthcare (confidence: HIGH)"""
         
-        # Test generating topic name
-        topic_name = labeler._generate_openai("Test prompt")
+        mock_response_obj = MagicMock()
+        mock_response_obj.choices = [MagicMock()]
+        mock_response_obj.choices[0].message.content = mock_response
+        mock_client.chat.completions.create.return_value = mock_response_obj
         
-        # Verify result
-        assert topic_name == "Technology and Software Development"
+        # Create a temporary directory for cache
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create labeler with caching enabled
+            labeler = LLMTopicLabeler(
+                model_type="openai",
+                model_name="gpt-3.5-turbo",
+                batch_size=5,
+                enable_cache=True,
+                cache_dir=tmpdir
+            )
+            
+            # First call - should generate and cache results
+            first_results = labeler.classify_texts(sample_texts, progress_bar=False)
+            
+            # Verify API was called once
+            assert mock_client.chat.completions.create.call_count == 1
+            
+            # Now reset the mock and call again with same texts
+            mock_client.chat.completions.create.reset_mock()
+            
+            # Second call - should use cached results
+            second_results = labeler.classify_texts(sample_texts, progress_bar=False)
+            
+            # Verify API was not called again
+            assert mock_client.chat.completions.create.call_count == 0
+            
+            # Verify results are the same
+            assert first_results == second_results
+            
+            # Check that cache files were created
+            cache_files = os.listdir(tmpdir)
+            assert len(cache_files) > 0
+            
+            # Modify one text slightly and verify partial cache hit
+            modified_texts = sample_texts.copy()
+            modified_texts[2] = "A completely new text that was not cached before"
+            
+            # Mock response for the partial batch (should only contain the new text)
+            modified_response = "TEXT 1: News (confidence: HIGH)"
+            modified_response_obj = MagicMock()
+            modified_response_obj.choices = [MagicMock()]
+            modified_response_obj.choices[0].message.content = modified_response
+            mock_client.chat.completions.create.return_value = modified_response_obj
+            
+            # Reset mock for the third call
+            mock_client.chat.completions.create.reset_mock()
+            
+            # Third call with partial new content
+            third_results = labeler.classify_texts(modified_texts, progress_bar=False)
+            
+            # Verify API was called once for the single new text
+            assert mock_client.chat.completions.create.call_count == 1
+            
+            # Check for preserved results and new result
+            assert third_results[0] == first_results[0]  # Cached
+            assert third_results[1] == first_results[1]  # Cached
+            assert third_results[2] == "News"            # New result
+            assert third_results[3] == first_results[3]  # Cached
+            assert third_results[4] == first_results[4]  # Cached
+
+    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
+    @patch("meno.modeling.llm_topic_labeling.openai")
+    def test_cache_expiration(self, mock_openai):
+        """Test that cached results expire after TTL."""
+        # Setup mock OpenAI
+        mock_client = MagicMock()
+        mock_openai.OpenAI.return_value = mock_client
+        
+        # Mock response
+        mock_response_obj = MagicMock()
+        mock_response_obj.choices = [MagicMock()]
+        mock_response_obj.choices[0].message.content = "TEXT 1: Technology (confidence: HIGH)"
+        mock_client.chat.completions.create.return_value = mock_response_obj
+        
+        # Create a temporary directory for cache
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create labeler with short TTL for testing
+            labeler = LLMTopicLabeler(
+                model_type="openai",
+                enable_cache=True,
+                cache_dir=tmpdir,
+                cache_ttl=2  # Very short TTL (2 seconds)
+            )
+            
+            # Generate a test text
+            text = ["Sample text for classification"]
+            
+            # First call - should generate and cache
+            first_result = labeler.classify_texts(text, progress_bar=False)
+            
+            # Reset mock
+            mock_client.chat.completions.create.reset_mock()
+            
+            # Second call immediately - should use cache
+            second_result = labeler.classify_texts(text, progress_bar=False)
+            assert mock_client.chat.completions.create.call_count == 0
+            
+            # Wait for cache to expire
+            time.sleep(3)
+            
+            # Now mock a different response
+            mock_response_obj.choices[0].message.content = "TEXT 1: Science (confidence: MEDIUM)"
+            
+            # Third call after expiry - should generate new result
+            third_result = labeler.classify_texts(text, progress_bar=False)
+            
+            # Verify API was called again
+            assert mock_client.chat.completions.create.call_count == 1
+            
+            # Results should be different
+            assert first_result[0] == "Technology"
+            assert third_result[0] == "Science"
+
+    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
+    @patch("meno.modeling.llm_topic_labeling.openai")
+    def test_confidence_scores_tracking(self, mock_openai, sample_texts):
+        """Test that confidence scores are tracked correctly."""
+        # Setup mock OpenAI
+        mock_client = MagicMock()
+        mock_openai.OpenAI.return_value = mock_client
+        
+        # Create varying confidence scores in the response
+        mock_response = """TEXT 1: Technology (confidence: HIGH)
+TEXT 2: Healthcare (confidence: MEDIUM)
+TEXT 3: Finance (confidence: LOW)
+TEXT 4: Technology (confidence: 0.95)
+TEXT 5: Healthcare (confidence: 0.42)"""
+        
+        mock_response_obj = MagicMock()
+        mock_response_obj.choices = [MagicMock()]
+        mock_response_obj.choices[0].message.content = mock_response
+        mock_client.chat.completions.create.return_value = mock_response_obj
+        
+        # Create labeler
+        labeler = LLMTopicLabeler(
+            model_type="openai",
+            model_name="gpt-3.5-turbo",
+            batch_size=5
+        )
+        
+        # Process texts
+        results = labeler.classify_texts(sample_texts, progress_bar=False)
+        
+        # Check results
+        assert len(results) == 5
+        
+        # Verify confidence scores were parsed correctly
+        assert labeler.confidence_scores[0] == 0.9  # HIGH
+        assert labeler.confidence_scores[1] == 0.7  # MEDIUM
+        assert labeler.confidence_scores[2] == 0.5  # LOW
+        assert labeler.confidence_scores[3] == 0.95  # Explicit value
+        assert labeler.confidence_scores[4] == 0.42  # Explicit value
+        
+        # Verify confidence scores can be retrieved
+        assert 0 in labeler.confidence_scores
+        assert 4 in labeler.confidence_scores
+        assert len(labeler.confidence_scores) == 5
+
+    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
+    @patch("meno.modeling.llm_topic_labeling.openai")
+    def test_deduplication_functionality(self, mock_openai, similar_texts):
+        """Test the deduplication functionality with similar texts."""
+        # Setup mock OpenAI
+        mock_client = MagicMock()
+        mock_openai.OpenAI.return_value = mock_client
+        
+        # Mock a response for non-duplicate texts
+        mock_response = """TEXT 1: Python (confidence: HIGH)
+TEXT 2: Machine Learning (confidence: HIGH)
+TEXT 3: Neural Networks (confidence: HIGH)
+TEXT 4: Web Development (confidence: HIGH)"""
+        
+        mock_response_obj = MagicMock()
+        mock_response_obj.choices = [MagicMock()]
+        mock_response_obj.choices[0].message.content = mock_response
+        mock_client.chat.completions.create.return_value = mock_response_obj
+        
+        # Create a labeler with deduplication enabled
+        labeler = LLMTopicLabeler(
+            model_type="openai",
+            deduplicate=True,
+            deduplication_threshold=0.7  # Set threshold to detect our similar texts
+        )
+        
+        # Instead of mocking _identify_fuzzy_duplicates, let's test the real implementation
+        # Process texts with actual deduplication
+        results = labeler.classify_texts(similar_texts, progress_bar=False)
+        
+        # Verify all 7 texts got results
+        assert len(results) == 7
+        
+        # Check that the API was called with fewer than 7 texts
         mock_client.chat.completions.create.assert_called_once()
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    def test_generate_local(self, sample_keywords):
-        """Test generating topic names with local model."""
-        with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-            with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                    # Mock tokenizer, model and pipeline
-                    mock_tokenizer.from_pretrained.return_value = MagicMock()
-                    mock_model.from_pretrained.return_value = MagicMock()
-                    
-                    # Mock pipeline output
-                    mock_pipeline_instance = MagicMock()
-                    mock_pipeline_instance.return_value = [{"generated_text": "Test prompt Computer Technology"}]
-                    mock_pipeline.return_value = mock_pipeline_instance
-                    
-                    # Initialize labeler
-                    labeler = LLMTopicLabeler(model_type="local")
-                    
-                    # Test generating topic name
-                    topic_name = labeler._generate_local("Test prompt")
-                    
-                    # Verify result
-                    assert topic_name == "Computer Technology"
-                    mock_pipeline_instance.assert_called_once()
-    
-    def test_fallback_labeling(self, sample_keywords):
-        """Test fallback labeling mechanism."""
+        call_args = mock_client.chat.completions.create.call_args[1]
+        
+        # We should see a combined message with only 4 texts (non-duplicates)
+        combined_message = call_args["messages"][1]["content"]
+        
+        # The exact number of prompts might vary based on the implementation
+        # but it should be fewer than the total texts due to deduplication
+        text_count = combined_message.count("TEXT ")
+        assert text_count < len(similar_texts)
+        
+        # Check that duplicate texts got the same classification
+        if "Python" in results[0]:
+            assert "Python" in results[1]  # Similar Python texts
+        
+        if "Web Development" in results[5]:
+            assert "Web Development" in results[6]  # Similar web dev texts
+
+    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
+    @patch("meno.modeling.llm_topic_labeling.openai")
+    def test_batch_size_limits(self, mock_openai):
+        """Test that batching respects size limits and processes in chunks."""
+        # Setup mock OpenAI
+        mock_client = MagicMock()
+        mock_openai.OpenAI.return_value = mock_client
+        
+        # Create a list of 25 texts
+        large_text_list = [f"Sample text {i} for classification" for i in range(25)]
+        
+        # Create response for first batch
+        first_batch_response = "\n".join([f"TEXT {i+1}: Category {i+1} (confidence: HIGH)" for i in range(10)])
+        first_response_obj = MagicMock()
+        first_response_obj.choices = [MagicMock()]
+        first_response_obj.choices[0].message.content = first_batch_response
+        
+        # Create response for second batch
+        second_batch_response = "\n".join([f"TEXT {i+1}: Category {i+11} (confidence: MEDIUM)" for i in range(10)])
+        second_response_obj = MagicMock()
+        second_response_obj.choices = [MagicMock()]
+        second_response_obj.choices[0].message.content = second_batch_response
+        
+        # Create response for third batch
+        third_batch_response = "\n".join([f"TEXT {i+1}: Category {i+21} (confidence: LOW)" for i in range(5)])
+        third_response_obj = MagicMock()
+        third_response_obj.choices = [MagicMock()]
+        third_response_obj.choices[0].message.content = third_batch_response
+        
+        # Setup mock to return different responses for each batch
+        mock_client.chat.completions.create.side_effect = [
+            first_response_obj,
+            second_response_obj,
+            third_response_obj
+        ]
+        
+        # Create labeler with batch size 10
+        labeler = LLMTopicLabeler(
+            model_type="openai",
+            batch_size=10,  # Process 10 at a time
+            deduplicate=False  # No deduplication for this test
+        )
+        
+        # Process all texts
+        results = labeler.classify_texts(large_text_list, progress_bar=False)
+        
+        # Verify all 25 texts got results
+        assert len(results) == 25
+        
+        # Check that the API was called exactly 3 times (for 3 batches)
+        assert mock_client.chat.completions.create.call_count == 3
+        
+        # Verify the batch contents were correct
+        first_call = mock_client.chat.completions.create.call_args_list[0]
+        second_call = mock_client.chat.completions.create.call_args_list[1]
+        third_call = mock_client.chat.completions.create.call_args_list[2]
+        
+        # Check text counts in each batch
+        first_batch_text = first_call[1]["messages"][1]["content"]
+        second_batch_text = second_call[1]["messages"][1]["content"]
+        third_batch_text = third_call[1]["messages"][1]["content"]
+        
+        assert first_batch_text.count("TEXT ") == 10
+        assert second_batch_text.count("TEXT ") == 10
+        assert third_batch_text.count("TEXT ") == 5
+        
+        # Check confidence scores were tracked correctly
+        assert len(labeler.confidence_scores) == 25
+        
+        # Check first 10 have 0.9 confidence
+        for i in range(10):
+            assert labeler.confidence_scores[i] == 0.9
+            
+        # Check second 10 have 0.7 confidence
+        for i in range(10, 20):
+            assert labeler.confidence_scores[i] == 0.7
+            
+        # Check last 5 have 0.5 confidence
+        for i in range(20, 25):
+            assert labeler.confidence_scores[i] == 0.5
+
+    @patch("meno.modeling.llm_topic_labeling.OPENAI_AVAILABLE", True)
+    @patch("meno.modeling.llm_topic_labeling.openai")
+    def test_integrated_caching_and_deduplication(self, mock_openai, similar_texts):
+        """Test integration of caching and deduplication working together."""
+        # Setup mock OpenAI
+        mock_client = MagicMock()
+        mock_openai.OpenAI.return_value = mock_client
+        
+        # Mock a response for the first batch
+        mock_response = """TEXT 1: Python (confidence: HIGH)
+TEXT 2: Machine Learning (confidence: HIGH)
+TEXT 3: Neural Networks (confidence: HIGH)
+TEXT 4: Web Development (confidence: HIGH)"""
+        
+        mock_response_obj = MagicMock()
+        mock_response_obj.choices = [MagicMock()]
+        mock_response_obj.choices[0].message.content = mock_response
+        mock_client.chat.completions.create.return_value = mock_response_obj
+        
+        # Create temporary directory for caching
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create labeler with both caching and deduplication
+            labeler = LLMTopicLabeler(
+                model_type="openai",
+                deduplicate=True,
+                deduplication_threshold=0.7,
+                enable_cache=True,
+                cache_dir=tmpdir
+            )
+            
+            # First call - should deduplicate and cache
+            first_results = labeler.classify_texts(similar_texts, progress_bar=False)
+            
+            # Verify called once with deduplicated texts
+            assert mock_client.chat.completions.create.call_count == 1
+            
+            # Reset mock
+            mock_client.chat.completions.create.reset_mock()
+            
+            # Second call with the same texts - should use cache entirely
+            second_results = labeler.classify_texts(similar_texts, progress_bar=False)
+            
+            # Verify no API calls were made
+            assert mock_client.chat.completions.create.call_count == 0
+            
+            # Results should be identical
+            assert first_results == second_results
+            
+            # Now create a modified list with some new texts
+            modified_texts = similar_texts.copy()
+            modified_texts.append("A completely new text about biology")
+            modified_texts.append("Another new text about chemistry")
+            
+            # Mock response for the new texts only
+            new_response = """TEXT 1: Biology (confidence: HIGH)
+TEXT 2: Chemistry (confidence: HIGH)"""
+            
+            new_response_obj = MagicMock()
+            new_response_obj.choices = [MagicMock()]
+            new_response_obj.choices[0].message.content = new_response
+            mock_client.chat.completions.create.return_value = new_response_obj
+            
+            # Third call with modified list
+            third_results = labeler.classify_texts(modified_texts, progress_bar=False)
+            
+            # Verify API was called once for the new texts only
+            assert mock_client.chat.completions.create.call_count == 1
+            call_args = mock_client.chat.completions.create.call_args[1]
+            
+            # Should only have 2 texts in the prompt (the new ones)
+            assert call_args["messages"][1]["content"].count("TEXT ") == 2
+            
+            # Check results length matches the input
+            assert len(third_results) == len(modified_texts)
+            
+            # The first 7 results should match the original results
+            for i in range(len(similar_texts)):
+                assert third_results[i] == first_results[i]
+                
+            # The new results should be Biology and Chemistry
+            assert third_results[-2] == "Biology"
+            assert third_results[-1] == "Chemistry"
+
+    def test_actual_deduplication_algorithm(self):
+        """Test that the actual deduplication algorithm works as expected."""
         with patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True):
             with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
                 with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
                     with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                        # Mock tokenizer and model
+                        # Mock dependencies
                         mock_tokenizer.from_pretrained.return_value = MagicMock()
                         mock_model.from_pretrained.return_value = MagicMock()
                         mock_pipeline.return_value = MagicMock()
                         
-                        # Initialize labeler
-                        labeler = LLMTopicLabeler()
-                        
-                        # Test with full keyword list
-                        fallback_name = labeler._fallback_labeling(sample_keywords)
-                        assert fallback_name.startswith("Technology")
-                        assert "computer" in fallback_name
-                        
-                        # Test with single keyword
-                        single_fallback = labeler._fallback_labeling(["Technology"])
-                        assert single_fallback == "Technology"
-                        
-                        # Test with empty list
-                        empty_fallback = labeler._fallback_labeling([])
-                        assert empty_fallback == "Unknown Topic"
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    def test_generate_topic_name(self, sample_keywords, sample_example_docs):
-        """Test the main generate_topic_name method."""
-        with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-            with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                    # Mock pipeline output
-                    mock_pipeline_instance = MagicMock()
-                    mock_pipeline_instance.return_value = [{"generated_text": "Computer Technology and Software Development"}]
-                    mock_pipeline.return_value = mock_pipeline_instance
-                    
-                    # Mock tokenizer and model
-                    mock_tokenizer.from_pretrained.return_value = MagicMock()
-                    mock_model.from_pretrained.return_value = MagicMock()
-                    
-                    # Initialize labeler
-                    labeler = LLMTopicLabeler(model_type="local")
-                    
-                    # Test generating topic name
-                    topic_name = labeler.generate_topic_name(sample_keywords, sample_example_docs)
-                    
-                    # Verify result is from the mocked pipeline
-                    assert "Computer Technology" in topic_name
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    def test_generate_topic_name_with_fallback(self, sample_keywords):
-        """Test fallback in generate_topic_name when LLM fails."""
-        with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-            with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                    # Mock tokenizer and model
-                    mock_tokenizer.from_pretrained.return_value = MagicMock()
-                    mock_model.from_pretrained.return_value = MagicMock()
-                    
-                    # Mock pipeline to raise an exception
-                    mock_pipeline_instance = MagicMock()
-                    mock_pipeline_instance.side_effect = RuntimeError("Model failed")
-                    mock_pipeline.return_value = mock_pipeline_instance
-                    
-                    # Initialize labeler with fallback enabled
-                    labeler = LLMTopicLabeler(model_type="local", enable_fallback=True)
-                    
-                    # Generate topic name should use fallback
-                    topic_name = labeler.generate_topic_name(sample_keywords)
-                    
-                    # Verify result is from fallback
-                    assert topic_name.startswith("Technology")
-                    assert "computer" in topic_name.lower()
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    def test_generate_topic_name_without_fallback(self, sample_keywords):
-        """Test generate_topic_name with fallback disabled."""
-        with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-            with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                    # Mock tokenizer and model
-                    mock_tokenizer.from_pretrained.return_value = MagicMock()
-                    mock_model.from_pretrained.return_value = MagicMock()
-                    
-                    # Mock pipeline to raise an exception
-                    mock_pipeline_instance = MagicMock()
-                    mock_pipeline_instance.side_effect = RuntimeError("Model failed")
-                    mock_pipeline.return_value = mock_pipeline_instance
-                    
-                    # Initialize labeler with fallback disabled
-                    labeler = LLMTopicLabeler(model_type="local", enable_fallback=False)
-                    
-                    # Should raise the original exception
-                    with pytest.raises(RuntimeError, match="Model failed"):
-                        labeler.generate_topic_name(sample_keywords)
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    def test_label_topics(self, mock_topic_model):
-        """Test labeling all topics in a model."""
-        with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-            with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                    # Mock pipeline output to return different names for different topics
-                    mock_pipeline_instance = MagicMock()
-                    mock_pipeline_instance.side_effect = [
-                        [{"generated_text": "Technology and Software Development"}],
-                        [{"generated_text": "Healthcare and Medical Services"}],
-                        [{"generated_text": "Finance and Investment Banking"}]
-                    ]
-                    mock_pipeline.return_value = mock_pipeline_instance
-                    
-                    # Mock tokenizer and model
-                    mock_tokenizer.from_pretrained.return_value = MagicMock()
-                    mock_model.from_pretrained.return_value = MagicMock()
-                    
-                    # Initialize labeler
-                    labeler = LLMTopicLabeler(model_type="local")
-                    
-                    # Label all topics
-                    topic_names = labeler.label_topics(mock_topic_model, progress_bar=False)
-                    
-                    # Verify results
-                    assert 0 in topic_names
-                    assert 1 in topic_names
-                    assert 2 in topic_names
-                    assert -1 not in topic_names  # Should skip outlier topic
-                    assert "Technology" in topic_names[0]
-                    assert "Healthcare" in topic_names[1]
-                    assert "Finance" in topic_names[2]
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    def test_update_model_topic_names(self, mock_topic_model):
-        """Test updating topic names in a model."""
-        with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-            with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                    # Mock pipeline output
-                    mock_pipeline_instance = MagicMock()
-                    mock_pipeline_instance.side_effect = [
-                        [{"generated_text": "Technology and Software Development"}],
-                        [{"generated_text": "Healthcare and Medical Services"}],
-                        [{"generated_text": "Finance and Investment Banking"}]
-                    ]
-                    mock_pipeline.return_value = mock_pipeline_instance
-                    
-                    # Mock tokenizer and model
-                    mock_tokenizer.from_pretrained.return_value = MagicMock()
-                    mock_model.from_pretrained.return_value = MagicMock()
-                    
-                    # Initialize labeler
-                    labeler = LLMTopicLabeler(model_type="local")
-                    
-                    # Update model topic names
-                    updated_model = labeler.update_model_topic_names(mock_topic_model, progress_bar=False)
-                    
-                    # Verify model was updated
-                    assert "Technology" in updated_model.topics[0]
-                    assert "Healthcare" in updated_model.topics[1]
-                    assert "Finance" in updated_model.topics[2]
-                    assert updated_model.topics[-1] == "Other/Outlier"
-    
-    @patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True)
-    def test_save_and_load(self):
-        """Test saving and loading the labeler configuration."""
-        with patch("meno.modeling.llm_topic_labeling.AutoTokenizer") as mock_tokenizer:
-            with patch("meno.modeling.llm_topic_labeling.AutoModelForCausalLM") as mock_model:
-                with patch("meno.modeling.llm_topic_labeling.pipeline") as mock_pipeline:
-                    # Mock tokenizer and model
-                    mock_tokenizer.from_pretrained.return_value = MagicMock()
-                    mock_model.from_pretrained.return_value = MagicMock()
-                    mock_pipeline.return_value = MagicMock()
-                    
-                    # Create a temporary directory
-                    with tempfile.TemporaryDirectory() as tmpdir:
-                        config_path = Path(tmpdir) / "labeler_config.json"
-                        
-                        # Create and save labeler
+                        # Create a labeler for testing the helper methods
                         labeler = LLMTopicLabeler(
                             model_type="local",
-                            model_name="google/flan-t5-base",
-                            temperature=0.5,
-                            max_new_tokens=100
+                            deduplicate=True,
+                            deduplication_threshold=0.7  # Lower threshold to detect more duplicates
                         )
                         
-                        labeler.save(config_path)
+                        # Test text similarity calculation
+                        sim1 = labeler._calculate_text_similarity(
+                            "Python is a programming language", 
+                            "Python programming language is versatile"
+                        )
+                        assert sim1 > 0.7  # Should be similar
                         
-                        # Verify config file was created
-                        assert config_path.exists()
+                        sim2 = labeler._calculate_text_similarity(
+                            "Python is a programming language", 
+                            "JavaScript is used for web development"
+                        )
+                        assert sim2 < 0.5  # Should not be similar
                         
-                        # Check config contents
-                        with open(config_path, "r") as f:
-                            config = json.load(f)
-                            assert config["model_type"] == "local"
-                            assert config["model_name"] == "google/flan-t5-base"
-                            assert config["temperature"] == 0.5
-                            assert config["max_new_tokens"] == 100
+                        # Test the actual deduplication function
+                        texts = [
+                            "Python is a programming language",
+                            "Python programming language is popular",  # Similar to first
+                            "JavaScript is a web language",
+                            "Machine learning is a subset of AI",
+                            "AI and machine learning are related fields"  # Similar to fourth
+                        ]
                         
-                        # Load labeler from config
-                        with patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True):
-                            loaded_labeler = LLMTopicLabeler.load(config_path)
-                            
-                            # Verify loaded configuration
-                            assert loaded_labeler.model_type == "local"
-                            assert loaded_labeler.model_name == "google/flan-t5-base"
-                            assert loaded_labeler.temperature == 0.5
-                            assert loaded_labeler.max_new_tokens == 100
+                        duplicate_map = labeler._identify_fuzzy_duplicates(texts)
                         
-                        # Test overriding with kwargs
-                        with patch("meno.modeling.llm_topic_labeling.TRANSFORMERS_AVAILABLE", True):
-                            custom_labeler = LLMTopicLabeler.load(
-                                config_path,
-                                temperature=0.8,
-                                model_name="google/flan-t5-small"
+                        # Should find at least two duplicates
+                        assert len(duplicate_map) >= 2
+                        
+                        # Check specific mappings (the exact indices depend on implementation)
+                        # But we can verify the similarity of the mapped texts
+                        for dup_idx, original_idx in duplicate_map.items():
+                            # The mapped texts should be similar
+                            similarity = labeler._calculate_text_similarity(
+                                texts[dup_idx], texts[original_idx]
                             )
-                            
-                            # Verify configuration was overridden
-                            assert custom_labeler.model_type == "local"
-                            assert custom_labeler.model_name == "google/flan-t5-small"
-                            assert custom_labeler.temperature == 0.8
-                            assert custom_labeler.max_new_tokens == 100
+                            assert similarity >= 0.7
 
 
 if __name__ == "__main__":

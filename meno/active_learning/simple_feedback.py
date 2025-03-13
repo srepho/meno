@@ -254,6 +254,11 @@ class SimpleFeedback:
         current_topic = self.df.at[idx, "current_topic"]
         original_topic = self.df.at[idx, "original_topic"]
         
+        # Create CSS class for changed topic
+        topic_class = "topic-value"
+        if current_topic != original_topic:
+            topic_class += " changed"
+            
         # Create HTML for document display
         html = f"""
         <style>
@@ -314,7 +319,7 @@ class SimpleFeedback:
             </div>
             <div class="topic-info">
                 <div class="topic-label">Current Topic:</div>
-                <div class="topic-value{' changed' if current_topic != original_topic else ''}">
+                <div class="{topic_class}">
                     {current_topic}
                 </div>
             </div>
