@@ -1,0 +1,55 @@
+topic_id,topic_label,document
+Topic_13,"Financial & Fraud & Detection (financial, datum)",algorithms data in terms of algorithms prediction detection fraud concerning learning analysis financial
+Topic_13,"Financial & Fraud & Detection (financial, datum)",data machine about patterns financial detection learning specifically machine data fraud
+Topic_13,"Financial & Fraud & Detection (financial, datum)",data detection about machine analysis detection patterns also patterns learning financial fraud
+Topic_10,"Financial & Analysis & Prediction (market, financial)",analysis algorithmic including financial prediction financial analysis specifically prediction algorithmic risk trading and trading financial models market
+Topic_10,"Financial & Analysis & Prediction (market, financial)",analysis analysis specifically analysis algorithmic analysis analysis in terms of risk data analysis models financial for risk trading risk prediction regarding models data analysis
+Topic_10,"Financial & Analysis & Prediction (market, financial)",algorithms prediction including algorithmic algorithmic financial analysis with market algorithms algorithms data analysis related to risk risk algorithmic
+Topic_8,"Healthcare & Prediction & Hospital (analytic, healthcare)",analytics readmission including healthcare care prevention prevention related to prediction healthcare hospital readmission concerning analytics care prediction
+Topic_8,"Healthcare & Prediction & Hospital (analytic, healthcare)",readmission analytics concerning healthcare diagnosis medical imaging hospital about prediction diagnosis diagnosis medical imaging for medical imaging analytics
+Topic_8,"Healthcare & Prediction & Hospital (analytic, healthcare)",prevention analytics concerning prediction healthcare prediction prediction regarding analytics care hospital
+Noise,"Data Science & Datum & Algorithm (analysis, prediction)",clinical evidence and prediction support clinical decision about evidence algorithms clinical evidence also patient data algorithms data specifically
+Noise,"Data Science & Datum & Algorithm (analysis, prediction)",algorithms modeling concerning data analysis accuracy modeling data analysis including classification machine modeling modeling for predictive learning algorithms data analysis
+Noise,"Data Science & Datum & Algorithm (analysis, prediction)",forecasting training related to models learning algorithms data and intelligence algorithms data prediction with prediction forecasting networks data including learning forecasting training
+Topic_14,"Data Science & Visualization & Datum (matplotlib, science)",matplotlib projects regarding visualization visualization visualization matplotlib related to matplotlib matplotlib pandas data including python science science
+Topic_14,"Data Science & Visualization & Datum (matplotlib, science)",data science related to data matplotlib data data concerning projects pandas numpy numpy
+Topic_14,"Data Science & Visualization & Datum (matplotlib, science)",matplotlib science for pandas projects visualization science with numpy science matplotlib data including
+Topic_0,"Language & Generation (token, natural)",optimization forecasting regarding optimization transformers tokens language related to text language natural natural regarding optimization processing generation tokens regarding forecasting tokens
+Topic_0,"Language & Generation (token, natural)",text generation specifically deep learning generation generation generation specifically deep learning bert diagnosis deep learning in terms of diagnosis natural generation gpt related to processing
+Topic_0,"Language & Generation (token, natural)",tokens tokens in terms of text language transformers language including language text processing bert also natural generation text processing
+Topic_3,"Energy & Efficiency & Hydroelectric (generation, energy)",models models regarding generation generation optimization wind including efficiency models optimization hydroelectric specifically models generation forecasting renewable about energy
+Topic_3,"Energy & Efficiency & Hydroelectric (generation, energy)",renewable hydroelectric concerning power hydroelectric efficiency wind related to solar generation generation hydroelectric specifically generation
+Topic_3,"Energy & Efficiency & Hydroelectric (generation, energy)",efficiency solar and prediction efficiency wind solar specifically solar renewable prediction energy about energy wind energy generation related to
+Topic_2,"Datum & Computation (big, spark)",streaming spark also big machine learning big models about processing big pipelines hadoop for streaming spark computation data regarding
+Topic_2,"Datum & Computation (big, spark)",spark data analysis in terms of streaming data analysis big data analysis including processing big processing big specifically processing pipelines prediction
+Topic_2,"Datum & Computation (big, spark)",big pipelines in terms of hadoop processing processing data about processing streaming spark
+Topic_7,"Optimization & Policy (reinforcement, reward)",learning learning and policy environments prediction reinforcement for learning models reinforcement policy for reinforcement agents prediction optimization specifically forecasting
+Topic_7,"Optimization & Policy (reinforcement, reward)",optimization rewards also learning optimization reinforcement agents related to environments learning policy optimization and optimization machine learning agents agents about
+Topic_7,"Optimization & Policy (reinforcement, reward)",optimization reinforcement and environments rewards learning policy regarding policy rewards optimization learning including policy agents
+Topic_6,"Energy & Optimization & Grid (consumption, analysis)",forecasting analysis for prediction grid models forecasting specifically optimization grid analysis consumption concerning data consumption optimization
+Topic_6,"Energy & Optimization & Grid (consumption, analysis)",optimization smart including forecasting data analysis forecasting in terms of grid
+Topic_6,"Energy & Optimization & Grid (consumption, analysis)",optimization grid in terms of analysis optimization consumption smart about models forecasting consumption
+Topic_1,"Energy & Technology & Energy (battery, efficiency)",models storage related to forecasting batteries optimization technology regarding batteries storage batteries energy in terms of models models forecasting models also innovation
+Topic_1,"Energy & Technology & Energy (battery, efficiency)",technology technology for batteries innovation efficiency storage in terms of technology capacity efficiency energy including efficiency batteries energy
+Topic_1,"Energy & Technology & Energy (battery, efficiency)",models capacity also batteries efficiency capacity models about innovation energy storage efficiency regarding innovation technology efficiency
+Topic_11,"Energy & Impact & Carbon (datum, emission)",data monitoring for prediction impact analysis climate related to impact models prediction emissions related to
+Topic_11,"Energy & Impact & Carbon (datum, emission)",data carbon in terms of data emissions emissions data including analysis reduction carbon data for data carbon impact
+Topic_11,"Energy & Impact & Carbon (datum, emission)",reduction reduction specifically climate impact reduction monitoring regarding carbon data impact carbon related to analysis
+Topic_4,"Transaction & Distribute (smart, blockchain)",transactions cryptocurrency in terms of smart transactions data analysis models concerning distributed contracts prediction
+Topic_4,"Transaction & Distribute (smart, blockchain)",ledger contracts including smart algorithms algorithms algorithms for prediction cryptocurrency cryptocurrency data analysis in terms of
+Topic_4,"Transaction & Distribute (smart, blockchain)",distributed prediction also contracts cryptocurrency ledger contracts related to blockchain smart transactions contracts regarding blockchain models
+Topic_5,"Financial & Fintech & Technology (digital, banking)",fintech technology concerning blockchain algorithms technology digital concerning prediction prediction payments innovation regarding innovation algorithms blockchain
+Topic_5,"Financial & Fintech & Technology (digital, banking)",payments technology also digital blockchain banking fintech related to innovation
+Topic_5,"Financial & Fintech & Technology (digital, banking)",technology technology including digital banking innovation payments for blockchain fintech innovation digital and payments innovation
+Topic_9,"AI & Medical & Detection (imaging, deep)",prediction machine with deep learning learning learning regression specifically deep learning medical imaging diagnosis models and regression deep learning classification
+Topic_9,"AI & Medical & Detection (imaging, deep)",learning diagnosis specifically detection detection detection detection specifically detection prediction deep learning diagnosis with deep medical medical imaging also imaging
+Topic_9,"AI & Medical & Detection (imaging, deep)",medical analysis also medical deep imaging imaging including learning imaging medical pathology including learning detection detection medical
+Topic_15,"AI & Datum & Artificial (neural, intelligence)",algorithms artificial with intelligence learning artificial deep related to data networks data artificial for neural deep training neural
+Topic_15,"AI & Datum & Artificial (neural, intelligence)",data data concerning intelligence intelligence neural intelligence for learning training learning intelligence with artificial intelligence algorithms networks including
+Topic_15,"AI & Datum & Artificial (neural, intelligence)",intelligence artificial in terms of deep intelligence learning data for artificial networks data training concerning networks artificial algorithms
+Topic_16,"Healthcare & Patient & Effectiveness (treatment, outcome)",treatment metrics including medical effectiveness analysis data in terms of outcomes effectiveness outcomes patient with patient analysis
+Topic_16,"Healthcare & Patient & Effectiveness (treatment, outcome)",outcomes metrics and patient patient effectiveness outcomes concerning analysis data medical prediction and analysis
+Topic_16,"Healthcare & Patient & Effectiveness (treatment, outcome)",treatment analysis regarding effectiveness patient outcomes metrics including treatment effectiveness treatment medical also outcomes data treatment
+Topic_12,"AI & Classification & Prediction (regression, machine)",classification machine specifically predictive classification algorithms algorithms concerning learning modeling classification modeling related to predictive modeling
+Topic_12,"AI & Classification & Prediction (regression, machine)",learning predictive related to algorithms accuracy algorithms algorithms specifically predictive machine classification algorithms for learning modeling predictive machine
+Topic_12,"AI & Classification & Prediction (regression, machine)",classification regression including computer vision models prediction also classification classification machine learning including regression prediction regression regression

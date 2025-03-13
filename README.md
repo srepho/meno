@@ -1,4 +1,4 @@
-# Meno: Topic Modeling Toolkit (v1.2.0)
+# Meno: Topic Modeling Toolkit (v1.2.6)
 
 <p align="center">
   <img src="meno.webp" alt="Meno Logo" width="250"/>
@@ -8,11 +8,83 @@
 [![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org)
 [![GitHub Stars](https://img.shields.io/github/stars/srepho/meno?style=social)](https://github.com/srepho/meno)
 
-Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization. It includes both high-powered models and lightweight alternatives that work without heavy dependencies. The latest version (1.2.0) adds advanced BERTopic features including model merging, topic manipulation, dynamic topic modeling, and LLM-based topic labeling for more intuitive topic names.
+Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization. It includes both high-powered models and lightweight alternatives that work without heavy dependencies.
+
+## Quick Start
+
+### Minimal Example (5 Lines)
+
+```python
+from meno import MenoTopicModeler
+import pandas as pd
+
+# Load data and discover topics
+modeler = MenoTopicModeler()
+df = pd.read_csv("documents.csv")
+modeler.preprocess(df, text_column="text")
+topics_df = modeler.discover_topics(method="embedding_cluster", auto_detect_topics=True)
+modeler.generate_report(output_path="topic_report.html")
+```
+
+### Lightweight CPU-Optimized Example (No Heavy Dependencies)
+
+```python
+from meno.modeling.simple_models.lightweight_models import TFIDFTopicModel
+import pandas as pd
+
+# Load data
+df = pd.read_csv("documents.csv")
+documents = df["text"].tolist()
+
+# Create and fit a lightweight TF-IDF model
+model = TFIDFTopicModel(auto_detect_topics=True, max_features=2000)
+model.fit(documents)
+
+# Print topics and save visualization
+print(model.get_topic_info())
+model.visualize_topics().write_html("tfidf_topics.html")
+```
+
+### Complete Interactive Workflow
+
+```python
+from meno import MenoWorkflow
+import pandas as pd
+
+# Sample data with acronyms and misspellings
+data = pd.DataFrame({
+    "text": [
+        "The CEO and CFO discussed AI implementation in our CRM system.",
+        "Customer submitted a claim for their vehical accident on HWY 101.",
+        "The CTO presented ML strategy for improving cust retention.",
+        "Policyholder recieved the EOB and was confused about CPT codes."
+    ]
+})
+
+# Initialize workflow
+workflow = MenoWorkflow()
+workflow.load_data(data=data, text_column="text")
+
+# 1. Detect and expand acronyms
+workflow.generate_acronym_report(output_path="acronyms.html", open_browser=True)
+workflow.expand_acronyms({"CRM": "Customer Relationship Management", 
+                          "CTO": "Chief Technology Officer"})
+
+# 2. Detect and correct spelling
+workflow.generate_misspelling_report(output_path="misspellings.html", open_browser=True)
+workflow.correct_spelling({"vehical": "vehicle", "recieved": "received"})
+
+# 3. Process documents and discover topics
+workflow.preprocess_documents(lowercase=True, remove_stopwords=True)
+workflow.discover_topics(auto_detect_topics=True)
+
+# 4. Generate final report
+workflow.generate_comprehensive_report("final_report.html", open_browser=True)
+```
 
 ## Installation
 
-We offer simplified installation options based on your needs:
+Choose the installation option that best fits your needs:
 
 ```bash
 # Lightweight (basic topic modeling, minimal dependencies)
@@ -25,207 +97,152 @@ pip install "meno[cpu]" -f https://download.pytorch.org/whl/torch_stable.html
 pip install "meno[gpu]"
 ```
 
-For more installation options and detailed information, see our [Simplified Installation Guide](SIMPLIFIED_INSTALL.md).
+For more installation options, see our [Simplified Installation Guide](SIMPLIFIED_INSTALL.md).
 
-```bash
-# Legacy options:
-pip install "meno[minimal]"        # Essential topic modeling
-pip install "meno[llm]"            # Local HuggingFace models
-pip install "meno[llm_openai]"     # OpenAI API integration
-pip install "meno[full]"           # Complete installation
-```
-
-### Offline/Air-gapped Environment Installation
+### Offline Installation (Air-gapped Environments)
 
 For environments with limited internet access:
 
-1. Download required models on a connected machine:
-   ```python
-   from sentence_transformers import SentenceTransformer
-   # Download and cache model
-   model = SentenceTransformer("all-MiniLM-L6-v2")
-   # Note the model path (usually in ~/.cache/huggingface)
-   ```
+```python
+from meno.modeling.embeddings import DocumentEmbedding
 
-2. Manually download the necessary files for your chosen model. You can find these files on the model's Hugging Face page under the "Files and versions" tab. You need:
-   - config.json
-   - pytorch_model.bin
-   - special_tokens_map.json
-   - tokenizer.json
-   - tokenizer_config.json
-   - vocab.txt (if applicable)
-   - modules.json (for Sentence Transformers models)
-   
-   Download these files and place them in a local directory.
+# Use a local model (pre-downloaded)
+embedding_model = DocumentEmbedding(
+    local_model_path="/path/to/local/model",  # Path to downloaded model files
+    local_files_only=True
+)
 
-3. Use the local_files_only option when initializing:
-   ```python
-   from meno.modeling.embeddings import DocumentEmbedding
-   
-   # Option 1: Direct path to downloaded model
-   embedding_model = DocumentEmbedding(
-       local_model_path="/path/to/local/model",
-       use_gpu=False
-   )
-   
-   # Option 2: Using standard HuggingFace cache location
-   embedding_model = DocumentEmbedding(
-       model_name="all-MiniLM-L6-v2",
-       local_files_only=True,
-       use_gpu=False
-   )
-   ```
+# Initialize modeler with offline mode
+from meno import MenoTopicModeler
+modeler = MenoTopicModeler(
+    embedding_model=embedding_model,
+    offline_mode=True
+)
+```
 
-See `examples/local_model_example.py` for detailed offline usage examples.
+See `examples/specialized/offline_model.py` for detailed offline usage.
 
-## Quick Start
+## Feature Examples
 
-### Basic Topic Modeling with LLM Labeling
+### Human-Readable Topic Names with LLM Labeling
 
 ```python
 from meno import MenoTopicModeler
 import pandas as pd
 
-# Load your data
+# Load data
 df = pd.read_csv("documents.csv")
 
 # Initialize with LLM labeling enabled
 modeler = MenoTopicModeler(
-    use_llm_labeling=True,  # Enable LLM labeling for human-readable topic names
-    llm_model_type="local",  # Use local model (alternatives: "openai", "auto")
-    llm_model_name="google/flan-t5-small"  # Small, fast model for demonstration
+    use_llm_labeling=True,  # Enable LLM labeling for human-readable names
+    llm_model_type="local",  # Use local model (or "openai")
+    llm_model_name="google/flan-t5-small"  # Small, fast model
 )
 
 # Preprocess and discover topics
-processed_docs = modeler.preprocess(df, text_column="text")
+modeler.preprocess(df, text_column="text")
 topics_df = modeler.discover_topics(method="embedding_cluster", auto_detect_topics=True)
 
 # Print topics with LLM-generated names
 topic_info = modeler.get_topic_info()
 print(topic_info[["Topic", "Count", "Name"]])
-
-# Visualize results
-fig = modeler.visualize_embeddings()
-fig.write_html("topic_embeddings.html")
-
-# Generate comprehensive HTML report
-report_path = modeler.generate_report(output_path="topic_report.html")
 ```
 
-### Advanced BERTopic Features Workflow
+### CPU-Optimized Topic Modeling
 
 ```python
-from meno.modeling.bertopic_model import BERTopicModel
-from meno.modeling.embeddings import DocumentEmbedding
+from meno import MenoTopicModeler
 import pandas as pd
-from datetime import datetime, timedelta
 
-# Load your data
+# Define CPU-optimized configuration
+CPU_CONFIG = {
+    "preprocessing": {
+        "normalization": {
+            "lowercase": True,  # Convert text to lowercase
+            "remove_punctuation": True,
+            "lemmatize": True,
+        },
+    },
+    "modeling": {
+        "embeddings": {
+            "model_name": "all-MiniLM-L6-v2",  # Small, fast model
+            "device": "cpu",                   # Explicitly use CPU
+            "batch_size": 32,                  # CPU-optimized batch size
+            "quantize": True,                  # Reduce memory usage
+        },
+    },
+}
+
+# Load data and initialize modeler with CPU configuration
 df = pd.read_csv("documents.csv")
-documents = df["text"].tolist()
+modeler = MenoTopicModeler(config_overrides=CPU_CONFIG)
 
-# Create timestamps for dynamic topic modeling
-today = datetime.now()
-timestamps = [today - timedelta(days=i % 30) for i in range(len(documents))]
-
-# Initialize embedding model
-embedding_model = DocumentEmbedding(model_name="all-MiniLM-L6-v2")
-
-# Create BERTopic model with LLM labeling
-model = BERTopicModel(
-    embedding_model=embedding_model,
-    use_llm_labeling=True,  # Enable LLM topic labeling
-    min_topic_size=5,
-    verbose=True
-)
-
-# Perform dynamic topic modeling with timestamps
-topics, probs, topic_evolution = model.fit_transform_with_timestamps(
-    documents=documents,
-    timestamps=timestamps
-)
-
-# Visualize how topics change over time
-time_fig = model.visualize_topics_over_time()
-time_fig.write_html("topics_over_time.html")
-
-# Create a second model for a different dataset
-second_model = BERTopicModel(
-    embedding_model=embedding_model,
-    use_llm_labeling=True
-)
-second_model.fit(other_documents)
-
-# Merge both models into a unified model
-merged_model = model.merge_models(
-    models=[second_model],
-    documents=documents + other_documents
-)
-
-# Visualize the merged model's topic network
-merged_fig = merged_model.visualize_topics()
-merged_fig.write_html("merged_model_topics.html")
+# Process and generate report
+modeler.preprocess(df, text_column="text")
+modeler.discover_topics(method="embedding_cluster", auto_detect_topics=True)
+modeler.generate_report(output_path="cpu_optimized_report.html")
 ```
 
-### Interactive Workflow
+### Advanced Visualization
 
 ```python
-from meno import MenoWorkflow
+from meno import MenoTopicModeler
 import pandas as pd
 
-# Load your data
-data = pd.DataFrame({
-    "text": [
-        "The CEO and CFO met to discuss the AI implementation in our CRM system.",
-        "Customer submitted a claim for their vehical accident on HWY 101.",
-        "The CTO presented the ML strategy for improving cust retention.",
-        "Policyholder recieved the EOB and was confused about the CPT codes."
-    ]
-})
+# Load data and run topic modeling
+modeler = MenoTopicModeler()
+df = pd.read_csv("documents.csv")
+modeler.preprocess(df, text_column="text")
+modeler.discover_topics(method="embedding_cluster", num_topics=8)
 
-# Initialize workflow with LLM labeling
-workflow = MenoWorkflow(
-    use_llm_labeling=True,  # Enable LLM topic naming
-    llm_model_type="local",
-    llm_model_name="google/flan-t5-small"
+# Create 3D interactive visualization
+fig_3d = modeler.visualize_embeddings(
+    plot_3d=True,               # Create 3D visualization
+    include_topic_centers=True, # Show topic centers
+    width=1000,                 # Set figure dimensions
+    height=800
 )
-workflow.load_data(data=data, text_column="text")
+fig_3d.write_html("3d_topic_visualization.html")
 
-# Generate interactive acronym report
-workflow.generate_acronym_report(output_path="acronyms.html", open_browser=True)
+# Create topic similarity heatmap
+heatmap = modeler.visualize_topic_similarity(return_figure=True)
+heatmap.write_html("topic_similarity.html")
 
-# Apply acronym expansions
-workflow.expand_acronyms({"CRM": "Customer Relationship Management", "CTO": "Chief Technology Officer"})
-
-# Generate interactive misspelling report
-workflow.generate_misspelling_report(output_path="misspellings.html", open_browser=True)
-
-# Apply spelling corrections
-workflow.correct_spelling({"vehical": "vehicle", "recieved": "received"})
-
-# Preprocess and model topics
-workflow.preprocess_documents()
-workflow.discover_topics(auto_detect_topics=True)
-
-# Generate comprehensive report with LLM-labeled topics
-workflow.generate_comprehensive_report("final_report.html", open_browser=True)
+# Create wordcloud visualization
+modeler.visualize_topic_words(topic_id=1, output_path="topic1_wordcloud.html")
 ```
 
-## What's New in v1.2.0
+## What's New in v1.2.6
 
-- **Advanced BERTopic Features** - Full support for powerful BERTopic capabilities:
-  - **Model Merging** - Combine multiple topic models into one unified model
-  - **Topic Manipulation** - Merge similar topics, reduce topic count, and update topics
-  - **Dynamic Topic Modeling** - Analyze how topics evolve over time with timestamped data
-  - **Semi-supervised Topic Modeling** - Guide topic discovery with seed topics
-- **LLM-based Topic Labeling** - Generate human-readable topic names using:
-  - Local HuggingFace models like FLAN-T5 and OPT
-  - OpenAI models like GPT-3.5/4 (with API key)
-  - Automatic integration during model fitting or as post-processing
-- **Comprehensive Examples** - New examples demonstrating all advanced features:
-  - `advanced_bertopic_features.py` - Showcases all extended capabilities
-  - `llm_topic_labeling_example.py` - Demonstrates topic labeling options
-  - `workflow_with_llm_labeling.py` - End-to-end pipeline with labeled topics
+- **Bug Fixes**
+  - Fixed additional f-string compatibility issues for Python 3.10+
+  - Fixed incompatible `rf"..."` syntax in preprocessing modules
+  - Resolved import issues with SimpleFeedback and TopicFeedbackManager classes
+  - Updated dependency requirements for better cross-platform support
+
+- **Enhanced Features**
+  - **Deduplication** - Remove duplicate documents for cleaner topic modeling results
+  - **Fuzzy Deduplication** - Identify and filter near-duplicate content
+  - **Memory Optimization** - Process larger datasets with limited memory resources
+  - **Topic Drift Visualization** - Track how topics evolve over time
+  - **Incremental Topic Updates** - Update existing models with new data efficiently
+  
+- **Performance Improvements**
+  - Optimized embedding generation for CPU environments
+  - Reduced memory usage for large dataset processing
+  - Improved speed for lightweight topic models
+
+- **New Documentation & Examples**
+  - Reorganized example files by category:
+    - `examples/basic/` - Simple examples to get started
+    - `examples/advanced/` - Advanced features like deduplication and incremental learning
+    - `examples/models/` - Different topic modeling backends
+    - `examples/visualization/` - Specialized visualizations
+    - `examples/specialized/` - Domain-specific use cases
+    - `examples/notebooks/` - Jupyter notebook tutorials
+  - Added new examples for all recent features
+  - Improved documentation for specialized use cases
 
 ## What's New in v1.1.0
 
@@ -630,21 +647,18 @@ The package follows a modular design:
 - **Report Generation:** HTML reports with Plotly and Jinja2
 - **Team Configuration:** Domain knowledge sharing, CLI tools
 
+## Common Troubleshooting
+
+- **Lowercase not working:** Ensure you're explicitly setting `lowercase=True` when calling `preprocess_documents()` or passing it in your config
+- **Missing visualizations:** Install the visualization dependencies with `pip install "meno[viz]"`
+- **Memory errors:** Try setting `quantize=True` and `low_memory=True` in your config
+- **Slow processing:** Use batch processing or try the lightweight models for faster results
+
 ## Dependencies
 
 - **Python:** 3.8-3.12 (primary target: 3.10)
 - **Core Libraries:** pandas, scikit-learn, thefuzz, pydantic, PyYAML
 - **Optional Libraries:** sentence-transformers, transformers, torch, umap-learn, hdbscan, plotly, bertopic
-
-## Testing
-
-```bash
-# Run basic tests
-python -m pytest -xvs tests/
-
-# Run with coverage reporting
-python -m pytest --cov=meno
-```
 
 ## Documentation
 
@@ -741,7 +755,7 @@ fig = plot_comparative_document_analysis(
 fig.write_html("document_analysis.html")
 ```
 
-For complete examples, see `examples/lightweight_models_visualization.py` and `examples/integrated_components_example.py`.
+For complete examples, see `examples/models/lightweight_models.py` and `examples/visualization/interactive_plots.py`.
 
 ### Using the Web Interface
 
@@ -781,7 +795,7 @@ meno-web --port 8050 --debug
 meno-web --port 8050 --models tfidf nmf lsa
 ```
 
-See `examples/web_lightweight_example.py` for a complete example of using the web interface with lightweight models.
+See `examples/specialized/web_interface.py` for a complete example of using the web interface with lightweight models.
 
 ### Interactive Topic Feedback with Visualizations
 
@@ -847,9 +861,15 @@ app = create_feedback_comparison_dashboard(
 app.run_server(debug=True)
 ```
 
-See `examples/feedback_visualization_example.py`, `examples/feedback_visualization_notebook.ipynb`, and `examples/interactive_feedback_example.py` for complete examples of using the feedback system with visualizations.
+See `examples/visualization/interactive_plots.py`, `examples/notebooks/topic_feedback.ipynb`, and `examples/advanced/feedback_system.py` for complete examples of using the feedback system with visualizations.
 
-See the example scripts in the [examples directory](examples/) for more detailed usage.
+See the example scripts in the [examples directory](examples/) organized by category:
+- **[Basic Examples](examples/basic/)** - Getting started with Meno
+- **[Advanced Features](examples/advanced/)** - Examples of more complex capabilities
+- **[Model Integration](examples/models/)** - Using different topic modeling backends
+- **[Visualization & Reporting](examples/visualization/)** - Creating visualizations and reports
+- **[Specialized Use Cases](examples/specialized/)** - Domain-specific examples
+- **[Jupyter Notebooks](examples/notebooks/)** - Interactive tutorials
 
 ### LLM Topic Labeling
 

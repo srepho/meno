@@ -396,7 +396,7 @@ class LMAcronymExpander(AcronymExpander):
         """
         # First, try to extract from context using pattern matching
         # Look for patterns like "X (Full Expansion)"
-        pattern = re.compile(rf"{re.escape(acronym)}\s*\(([^)]+)\)")
+        pattern = re.compile(r"\b" + re.escape(acronym) + r"\s*\(([^)]+)\)")
         matches = pattern.findall(context)
         
         if matches:
@@ -1230,7 +1230,7 @@ class LMPreprocessor:
                 # Try to find expansion from the texts
                 for text in texts_list:
                     if acronym in text:
-                        pattern = re.compile(rf"{re.escape(acronym)}\s*\(([^)]+)\)")
+                        pattern = re.compile(r"\b" + re.escape(acronym) + r"\s*\(([^)]+)\)")
                         matches = pattern.findall(text)
                         if matches:
                             expansions[acronym] = matches[0]
