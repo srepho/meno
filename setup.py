@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="meno",
-    version="1.2.3",
+    version="1.2.5",
     description="Topic modeling toolkit for messy text data",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",

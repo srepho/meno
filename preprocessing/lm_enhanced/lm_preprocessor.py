@@ -162,7 +162,8 @@ class LMAcronymExpander(AcronymExpander):
         result = text
         for acronym in acronyms:
             # Skip if already expanded in text (e.g., "CEO (Chief Executive Officer)")
-            if re.search(rf"{re.escape(acronym)}\s+\([^)]+\)", result):
+            pattern = r"\b" + re.escape(acronym) + r"\s+\([^)]+\)"
+            if re.search(pattern, result):
                 continue
             
             # Skip if too short
@@ -174,9 +175,11 @@ class LMAcronymExpander(AcronymExpander):
             
             if expansion:
                 # Replace with expanded version
+                pattern = r"\b" + re.escape(acronym) + r"\b"
+                replacement = f"{acronym} ({expansion})"
                 result = re.sub(
-                    rf"\b{re.escape(acronym)}\b",
-                    f"{acronym} ({expansion})",
+                    pattern,
+                    replacement,
                     result
                 )
         
@@ -252,8 +255,8 @@ class LMAcronymExpander(AcronymExpander):
             The extracted context
         """
         # Find all occurrences of the acronym
-        pattern = re.compile(rf"\b{re.escape(acronym)}\b")
-        matches = list(pattern.finditer(text))
+        pattern = r"\b" + re.escape(acronym) + r"\b"
+        matches = list(re.compile(pattern).finditer(text))
         
         if not matches:
             return ""
@@ -696,8 +699,8 @@ class LMSpellingCorrector(SpellingCorrector):
             A window of text around the word
         """
         # Find the position of the word in the text
-        pattern = re.compile(rf"\b{re.escape(word)}\b")
-        match = pattern.search(text)
+        pattern = r"\b" + re.escape(word) + r"\b"
+        match = re.compile(pattern).search(text)
         
         if not match:
             return text  # Word not found, return full text
@@ -822,7 +825,7 @@ class LMSpellingCorrector(SpellingCorrector):
                 # Replace in text if corrected
                 if correction != word:
                     # Use word boundary in pattern to avoid replacing substrings
-                    pattern = rf"\b{re.escape(word)}\b"
+                    pattern = r"\b" + re.escape(word) + r"\b"
                     text = re.sub(pattern, correction, text)
         
         return text
