@@ -62,6 +62,7 @@ class SimpleFeedback:
             "current_topic": self.topics.copy(),
         })
     
+
     def display_topics(self):
         """Display all available topics with descriptions."""
         html = """
@@ -241,15 +242,7 @@ class SimpleFeedback:
         self.current_document_idx = 0
     
     def display_document(self, idx: int, display_dropdown: bool = True):
-        """Display a single document with topic information.
-        
-        Parameters
-        ----------
-        idx : int
-            Index of the document to display
-        display_dropdown : bool, optional
-            Whether to display the dropdown for topic selection, by default True
-        """
+        """Display a single document with topic information."""
         doc = self.documents[idx]
         current_topic = self.df.at[idx, "current_topic"]
         original_topic = self.df.at[idx, "original_topic"]
