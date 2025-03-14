@@ -6,7 +6,7 @@ Features advanced BERTopic integration with model merging, topic manipulation,
 dynamic topic modeling, and LLM-based topic labeling for intuitive topic names.
 """
 
-__version__ = "1.2.7"
+__version__ = "1.2.8"
 
 # Import key components for easy access
 from .meno import MenoTopicModeler
@@ -38,23 +38,14 @@ except ImportError:
     # Graceful fallback if scikit-learn is not installed
     pass
 
-# Re-export feedback system
-try:
-    from .active_learning.simple_feedback import SimpleFeedback, TopicFeedbackManager
-except ImportError:
-    # Graceful fallback if dependencies are missing
-    pass
+# Re-export feedback system - imported only on-demand to avoid f-string compatibility issues
+SimpleFeedback = None
+TopicFeedbackManager = None
 
-# Re-export feedback visualization components
-try:
-    from .visualization.enhanced_viz.feedback_viz import (
-        plot_feedback_impact,
-        create_feedback_comparison_dashboard,
-        plot_topic_feedback_distribution
-    )
-except ImportError:
-    # Graceful fallback if visualization dependencies are missing
-    pass
+# Re-export feedback visualization components - imported only on-demand
+plot_feedback_impact = None
+create_feedback_comparison_dashboard = None
+plot_topic_feedback_distribution = None
 
 # Download English spaCy model on import if not already available
 import logging
@@ -127,13 +118,4 @@ __all__ = [
     "TFIDFTopicModel",
     "NMFTopicModel",
     "LSATopicModel",
-    
-    # Feedback system
-    "SimpleFeedback",
-    "TopicFeedbackManager",
-    
-    # Feedback visualization
-    "plot_feedback_impact",
-    "create_feedback_comparison_dashboard",
-    "plot_topic_feedback_distribution",
 ]
