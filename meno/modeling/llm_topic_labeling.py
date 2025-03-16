@@ -312,24 +312,44 @@ class LLMTopicLabeler:
             if openai_api_key:
                 client_kwargs["api_key"] = openai_api_key
                 
-            # Configure custom API endpoint (base URL)
-            if api_endpoint:
-                client_kwargs["base_url"] = api_endpoint
-                
-            # Configure API version 
-            if api_version:
-                client_kwargs["api_version"] = api_version
-                
-            # Initialize OpenAI client with parameters
-            self.client = openai.OpenAI(**client_kwargs)
-                
-            logger.info(f"Using OpenAI model: {self.model_name}")
+            # Check if Azure OpenAI should be used
+            use_azure = api_endpoint and "azure" in api_endpoint
             
-            # Log custom API configuration if used
-            if api_endpoint:
-                logger.info(f"Using custom API endpoint: {api_endpoint}")
-            if api_version:
+            if use_azure:
+                # Use AzureOpenAI client for Azure endpoints
+                logger.info(f"Using Azure OpenAI with deployment: {self.model_name}")
+                
+                if not api_version:
+                    api_version = "2023-05-15"  # Default Azure API version
+                    logger.info(f"Using default Azure API version: {api_version}")
+                
+                # Initialize Azure OpenAI client
+                self.client = openai.AzureOpenAI(
+                    api_key=openai_api_key,
+                    azure_endpoint=api_endpoint,
+                    api_version=api_version
+                )
+                
+                logger.info(f"Using Azure OpenAI endpoint: {api_endpoint}")
                 logger.info(f"Using API version: {api_version}")
+            else:
+                # Configure standard OpenAI client parameters
+                if api_endpoint:
+                    client_kwargs["base_url"] = api_endpoint
+                    
+                if api_version:
+                    client_kwargs["api_version"] = api_version
+                    
+                # Initialize standard OpenAI client
+                self.client = openai.OpenAI(**client_kwargs)
+                    
+                logger.info(f"Using OpenAI model: {self.model_name}")
+                
+                # Log custom API configuration if used
+                if api_endpoint:
+                    logger.info(f"Using custom API endpoint: {api_endpoint}")
+                if api_version:
+                    logger.info(f"Using API version: {api_version}")
                 
         elif self.model_type == "local":
             if not TRANSFORMERS_AVAILABLE:
@@ -620,15 +640,32 @@ class LLMTopicLabeler:
             if system_prompt is None:
                 system_prompt = "You are a topic modeling assistant that generates concise, descriptive topic names."
             
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=self.temperature,
-                max_tokens=self.max_new_tokens,
-            )
+            # Re-import openai to ensure it's available in this context
+            import openai
+            
+            # Determine if we're using Azure OpenAI or regular OpenAI
+            if isinstance(self.client, openai.AzureOpenAI):
+                # For Azure OpenAI, the deployment name is used directly
+                response = self.client.chat.completions.create(
+                    deployment_id=self.model_name,  # Use deployment name for Azure
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_new_tokens,
+                )
+            else:
+                # For regular OpenAI
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_new_tokens,
+                )
             
             # Extract the generated text
             result = response.choices[0].message.content.strip()
@@ -721,15 +758,32 @@ class LLMTopicLabeler:
             combined_prompt += "FORMAT YOUR RESPONSE EXACTLY LIKE THIS:\n"
             combined_prompt += "TEXT 1: [classification] (confidence: HIGH/MEDIUM/LOW)\nTEXT 2: [classification] (confidence: HIGH/MEDIUM/LOW)\n..."
                 
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": combined_prompt}
-                ],
-                temperature=self.temperature,
-                max_tokens=self.max_new_tokens,
-            )
+            # Re-import openai to ensure it's available in this context
+            import openai
+            
+            # Determine if we're using Azure OpenAI or regular OpenAI
+            if isinstance(self.client, openai.AzureOpenAI):
+                # For Azure OpenAI, the deployment name is used directly
+                response = self.client.chat.completions.create(
+                    deployment_id=self.model_name,  # Use deployment name for Azure
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": combined_prompt}
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_new_tokens,
+                )
+            else:
+                # For regular OpenAI
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": combined_prompt}
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=self.max_new_tokens,
+                )
             
             # Extract the generated text
             result = response.choices[0].message.content.strip()
