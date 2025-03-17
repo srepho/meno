@@ -1676,6 +1676,139 @@ class LLMTopicLabeler:
 
 
 # Example usage for Jupyter Notebook
+def generate_text_with_llm(
+    text: str,
+    api_key: str,
+    api_endpoint: str,
+    deployment_id: str = None, 
+    model_name: str = "gpt-4o",
+    api_version: str = "2023-05-15",
+    use_azure: bool = True,
+    system_prompt: str = "You are a helpful assistant.",
+    user_prompt_prefix: str = "Insert your user prompt followed by the data here:\n\n",
+    temperature: float = 0.7,
+    max_tokens: int = 1000,
+) -> str:
+    """Generate text using OpenAI or Azure OpenAI APIs with a simple, consistent interface.
+    
+    This utility function makes it easy to generate text using either the standard OpenAI API
+    or Azure OpenAI, with proper parameter configurations for each.
+    
+    Parameters
+    ----------
+    text : str
+        The input text/prompt to send to the model
+    api_key : str
+        The API key for OpenAI or Azure OpenAI
+    api_endpoint : str
+        For Azure: The azure_endpoint (e.g., "https://your-resource.openai.azure.com")
+        For OpenAI: Optional base URL, usually not needed for standard OpenAI
+    deployment_id : str, optional
+        Azure deployment name, required when use_azure=True
+    model_name : str, optional
+        For OpenAI: Model name like "gpt-4o" or "gpt-3.5-turbo", by default "gpt-4o"
+        Ignored when use_azure=True (deployment_id is used instead)
+    api_version : str, optional
+        API version, by default "2023-05-15" - mainly used for Azure
+    use_azure : bool, optional
+        Whether to use Azure OpenAI, by default True
+    system_prompt : str, optional
+        System prompt for the model, by default "You are a helpful assistant."
+    user_prompt_prefix : str, optional
+        Prefix to add before the input text
+    temperature : float, optional
+        Temperature for response generation, by default 0.7
+    max_tokens : int, optional
+        Maximum tokens in the response, by default 1000
+        
+    Returns
+    -------
+    str
+        Generated text response from the model
+        
+    Examples
+    --------
+    # Azure OpenAI example:
+    >>> response = generate_text_with_llm(
+    ...     text="Tell me a joke about Azure cloud services",
+    ...     api_key="your-azure-api-key",
+    ...     api_endpoint="https://your-resource.openai.azure.com",
+    ...     deployment_id="your-deployment-name",
+    ...     use_azure=True
+    ... )
+    
+    # Standard OpenAI example:
+    >>> response = generate_text_with_llm(
+    ...     text="Explain the benefits of Python 3.10",
+    ...     api_key="your-openai-api-key",
+    ...     api_endpoint=None,
+    ...     model_name="gpt-4o",
+    ...     use_azure=False
+    ... )
+    """
+    try:
+        # Import the necessary client
+        if use_azure:
+            from openai import AzureOpenAI as ClientClass
+            if not deployment_id:
+                raise ValueError("deployment_id is required when using Azure OpenAI")
+                
+            # Create Azure OpenAI client
+            client = ClientClass(
+                api_key=api_key,
+                azure_endpoint=api_endpoint,
+                api_version=api_version
+            )
+            
+            # Prepare the full user prompt
+            user_prompt = f"{user_prompt_prefix}{text}"
+            
+            # Make the API call with deployment_id
+            response = client.chat.completions.create(
+                deployment_id=deployment_id,  # Azure uses deployment_id
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+        else:
+            from openai import OpenAI as ClientClass
+            
+            # Create standard OpenAI client
+            client_kwargs = {"api_key": api_key}
+            if api_endpoint:
+                client_kwargs["base_url"] = api_endpoint
+                
+            client = ClientClass(**client_kwargs)
+            
+            # Prepare the full user prompt
+            user_prompt = f"{user_prompt_prefix}{text}"
+            
+            # Make the API call with model
+            response = client.chat.completions.create(
+                model=model_name,  # Standard OpenAI uses model
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+        
+        # Extract and return the response content
+        if response.choices and len(response.choices) > 0:
+            return response.choices[0].message.content.strip()
+        else:
+            return "[No response generated]"
+            
+    except Exception as e:
+        import logging
+        logging.error(f"Error generating text with LLM: {e}")
+        return f"[Error: {str(e)}]"
+
+
 def batch_label_topics_example():
     """Example of how to use the extended LLM topic labeling with batching, token limiting,
     and rate limiting in a Jupyter notebook.
@@ -1702,7 +1835,7 @@ def batch_label_topics_example():
         requests_per_minute=60,      # Limit to 60 requests per minute (OpenAI rate limit)
         burst_limit=80,              # Allow short bursts up to 80 requests
         # Optionally configure custom API settings
-        # openai_api_key="your-api-key",  
+        # api_key="your-api-key",  
         # api_endpoint="https://your-custom-endpoint.com",  # For custom endpoints
         # api_version="2023-07-01",  # For specific API versions
         
@@ -1714,7 +1847,19 @@ def batch_label_topics_example():
         deduplication_threshold=0.92 # Similarity threshold for deduplication
     )
     
-    # 3. Generate topic names in batches with rate limiting
+    # 3. Alternative: Use the generate_text_with_llm utility directly
+    # from meno.modeling.llm_topic_labeling import generate_text_with_llm
+    # 
+    # response = generate_text_with_llm(
+    #     text="Tell me about topic modeling",
+    #     api_key="your-azure-api-key",
+    #     api_endpoint="https://your-resource.openai.azure.com",
+    #     deployment_id="your-deployment-name",
+    #     system_prompt="You are a data science expert specializing in NLP.",
+    #     temperature=0.7
+    # )
+    
+    # 4. Generate topic names in batches with rate limiting
     # topic_names = labeler.label_topics(
     #     topic_model=topic_model,
     #     batch_size=10,             # Process 10 topics per batch
@@ -1722,53 +1867,27 @@ def batch_label_topics_example():
     #     detailed=True              # Generate detailed topic descriptions
     # )
     
-    # 4. Update the model with the generated names
+    # 5. Update the model with the generated names
     # updated_model = labeler.update_model_topic_names(
     #     topic_model=topic_model,
     #     batch_size=10,
     #     progress_bar=True
     # )
     
-    # 5. Using different rate limits for different providers
+    # 6. Using different rate limits for different providers
     # For Azure OpenAI (lower rate limits)
     # azure_labeler = LLMTopicLabeler(
     #     model_type="openai",
     #     model_name="gpt-4",
     #     requests_per_minute=20,                    # Lower rate limit for Azure
     #     burst_limit=25,                            # Lower burst limit
-    #     openai_api_key="your_azure_key",          
+    #     api_key="your_azure_key",          
     #     api_endpoint="https://your-resource.openai.azure.com",  # Azure endpoint
     #     api_version="2023-05-15",                 # Azure API version
     #     max_parallel_requests=2                   # Lower parallelism to respect rate limits
     # )
     
-    # 6. For text classification with predefined categories:
-    # categories = ["business", "technology", "health", "politics", "entertainment"]
-    # custom_prompt = f"Classify the following text into one of these categories: {', '.join(categories)}.\nText: {{text}}"
-    # classifier = LLMTopicLabeler(
-    #     model_type="openai",
-    #     model_name="gpt-3.5-turbo",
-    #     user_prompt_template=custom_prompt,
-    #     batch_size=20,
-    #     deduplicate=True
-    # )
-    # 
-    # # Classify a batch of texts
-    # texts = ["Latest smartphone features AI capabilities", "Stock market rises 2% on economic data"]
-    # results = classifier.classify_texts(texts, categories=categories)
-    
-    # 7. For open classification (no predefined categories):
-    # open_classifier = LLMTopicLabeler(
-    #     model_type="openai",
-    #     model_name="gpt-3.5-turbo",
-    #     system_prompt_template="You are an expert at categorizing content into the most appropriate topic.",
-    #     user_prompt_template="Assign a brief, descriptive topic label (1-3 words) to this text: {{text}}"
-    # )
-    # 
-    # # Classify a batch of texts with open categories
-    # results = open_classifier.classify_texts(large_text_collection, batch_size=50)
-    
-    return "See the example code for how to use the LLM topic labeler with batching, token limiting, and rate limiting"
+    return "See the example code for how to use the LLM topic labeler and utility functions"
     
 def classify_texts_example():
     """Example of how to use the new text classification functionality with batching
@@ -1844,12 +1963,5 @@ def classify_texts_example():
         deduplicate=True,
         deduplication_threshold=0.92
     )
-    
-    # Create final DataFrame 
-    final_df = pd.DataFrame({
-        "text": texts,
-        "predefined_category": results,
-        "open_category": open_results
-    })
     
     return "See the example code for how to use the classify_texts method"

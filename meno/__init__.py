@@ -21,7 +21,7 @@ from .preprocessing import correct_spelling, expand_acronyms, normalize_text
 
 # Re-export LLM topic labeling
 try:
-    from .modeling.llm_topic_labeling import LLMTopicLabeler
+    from .modeling.llm_topic_labeling import LLMTopicLabeler, generate_text_with_llm
 except ImportError:
     # Graceful fallback if dependencies are missing
     pass
@@ -112,6 +112,7 @@ __all__ = [
     
     # LLM topic labeling
     "LLMTopicLabeler",
+    "generate_text_with_llm",
     
     # Lightweight models
     "SimpleTopicModel",

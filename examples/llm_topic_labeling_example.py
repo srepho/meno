@@ -2,6 +2,9 @@
 
 This example demonstrates how to use LLM-based topic labeling to generate more 
 descriptive and human-readable topic names for BERTopic models.
+
+It also shows how to use the new generate_text_with_llm utility function for
+direct interaction with Azure OpenAI or standard OpenAI.
 """
 
 import pandas as pd
@@ -32,6 +35,7 @@ from meno.modeling.bertopic_model import BERTopicModel
 from meno.modeling.embeddings import DocumentEmbedding
 from meno.modeling.unified_topic_modeling import create_topic_modeler
 from meno.visualization.bertopic_viz import visualize_topics_over_time, plot_topic_hierarchy
+from meno import generate_text_with_llm  # Import the new utility function
 
 # Load sample data
 def load_sample_data(n_samples: int = 1000) -> List[str]:
@@ -209,6 +213,68 @@ def example_unified_modeler(data: List[str]) -> None:
     print("\nTopics with updated LLM-generated names:")
     print(topic_info_updated[["Topic", "Count", "Name"]])
 
+# Example 4: Using the generate_text_with_llm utility function directly
+def example_direct_llm_usage():
+    """Demonstrate the use of the generate_text_with_llm utility function."""
+    logger.info("Example 4: Using generate_text_with_llm utility directly")
+    
+    # Example text to process
+    text = "Explain the concept of topic modeling in 3 sentences."
+    
+    print("\nDirect LLM Usage Example:")
+    print("-" * 50)
+    print(f"Input: {text}")
+    print("-" * 50)
+    
+    # For Azure OpenAI (you would replace these with your actual credentials)
+    print("\nAzure OpenAI Usage:")
+    print("Note: This is just example code, not executed without credentials")
+    print("""
+    # Azure OpenAI example (add your credentials to run this)
+    response = generate_text_with_llm(
+        text="Explain the concept of topic modeling in 3 sentences.",
+        api_key="your-azure-api-key",
+        api_endpoint="https://your-resource.openai.azure.com",
+        deployment_id="your-deployment-name",  # Your Azure deployment name
+        use_azure=True,
+        system_prompt="You are a data science expert specializing in NLP.",
+        temperature=0.7
+    )
+    print(f"Response: {response}")
+    """)
+    
+    # For standard OpenAI (you would replace these with your actual credentials)
+    print("\nStandard OpenAI Usage:")
+    print("Note: This is just example code, not executed without credentials")
+    print("""
+    # Standard OpenAI example (add your credentials to run this)
+    response = generate_text_with_llm(
+        text="Explain the concept of topic modeling in 3 sentences.",
+        api_key="your-openai-api-key",
+        model_name="gpt-4o",
+        use_azure=False,
+        system_prompt="You are a data science expert specializing in NLP.",
+        temperature=0.7
+    )
+    print(f"Response: {response}")
+    """)
+    
+    # Example of direct usage with error handling
+    print("\nUsage with Error Handling:")
+    print("""
+    try:
+        response = generate_text_with_llm(
+            text="Your input text here",
+            api_key="your-api-key",
+            api_endpoint="your-endpoint",
+            deployment_id="your-deployment-id",
+            system_prompt="Custom system prompt"
+        )
+        print(response)
+    except Exception as e:
+        print(f"Error: {e}")
+    """)
+
 # Main function to run all examples
 def main():
     """Run all examples."""
@@ -232,6 +298,12 @@ def main():
         example_unified_modeler(data)
     except Exception as e:
         logger.error(f"Error in example 3: {e}")
+    
+    # Run example 4: Using the generate_text_with_llm utility function
+    try:
+        example_direct_llm_usage()
+    except Exception as e:
+        logger.error(f"Error in example 4: {e}")
         
     logger.info("All examples completed")
 
