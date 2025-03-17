@@ -1,24 +1,39 @@
-# Meno v1.1.1: Feedback Visualization System
+# Meno v1.3.0: Improved LLM Integration
 
-This release adds specialized visualization tools for analyzing the impact of user feedback on topic models.
+This release enhances the OpenAI integration in the LLMTopicLabeler class, making it easier to use both Azure OpenAI and standard OpenAI clients.
 
 ## New Features
-- **Feedback Impact Visualization**: Comprehensive dashboard showing how feedback affects topic distributions
-- **Topic Transition Analysis**: Visual representation of how documents move between topics
-- **Interactive Comparison Dashboard**: Web-based interactive tool for exploring before/after feedback changes
-- **Session Progress Tracking**: Visualize the cumulative impact of feedback sessions
 
-## New Files
-- Added meno/visualization/enhanced_viz/feedback_viz.py module with visualization functions
-- Added examples/feedback_visualization_example.py demonstration script
-- Added examples/feedback_visualization_notebook.ipynb interactive demo notebook
+- **Simplified OpenAI Integration**: Updated LLMTopicLabeler with a more consistent parameter naming scheme
+- **Azure OpenAI Support**: Made Azure the default integration, while still supporting standard OpenAI
+- **Streamlined Parameters**: More intuitive parameter names (`api_key`, `api_endpoint`, `api_version`)
+- **Explicit Client Selection**: New `use_azure` parameter to explicitly choose which client to use
 
 ## API Changes
-- Added top-level exports for visualization functions:
-  - plot_feedback_impact
-  - create_feedback_comparison_dashboard
-  - plot_topic_feedback_distribution
-  
-## Documentation
-- Updated README with examples of the new feedback visualization capabilities
-- Added the visualization system to the list of new features in v1.1
+
+- Changed the default `model_type` to "openai" (previously "local")
+- Renamed `openai_api_key` to `api_key` for consistency
+- Added default `api_version` of "2023-05-15" for Azure OpenAI
+- Added `use_azure` boolean parameter (defaults to True)
+- Fixed imports to use `from openai import OpenAI, AzureOpenAI` pattern
+
+## Usage Examples
+
+### Azure OpenAI (Default)
+```python
+labeler = LLMTopicLabeler(
+    model_name="your-deployment-name",  # Azure deployment name
+    api_key="your-api-key",
+    api_endpoint="https://your-resource.openai.azure.com"
+    # api_version and use_azure have defaults
+)
+```
+
+### Standard OpenAI
+```python
+labeler = LLMTopicLabeler(
+    model_name="gpt-4o",
+    api_key="your-api-key",
+    use_azure=False  # Use standard OpenAI client
+)
+```

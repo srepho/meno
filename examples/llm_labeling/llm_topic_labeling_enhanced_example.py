@@ -33,28 +33,52 @@ for text in sample_texts[:4]:
     expanded_texts.append(slightly_modified)
 
 # 1. Create the LLM Topic Labeler with enhanced settings
-labeler = LLMTopicLabeler(
-    model_type="openai",         # Using OpenAI as the LLM provider
-    model_name="gpt-3.5-turbo",  # Using GPT-3.5 Turbo
+
+# Azure OpenAI example (default)
+azure_labeler = LLMTopicLabeler(
+    model_name="your-deployment-name",  # Your Azure deployment name
+    api_key="your-api-key",             # Your Azure OpenAI API key
+    api_endpoint="https://your-resource.openai.azure.com", # Your Azure endpoint
+    api_version="2023-05-15",           # Azure API version
+    use_azure=True,                     # Use Azure OpenAI (default)
     
     # Enhanced features
-    enable_cache=True,           # Enable caching for performance
-    cache_dir="./.meno_cache",   # Set cache directory
-    cache_ttl=86400,             # Cache TTL in seconds (1 day)
+    enable_cache=True,                  # Enable caching for performance
+    cache_dir="./.meno_cache",          # Set cache directory
+    cache_ttl=86400,                    # Cache TTL in seconds (1 day)
     
-    deduplicate=True,            # Enable deduplication of similar texts
-    deduplication_threshold=0.85,  # Set similarity threshold (0-1)
+    deduplicate=True,                   # Enable deduplication of similar texts
+    deduplication_threshold=0.85,       # Set similarity threshold (0-1)
+    
+    # Customization
+    system_prompt_template="You are an expert at categorizing content into appropriate topics."
+)
+
+# Standard OpenAI example
+openai_labeler = LLMTopicLabeler(
+    model_name="gpt-4o",                # OpenAI model name
+    api_key="your-openai-api-key",      # Your OpenAI API key
+    use_azure=False,                    # Use standard OpenAI API
     
     # Rate limiting for API usage efficiency
-    requests_per_minute=60,      # Limit to 60 requests per minute
+    requests_per_minute=60,             # Limit to 60 requests per minute
     
     # Parallelism and batching
-    max_parallel_requests=4,     # Process up to 4 requests in parallel
-    batch_size=10,               # Process up to 10 texts in a single API call
+    max_parallel_requests=4,            # Process up to 4 requests in parallel
+    batch_size=10,                      # Process up to 10 texts in a single API call
     
     # Prompt templates can be customized
-    system_prompt_template="You are an expert at categorizing content into appropriate topics.",
     user_prompt_template="Classify the following text into a brief descriptive topic (2-4 words): {{text}}"
+)
+
+# For this example, we'll use the standard OpenAI client 
+# (replace with your actual API key to run this example)
+labeler = LLMTopicLabeler(
+    model_name="gpt-3.5-turbo",         # Using GPT-3.5 Turbo
+    use_azure=False,                    # Use standard OpenAI API
+    deduplicate=True,                   # Enable deduplication
+    deduplication_threshold=0.85,       # Set similarity threshold (0-1)
+    batch_size=10                       # Process up to 10 texts in a single API call
 )
 
 # 2. Demonstrate classification with confidence scores

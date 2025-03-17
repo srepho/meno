@@ -126,12 +126,14 @@ class LLMTopicLabeler:
     Parameters
     ----------
     model_type : str, optional
-        Type of model to use, by default "local"
+        Type of model to use, by default "openai"
         Options: "local", "openai", "auto"
         If "auto", will use OpenAI if available, otherwise fall back to local model
     model_name : str, optional
-        Name of the model to use, by default "google/flan-t5-small" for local models
-        For OpenAI, default is "gpt-3.5-turbo"
+        Name of the model to use
+        For OpenAI standard API, this is the model name (e.g., "gpt-3.5-turbo", "gpt-4o")
+        For Azure OpenAI, this is the deployment name
+        For local models, default is "google/flan-t5-small"
     max_new_tokens : int, optional
         Maximum number of tokens to generate, by default 50
     temperature : float, optional
@@ -143,15 +145,18 @@ class LLMTopicLabeler:
         Options: "auto", "cpu", "cuda", "mps"
     verbose : bool, optional
         Whether to show verbose output, by default False
-    openai_api_key : Optional[str], optional
-        OpenAI API key, by default None
+    api_key : Optional[str], optional
+        API key for OpenAI or Azure OpenAI, by default None
         If None and model_type="openai", will try to use the OPENAI_API_KEY environment variable
     api_endpoint : Optional[str], optional
-        Custom API endpoint URL for OpenAI API, by default None
-        Can be used for self-hosted models, proxies, or Azure OpenAI endpoints
-    api_version : Optional[str], optional
-        API version to use with OpenAI API, by default None
-        Useful when using Azure OpenAI or other custom OpenAI API deployments
+        API endpoint URL for OpenAI or Azure OpenAI, by default None
+        For Azure, this is the azure_endpoint (e.g., "https://your-resource.openai.azure.com")
+        For OpenAI standard API, this can be used for custom base URLs
+    api_version : str, optional
+        API version to use with OpenAI API, by default "2023-05-15"
+        Required for Azure OpenAI, optional for standard OpenAI
+    use_azure : bool, optional
+        Whether to use Azure OpenAI client, by default True
     max_token_limit : Optional[int], optional
         Maximum allowed token length for prompts, by default None
         If exceeded, will fail with a warning unless enable_fallback is True
@@ -210,16 +215,17 @@ class LLMTopicLabeler:
     
     def __init__(
         self,
-        model_type: str = "local",
+        model_type: str = "openai",
         model_name: Optional[str] = None,
         max_new_tokens: int = 50,
         temperature: float = 0.7,
         enable_fallback: bool = True,
         device: str = "auto",
         verbose: bool = False,
-        openai_api_key: Optional[str] = None,
+        api_key: Optional[str] = None,
         api_endpoint: Optional[str] = None, 
-        api_version: Optional[str] = None,
+        api_version: str = "2023-05-15",
+        use_azure: Optional[bool] = True,
         max_token_limit: Optional[int] = None,
         max_parallel_requests: int = 4,
         requests_per_minute: Optional[int] = None,
@@ -308,48 +314,53 @@ class LLMTopicLabeler:
             # Set up client configuration
             client_kwargs = {}
             
-            # Configure API key
-            if openai_api_key:
-                client_kwargs["api_key"] = openai_api_key
-                
-            # Check if Azure OpenAI should be used
-            use_azure = api_endpoint and "azure" in api_endpoint
+            # Configure API key - rename from parameter name to avoid confusion
+            openai_api_key = api_key
             
+            if not openai_api_key:
+                # Try to get from environment
+                openai_api_key = os.environ.get("OPENAI_API_KEY")
+                if not openai_api_key:
+                    logger.warning("No API key provided. Please provide an API key using api_key parameter or set OPENAI_API_KEY environment variable.")
+            
+            # Initialize appropriate client based on use_azure flag
             if use_azure:
-                # Use AzureOpenAI client for Azure endpoints
-                logger.info(f"Using Azure OpenAI with deployment: {self.model_name}")
+                # Use AzureOpenAI client
+                if not api_endpoint:
+                    raise ValueError("api_endpoint is required when using Azure OpenAI")
                 
-                if not api_version:
-                    api_version = "2023-05-15"  # Default Azure API version
-                    logger.info(f"Using default Azure API version: {api_version}")
+                logger.info(f"Using Azure OpenAI with deployment: {self.model_name}")
+                logger.info(f"Using API version: {api_version}")
                 
                 # Initialize Azure OpenAI client
-                self.client = openai.AzureOpenAI(
+                from openai import AzureOpenAI
+                self.client = AzureOpenAI(
                     api_key=openai_api_key,
                     azure_endpoint=api_endpoint,
                     api_version=api_version
                 )
                 
                 logger.info(f"Using Azure OpenAI endpoint: {api_endpoint}")
-                logger.info(f"Using API version: {api_version}")
+                self.is_azure = True
             else:
+                # Use standard OpenAI client
+                from openai import OpenAI
+                
+                client_kwargs = {"api_key": openai_api_key}
+                
                 # Configure standard OpenAI client parameters
                 if api_endpoint:
                     client_kwargs["base_url"] = api_endpoint
-                    
-                if api_version:
-                    client_kwargs["api_version"] = api_version
-                    
+                
                 # Initialize standard OpenAI client
-                self.client = openai.OpenAI(**client_kwargs)
-                    
+                self.client = OpenAI(**client_kwargs)
                 logger.info(f"Using OpenAI model: {self.model_name}")
                 
                 # Log custom API configuration if used
                 if api_endpoint:
                     logger.info(f"Using custom API endpoint: {api_endpoint}")
-                if api_version:
-                    logger.info(f"Using API version: {api_version}")
+                
+                self.is_azure = False
                 
         elif self.model_type == "local":
             if not TRANSFORMERS_AVAILABLE:
@@ -640,18 +651,15 @@ class LLMTopicLabeler:
             if system_prompt is None:
                 system_prompt = "You are a topic modeling assistant that generates concise, descriptive topic names."
             
-            # Re-import openai to ensure it's available in this context
-            import openai
-            
             # Create messages array which is required for both client types
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
             ]
             
-            # Determine if we're using Azure OpenAI or regular OpenAI
-            if isinstance(self.client, openai.AzureOpenAI):
-                # For Azure OpenAI, the deployment name is used directly
+            # Use the appropriate parameter name based on whether we're using Azure or standard OpenAI
+            if self.is_azure:
+                # For Azure OpenAI, use deployment_id parameter
                 response = self.client.chat.completions.create(
                     deployment_id=self.model_name,  # Use deployment name for Azure
                     messages=messages,
@@ -659,7 +667,7 @@ class LLMTopicLabeler:
                     max_tokens=self.max_new_tokens,
                 )
             else:
-                # For regular OpenAI
+                # For standard OpenAI, use model parameter
                 response = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
@@ -758,18 +766,15 @@ class LLMTopicLabeler:
             combined_prompt += "FORMAT YOUR RESPONSE EXACTLY LIKE THIS:\n"
             combined_prompt += "TEXT 1: [classification] (confidence: HIGH/MEDIUM/LOW)\nTEXT 2: [classification] (confidence: HIGH/MEDIUM/LOW)\n..."
                 
-            # Re-import openai to ensure it's available in this context
-            import openai
-            
             # Create messages array which is required for both client types
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": combined_prompt}
             ]
             
-            # Determine if we're using Azure OpenAI or regular OpenAI
-            if isinstance(self.client, openai.AzureOpenAI):
-                # For Azure OpenAI, the deployment name is used directly
+            # Use the appropriate parameter name based on whether we're using Azure or standard OpenAI
+            if self.is_azure:
+                # For Azure OpenAI, use deployment_id parameter
                 response = self.client.chat.completions.create(
                     deployment_id=self.model_name,  # Use deployment name for Azure
                     messages=messages,
@@ -777,7 +782,7 @@ class LLMTopicLabeler:
                     max_tokens=self.max_new_tokens,
                 )
             else:
-                # For regular OpenAI
+                # For standard OpenAI, use model parameter
                 response = self.client.chat.completions.create(
                     model=self.model_name,
                     messages=messages,
