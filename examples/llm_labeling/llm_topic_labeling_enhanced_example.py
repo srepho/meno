@@ -35,8 +35,9 @@ for text in sample_texts[:4]:
 # 1. Create the LLM Topic Labeler with enhanced settings
 
 # Azure OpenAI example (default)
+# Note: For Azure OpenAI, model_name should be your deployment name (not the model identifier)
 azure_labeler = LLMTopicLabeler(
-    model_name="your-deployment-name",  # Your Azure deployment name
+    model_name="your-deployment-name",  # Your Azure deployment name (deployment_id)
     api_key="your-api-key",             # Your Azure OpenAI API key
     api_endpoint="https://your-resource.openai.azure.com", # Your Azure endpoint
     api_version="2023-05-15",           # Azure API version
@@ -80,6 +81,46 @@ labeler = LLMTopicLabeler(
     deduplication_threshold=0.85,       # Set similarity threshold (0-1)
     batch_size=10                       # Process up to 10 texts in a single API call
 )
+
+# Standalone example that exactly matches the pattern you've provided
+print("\n# Direct API usage example (Azure OpenAI)")
+print("# ================================")
+print("from openai import AzureOpenAI")
+print("def generate_call_from_text(text, api_endpoint, api_key, api_version, deployment_id):")
+print("    client = AzureOpenAI(")
+print("        azure_endpoint=api_endpoint,")
+print("        api_key=api_key,")
+print("        api_version=api_version")
+print("    )")
+print("    prompt = (")
+print("        # change your user prompt here")
+print("        \"Insert your user prompt followed by the data here:\\n\\n\"")
+print("        f\"{text}\\n\\n\"")
+print("    )")
+print("    response = client.chat.completions.create(")
+print("        deployment_id=deployment_id,  # IMPORTANT: use deployment_id, not model")
+print("        messages=[")
+print("            # change your system prompt here")
+print("            {\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},")
+print("            {\"role\": \"user\", \"content\": prompt}")
+print("        ],")
+print("    )")
+print("    ")
+print("    if not response.choices or len(response.choices) == 0:")
+print("        return \"[No response generated.]\"")
+print("    ")
+print("    return response.choices[0].message.content.strip()")
+print("")
+print("# Usage example:")
+print("text = \"Tell me a joke about azure\"")
+print("result = generate_call_from_text(")
+print("    text=text,")
+print("    api_endpoint=\"https://your-resource.openai.azure.com\",")
+print("    api_key=\"your-azure-api-key\",")
+print("    api_version=\"2023-05-15\",")
+print("    deployment_id=\"your-deployment-name\"  # This is your deployment name, not the model name")
+print(")")
+print("")
 
 # 2. Demonstrate classification with confidence scores
 print("Classifying texts with confidence scores...")
