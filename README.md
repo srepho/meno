@@ -1,4 +1,4 @@
-# Meno: Topic Modeling Toolkit (v1.2.6)
+# Meno: Topic Modeling Toolkit (v1.2.10)
 
 <p align="center">
   <img src="meno.webp" alt="Meno Logo" width="250"/>
@@ -6,6 +6,7 @@
 
 [![License](https://img.shields.io/github/license/srepho/meno)](https://github.com/srepho/meno/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org)
+[![PyPI version](https://badge.fury.io/py/meno.svg)](https://pypi.org/project/meno/)
 [![GitHub Stars](https://img.shields.io/github/stars/srepho/meno?style=social)](https://github.com/srepho/meno)
 
 Meno is a toolkit for topic modeling on messy text data, featuring an interactive workflow system that guides users from raw text to insights through acronym detection, spelling correction, topic modeling, and visualization. It includes both high-powered models and lightweight alternatives that work without heavy dependencies.
@@ -213,7 +214,19 @@ heatmap.write_html("topic_similarity.html")
 modeler.visualize_topic_words(topic_id=1, output_path="topic1_wordcloud.html")
 ```
 
-## What's New in v1.2.6
+## What's New in v1.2.10
+
+- **Bug Fixes**
+  - Fixed critical OpenAI API integration for classification_texts method
+  - Improved API parameter handling for OpenAI chat completions
+  - Fixed message formatting for both Azure and standard OpenAI endpoints
+
+## What's New in v1.2.9
+
+- **New Features**
+  - **Azure OpenAI Support** - Native integration with Azure OpenAI API for LLM topic labeling
+  - **Endpoint Detection** - Automatic detection of Azure endpoints and appropriate client selection
+  - **Deployment ID Support** - Uses deployment_id parameter correctly for Azure OpenAI models
 
 - **Bug Fixes**
   - Fixed additional f-string compatibility issues for Python 3.10+

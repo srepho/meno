@@ -643,15 +643,18 @@ class LLMTopicLabeler:
             # Re-import openai to ensure it's available in this context
             import openai
             
+            # Create messages array which is required for both client types
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ]
+            
             # Determine if we're using Azure OpenAI or regular OpenAI
             if isinstance(self.client, openai.AzureOpenAI):
                 # For Azure OpenAI, the deployment name is used directly
                 response = self.client.chat.completions.create(
                     deployment_id=self.model_name,  # Use deployment name for Azure
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=messages,
                     temperature=self.temperature,
                     max_tokens=self.max_new_tokens,
                 )
@@ -659,10 +662,7 @@ class LLMTopicLabeler:
                 # For regular OpenAI
                 response = self.client.chat.completions.create(
                     model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=messages,
                     temperature=self.temperature,
                     max_tokens=self.max_new_tokens,
                 )
@@ -761,15 +761,18 @@ class LLMTopicLabeler:
             # Re-import openai to ensure it's available in this context
             import openai
             
+            # Create messages array which is required for both client types
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": combined_prompt}
+            ]
+            
             # Determine if we're using Azure OpenAI or regular OpenAI
             if isinstance(self.client, openai.AzureOpenAI):
                 # For Azure OpenAI, the deployment name is used directly
                 response = self.client.chat.completions.create(
                     deployment_id=self.model_name,  # Use deployment name for Azure
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": combined_prompt}
-                    ],
+                    messages=messages,
                     temperature=self.temperature,
                     max_tokens=self.max_new_tokens,
                 )
@@ -777,10 +780,7 @@ class LLMTopicLabeler:
                 # For regular OpenAI
                 response = self.client.chat.completions.create(
                     model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": combined_prompt}
-                    ],
+                    messages=messages,
                     temperature=self.temperature,
                     max_tokens=self.max_new_tokens,
                 )

@@ -22,6 +22,26 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
+# Create a mock OpenAI module if it's not available
+if not OPENAI_AVAILABLE:
+    # Create mock class
+    class MockOpenAI:
+        pass
+    
+    class MockAzureOpenAI(MockOpenAI):
+        pass
+        
+    # Create mock module
+    class MockOpenAIModule:
+        def __init__(self):
+            self.OpenAI = MockOpenAI
+            self.AzureOpenAI = MockAzureOpenAI
+    
+    # Replace the real openai with our mock
+    import sys
+    sys.modules['openai'] = MockOpenAIModule()
+    openai = MockOpenAIModule()
+
 from meno.modeling.llm_topic_labeling import LLMTopicLabeler
 
 

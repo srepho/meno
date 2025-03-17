@@ -6,7 +6,7 @@ Features advanced BERTopic integration with model merging, topic manipulation,
 dynamic topic modeling, and LLM-based topic labeling for intuitive topic names.
 """
 
-__version__ = "1.2.9"
+__version__ = "1.2.10"
 
 # Import key components for easy access
 from .meno import MenoTopicModeler
