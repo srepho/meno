@@ -126,8 +126,7 @@ def label_topics_with_llm(topic_model, df, api_key=None, azure_endpoint=None):
     
     # Configure the LLM topic labeler
     labeler_args = {
-        "model_type": "openai" if api_key or azure_endpoint else "local",
-        "model_name": "gpt-3.5-turbo",
+        "model_name": "gpt-3.5-turbo",  # Model name for OpenAI or deployment name for Azure
         "max_new_tokens": 50,
         "temperature": 0.2,
         "enable_fallback": True,
@@ -139,13 +138,22 @@ def label_topics_with_llm(topic_model, df, api_key=None, azure_endpoint=None):
         "system_prompt_template": "You are a topic modeling assistant that generates concise, descriptive topic names."
     }
     
-    # Add API credentials if provided
-    if api_key:
-        labeler_args["openai_api_key"] = api_key
-    
-    if azure_endpoint:
-        labeler_args["api_endpoint"] = azure_endpoint
-        labeler_args["api_version"] = "2023-07-01-preview"
+    # Set the model type based on available credentials
+    if not (api_key or azure_endpoint):
+        # Use local model if no API credentials provided
+        labeler_args["model_type"] = "local"
+        labeler_args["model_name"] = "google/flan-t5-small"  # Default small local model
+    else:
+        # Add API credentials if provided
+        if api_key:
+            labeler_args["api_key"] = api_key  # Updated parameter name from openai_api_key
+        
+        if azure_endpoint:
+            labeler_args["api_endpoint"] = azure_endpoint
+            labeler_args["api_version"] = "2023-07-01-preview"
+            labeler_args["use_azure"] = True  # Specify to use Azure OpenAI
+        else:
+            labeler_args["use_azure"] = False  # Use standard OpenAI
     
     # Create the labeler
     labeler = LLMTopicLabeler(**labeler_args)
@@ -313,6 +321,7 @@ def main(input_file=None, text_column="text", num_topics=15, output_dir="./meno_
         
         # Configure workflow
         if api_key:
+            # Using the set_openai_api_key method (which is still supported for backwards compatibility)
             workflow.set_openai_api_key(api_key)
             
         # Load and process data
@@ -336,14 +345,17 @@ def main(input_file=None, text_column="text", num_topics=15, output_dir="./meno_
             if azure_endpoint:
                 # Configure for Azure
                 workflow.llm_label_topics(
-                    model_type="openai",
-                    model_name="gpt-3.5-turbo",
+                    model_name="gpt-3.5-turbo",  # Used as deployment_id for Azure
                     api_endpoint=azure_endpoint,
-                    api_version="2023-07-01-preview"
+                    api_version="2023-07-01-preview",
+                    use_azure=True  # Explicitly specify Azure OpenAI
                 )
             else:
                 # Use standard OpenAI
-                workflow.llm_label_topics()
+                workflow.llm_label_topics(
+                    model_name="gpt-3.5-turbo",
+                    use_azure=False  # Explicitly specify standard OpenAI
+                )
         
         # Generate the report
         report_path = workflow.generate_report(output_dir=output_dir)

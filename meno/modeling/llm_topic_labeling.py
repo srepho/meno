@@ -1983,9 +1983,15 @@ def classify_texts_example():
     return "See the example code for how to use the classify_texts method"
 
 
+# Initialize cache for API calls
+_LLM_API_CACHE = {}
+_CACHE_TTL = 24 * 60 * 60  # 24 hours in seconds, by default
+_DEFAULT_CACHE_DIR = Path.home() / ".meno" / "llm_cache"
+
 def generate_call_from_text(text: str, api_key: str, api_endpoint: str, 
                            model: str = "gpt-4o", system_prompt: str = "You are a helpful assistant.",
-                           timeout: int = 60) -> str:
+                           timeout: int = 60, enable_cache: bool = True, 
+                           cache_ttl: int = _CACHE_TTL) -> str:
     """
     Make a single API call to generate a response from the given text.
     
@@ -1996,10 +2002,22 @@ def generate_call_from_text(text: str, api_key: str, api_endpoint: str,
         model: The model to use for generation
         system_prompt: The system prompt to use
         timeout: Request timeout in seconds
+        enable_cache: Whether to use response caching to avoid duplicate API calls
+        cache_ttl: Cache time-to-live in seconds (default: 24 hours)
         
     Returns:
         The generated response text or an error message
     """
+    # Generate a cache key from all relevant parameters
+    cache_key = _get_cache_key(text, model, system_prompt)
+    
+    # Check cache first if enabled
+    if enable_cache:
+        cached_result = _get_from_cache(cache_key)
+        if cached_result is not None:
+            logger.debug(f"Cache hit for prompt: {text[:50]}...")
+            return cached_result
+    
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
@@ -2026,9 +2044,15 @@ def generate_call_from_text(text: str, api_key: str, api_endpoint: str,
         response_data = response.json()
         
         if not response_data.get('choices') or len(response_data['choices']) == 0:
-            return "[No response generated.]"
+            result = "[No response generated.]"
+        else:
+            result = response_data['choices'][0]['message']['content'].strip()
+        
+        # Cache the result if caching is enabled
+        if enable_cache:
+            _add_to_cache(cache_key, result, ttl=cache_ttl)
             
-        return response_data['choices'][0]['message']['content'].strip()
+        return result
         
     except requests.exceptions.Timeout:
         return "[Error: Request timed out]"
@@ -2038,11 +2062,81 @@ def generate_call_from_text(text: str, api_key: str, api_endpoint: str,
         return f"[Error: Invalid response format - {e}]"
     except Exception as e:
         return f"[Error: Unexpected error - {e}]"
+    
+def _get_cache_key(text: str, model: str, system_prompt: str) -> str:
+    """Generate a unique cache key from the request parameters."""
+    # Create a string that combines all the parameters that should make a unique request
+    combined = f"{text}|{model}|{system_prompt}"
+    # Hash it to create a fixed-length key that's safe for filenames
+    return hashlib.md5(combined.encode()).hexdigest()
+
+def _get_from_cache(cache_key: str) -> Optional[str]:
+    """Get a cached response if it exists and is still valid."""
+    # Check memory cache first
+    if cache_key in _LLM_API_CACHE:
+        timestamp, value = _LLM_API_CACHE[cache_key]
+        if time.time() < timestamp:  # Still valid
+            return value
+        else:  # Expired
+            del _LLM_API_CACHE[cache_key]
+    
+    # Check disk cache
+    cache_dir = _get_cache_dir()
+    cache_file = cache_dir / f"{cache_key}.json"
+    
+    if cache_file.exists():
+        try:
+            with open(cache_file, 'r') as f:
+                cached_data = json.load(f)
+                
+            # Check expiration
+            if cached_data.get('expires', 0) > time.time():
+                # Add to memory cache for faster access next time
+                _LLM_API_CACHE[cache_key] = (cached_data['expires'], cached_data['value'])
+                return cached_data['value']
+            else:
+                # Expired - delete the file
+                cache_file.unlink(missing_ok=True)
+        except (json.JSONDecodeError, KeyError, IOError):
+            # Invalid cache file, ignore it
+            cache_file.unlink(missing_ok=True)
+    
+    return None
+
+def _add_to_cache(cache_key: str, value: str, ttl: int = _CACHE_TTL) -> None:
+    """Add a response to both memory and disk cache."""
+    expires = time.time() + ttl
+    
+    # Add to memory cache
+    _LLM_API_CACHE[cache_key] = (expires, value)
+    
+    # Add to disk cache for persistence
+    cache_dir = _get_cache_dir()
+    cache_file = cache_dir / f"{cache_key}.json"
+    
+    try:
+        with open(cache_file, 'w') as f:
+            json.dump({
+                'expires': expires,
+                'value': value,
+                'created': time.time()
+            }, f)
+    except IOError:
+        # If we can't write to disk, just keep the memory cache
+        logger.warning(f"Could not write cache file: {cache_file}")
+
+def _get_cache_dir() -> Path:
+    """Get or create the cache directory."""
+    cache_dir = _DEFAULT_CACHE_DIR
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
 
 
 def process_texts_with_threadpool(texts: List[str], api_key: str, api_endpoint: str,
                                  model: str = "gpt-4o", system_prompt: str = "You are a helpful assistant.",
-                                 max_workers: Optional[int] = None, timeout: int = 60) -> List[Dict[str, Any]]:
+                                 max_workers: Optional[int] = None, timeout: int = 60,
+                                 enable_cache: bool = True, cache_ttl: int = _CACHE_TTL,
+                                 show_progress: bool = True) -> List[Dict[str, Any]]:
     """
     Process multiple texts concurrently using a ThreadPoolExecutor.
     
@@ -2054,13 +2148,22 @@ def process_texts_with_threadpool(texts: List[str], api_key: str, api_endpoint: 
         system_prompt: The system prompt to use
         max_workers: Maximum number of worker threads (None = auto-determined)
         timeout: Request timeout in seconds
+        enable_cache: Whether to use response caching
+        cache_ttl: Cache time-to-live in seconds (default: 24 hours)
+        show_progress: Whether to print progress information
         
     Returns:
         List of dictionaries containing the input text, response, and timing information
     """
     results = []
     
+    # Create a lock for thread-safe progress updates
+    progress_lock = threading.Lock()
+    completed_count = 0
+    
     def process_single_text(text: str, index: int) -> Dict[str, Any]:
+        nonlocal completed_count
+        
         start_time = time.time()
         response = generate_call_from_text(
             text=text,
@@ -2068,17 +2171,41 @@ def process_texts_with_threadpool(texts: List[str], api_key: str, api_endpoint: 
             api_endpoint=api_endpoint,
             model=model,
             system_prompt=system_prompt,
-            timeout=timeout
+            timeout=timeout,
+            enable_cache=enable_cache,
+            cache_ttl=cache_ttl
         )
         end_time = time.time()
         
-        return {
+        result = {
             "index": index,
             "input": text,
             "response": response,
             "time_taken": end_time - start_time,
-            "success": not response.startswith("[Error:")
+            "success": not response.startswith("[Error:"),
+            "from_cache": False  # Will be set to True if it came from cache
         }
+        
+        # Check if the result came from cache
+        cache_key = _get_cache_key(text, model, system_prompt)
+        if enable_cache and cache_key in _LLM_API_CACHE:
+            result["from_cache"] = True
+        
+        # Update progress with thread safety
+        if show_progress:
+            with progress_lock:
+                completed_count += 1
+                print(f"Completed {completed_count}/{len(texts)}: {'✓' if result['success'] else '✗'} {'(cached)' if result.get('from_cache') else ''}")
+        
+        return result
+    
+    # Determine optimal number of workers if not specified
+    if max_workers is None:
+        # Use min(32, os.cpu_count() + 4) as recommended for IO-bound tasks
+        import os
+        default_workers = min(32, (os.cpu_count() or 4) + 4)
+        # But also consider the number of texts (no need for more workers than texts)
+        max_workers = min(default_workers, len(texts))
     
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Create a list of futures
@@ -2088,16 +2215,23 @@ def process_texts_with_threadpool(texts: List[str], api_key: str, api_endpoint: 
         ]
         
         # Collect results as they complete
-        for future in futures:
+        for future in concurrent.futures.as_completed(futures):
             try:
                 result = future.result()
                 results.append(result)
-                # Optional: Print progress
-                print(f"Completed {result['index']+1}/{len(texts)}: {'✓' if result['success'] else '✗'}")
             except Exception as e:
+                # Find the index of the failed future
+                for i, f in enumerate(futures):
+                    if f == future:
+                        idx = i
+                        break
+                else:
+                    idx = len(results)
+                
+                # Add error result
                 results.append({
-                    "index": len(results),
-                    "input": texts[len(results)] if len(results) < len(texts) else "Unknown",
+                    "index": idx,
+                    "input": texts[idx] if idx < len(texts) else "Unknown",
                     "response": f"[Error: Thread execution failed - {e}]",
                     "time_taken": 0,
                     "success": False
@@ -2105,6 +2239,17 @@ def process_texts_with_threadpool(texts: List[str], api_key: str, api_endpoint: 
     
     # Sort results by original index to maintain order
     results.sort(key=lambda x: x["index"])
+    
+    # Show summary if requested
+    if show_progress and results:
+        cached_count = sum(1 for r in results if r.get("from_cache", False))
+        success_count = sum(1 for r in results if r.get("success", False))
+        
+        if enable_cache and cached_count > 0:
+            print(f"\nSummary: {success_count}/{len(results)} successful, {cached_count} from cache")
+        else:
+            print(f"\nSummary: {success_count}/{len(results)} successful")
+    
     return results
 
 
@@ -2175,9 +2320,37 @@ def format_chat_completion(chat_completion, verbose=True):
     print("\n" + "-" * 50)  # Add separator for clarity
 
 
+def _calculate_text_similarity(text1: str, text2: str) -> float:
+    """Calculate text similarity ratio between two strings."""
+    # Early termination for very different length texts
+    len1, len2 = len(text1), len(text2)
+    if len1 == 0 or len2 == 0:
+        return 0.0
+    
+    # Quick length-based filter to avoid unnecessary computation
+    # If lengths differ by more than 30%, they're likely different
+    if abs(len1 - len2) / max(len1, len2) > 0.3:
+        return 0.0
+    
+    # Quick check for exact match
+    if text1 == text2:
+        return 1.0
+        
+    # Quick check for very different texts by comparing the first N chars
+    preview_len = min(50, min(len1, len2))
+    if text1[:preview_len].lower() != text2[:preview_len].lower() and \
+       SequenceMatcher(None, text1[:preview_len], text2[:preview_len]).ratio() < 0.5:
+        return 0.0
+        
+    # For texts that pass the quick checks, perform full comparison
+    return SequenceMatcher(None, text1, text2).ratio()
+
+
 def identify_fuzzy_duplicates(
     texts: List[str],
-    threshold: float = 0.92
+    threshold: float = 0.92,
+    max_comparisons: Optional[int] = None,
+    simplified_texts: Optional[List[str]] = None
 ) -> Dict[int, int]:
     """
     Identify fuzzy duplicates in a list of texts.
@@ -2193,38 +2366,81 @@ def identify_fuzzy_duplicates(
     threshold : float, optional
         Similarity threshold (0.0-1.0), by default 0.92
         Higher values are more strict (require more similarity to consider duplicates)
+    max_comparisons : Optional[int], optional
+        Maximum number of comparisons to perform (for very large datasets)
+        If None, all pairs will be compared
+    simplified_texts : Optional[List[str]], optional
+        Pre-processed versions of texts for faster comparison
+        (e.g., lowercase, stopwords removed, etc.)
+        If None, original texts will be used
         
     Returns
     -------
     Dict[int, int]
         Dictionary mapping duplicate indices to their representative index
     """
-    def _calculate_text_similarity(text1: str, text2: str) -> float:
-        """Calculate text similarity ratio between two strings."""
-        return SequenceMatcher(None, text1, text2).ratio()
+    if not texts:
+        return {}
         
+    n_texts = len(texts)
+    
+    # Calculate total possible comparisons
+    total_comparisons = (n_texts * (n_texts - 1)) // 2
+    
+    # If max_comparisons is set and less than total, sample proportionally
+    sampling_enabled = max_comparisons is not None and max_comparisons < total_comparisons
+    
+    # Use simplified texts if provided, otherwise use the original
+    compare_texts = simplified_texts if simplified_texts else texts
+    
+    # Create length-based groups for optimization
+    length_groups = defaultdict(list)
+    for i, text in enumerate(compare_texts):
+        # Group texts by length ranges (each range is ~10% of the text length)
+        length_range = len(text) // 10
+        length_groups[length_range].append(i)
+    
     duplicate_map = {}
     processed = set()
     
-    for i, text1 in enumerate(texts):
-        if i in processed:
+    # Process each length group
+    for length_range, indices in length_groups.items():
+        # Skip if no texts in this range
+        if not indices:
             continue
             
-        processed.add(i)
+        # Check adjacent length ranges too (handle boundary cases)
+        adjacent_indices = []
+        for adj_range in [length_range-1, length_range, length_range+1]:
+            if adj_range in length_groups:
+                adjacent_indices.extend(length_groups[adj_range])
         
-        for j in range(i + 1, len(texts)):
-            if j in processed:
+        # Compare texts within this length group and adjacent groups
+        for idx, i in enumerate(indices):
+            if i in processed:
                 continue
                 
-            text2 = texts[j]
+            processed.add(i)
+            text1 = compare_texts[i]
             
-            # Calculate similarity
-            similarity = _calculate_text_similarity(text1, text2)
+            # Determine comparison targets
+            comparison_targets = [j for j in adjacent_indices if j > i and j not in processed]
             
-            # If similar enough, mark as duplicate
-            if similarity >= threshold:
-                duplicate_map[j] = i
-                processed.add(j)
+            # Sample if needed
+            if sampling_enabled and len(comparison_targets) > max_comparisons:
+                import random
+                comparison_targets = random.sample(comparison_targets, max_comparisons)
+            
+            for j in comparison_targets:
+                text2 = compare_texts[j]
+                
+                # Calculate similarity
+                similarity = _calculate_text_similarity(text1, text2)
+                
+                # If similar enough, mark as duplicate
+                if similarity >= threshold:
+                    duplicate_map[j] = i
+                    processed.add(j)
     
     return duplicate_map
 
@@ -2238,7 +2454,12 @@ def process_texts_with_deduplication(
     max_workers: Optional[int] = None, 
     timeout: int = 60,
     deduplicate: bool = True,
-    deduplication_threshold: float = 0.92
+    deduplication_threshold: float = 0.92,
+    enable_cache: bool = True,
+    cache_ttl: int = _CACHE_TTL,
+    max_comparisons: Optional[int] = None,
+    show_progress: bool = True,
+    preprocess_for_deduplication: bool = True
 ) -> List[Dict[str, Any]]:
     """
     Process multiple texts with deduplication and parallel execution.
@@ -2267,6 +2488,16 @@ def process_texts_with_deduplication(
         Whether to perform deduplication, by default True
     deduplication_threshold : float, optional
         Similarity threshold for deduplication, by default 0.92
+    enable_cache : bool, optional
+        Whether to use response caching, by default True
+    cache_ttl : int, optional
+        Cache time-to-live in seconds, by default 24 hours
+    max_comparisons : Optional[int], optional
+        Maximum number of similarity comparisons to make (for large datasets)
+    show_progress : bool, optional
+        Whether to print progress information, by default True
+    preprocess_for_deduplication : bool, optional
+        Whether to preprocess texts for faster deduplication, by default True
         
     Returns
     -------
@@ -2276,10 +2507,29 @@ def process_texts_with_deduplication(
     if not texts:
         return []
     
+    start_time = time.time()
+    
     # Deduplication to reduce API calls    
     if deduplicate:
-        # Identify duplicates
-        duplicate_map = identify_fuzzy_duplicates(texts, deduplication_threshold)
+        # Optional preprocessing for faster deduplication
+        simplified_texts = None
+        if preprocess_for_deduplication:
+            simplified_texts = []
+            for text in texts:
+                # Simple preprocessing - lowercase and trim spaces
+                simplified = text.lower().strip()
+                # Remove common punctuation
+                for char in ',.:;?!':
+                    simplified = simplified.replace(char, '')
+                simplified_texts.append(simplified)
+        
+        # Identify duplicates with optimized algorithm
+        duplicate_map = identify_fuzzy_duplicates(
+            texts, 
+            deduplication_threshold,
+            max_comparisons=max_comparisons,
+            simplified_texts=simplified_texts
+        )
         
         # Create a set of unique text indices
         unique_indices = set(range(len(texts)))
@@ -2289,69 +2539,37 @@ def process_texts_with_deduplication(
         # Create list of unique texts for processing
         unique_texts = [texts[idx] for idx in sorted(unique_indices)]
         
-        print(f"Deduplication reduced {len(texts)} texts to {len(unique_texts)} unique texts")
+        if show_progress:
+            dedup_time = time.time() - start_time
+            print(f"Deduplication reduced {len(texts)} texts to {len(unique_texts)} unique texts (took {dedup_time:.2f}s)")
     else:
         unique_texts = texts
         unique_indices = set(range(len(texts)))
         duplicate_map = {}
     
-    # Process unique texts with ThreadPoolExecutor
-    unique_results = []
-    
-    def process_single_text(text: str, index: int) -> Dict[str, Any]:
-        start_time = time.time()
-        response = generate_call_from_text(
-            text=text,
-            api_key=api_key,
-            api_endpoint=api_endpoint,
-            model=model,
-            system_prompt=system_prompt,
-            timeout=timeout
-        )
-        end_time = time.time()
-        
-        return {
-            "index": index,
-            "input": text,
-            "response": response,
-            "time_taken": end_time - start_time,
-            "success": not response.startswith("[Error:")
-        }
-    
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Create a list of futures for unique texts only
-        futures = [
-            executor.submit(process_single_text, text, idx) 
-            for idx, text in zip(sorted(unique_indices), unique_texts)
-        ]
-        
-        # Collect results as they complete
-        for future in futures:
-            try:
-                result = future.result()
-                unique_results.append(result)
-                # Optional: Print progress
-                print(f"Completed {len(unique_results)}/{len(unique_texts)}: {'✓' if result['success'] else '✗'}")
-            except Exception as e:
-                print(f"Error processing text: {e}")
-                # Add a placeholder result
-                unique_results.append({
-                    "index": -1,  # Will be fixed in post-processing
-                    "input": "Error",
-                    "response": f"[Error: Thread execution failed - {e}]",
-                    "time_taken": 0,
-                    "success": False
-                })
+    # Process unique texts with ThreadPoolExecutor using the updated function that supports caching
+    unique_results = process_texts_with_threadpool(
+        texts=unique_texts,
+        api_key=api_key,
+        api_endpoint=api_endpoint,
+        model=model,
+        system_prompt=system_prompt,
+        max_workers=max_workers,
+        timeout=timeout,
+        enable_cache=enable_cache,
+        cache_ttl=cache_ttl,
+        show_progress=show_progress
+    )
     
     # If no deduplication was done, return results directly
     if not deduplicate:
-        # Sort results by original index to maintain order
-        return sorted(unique_results, key=lambda x: x["index"])
+        return unique_results
     
     # Map results back to include duplicates
     final_results = []
     
     # Create a map from unique indices to results
+    orig_indices = sorted(unique_indices)
     index_to_result = {r["index"]: r for r in unique_results}
     
     # Fill in results for all original texts
@@ -2369,8 +2587,31 @@ def process_texts_with_deduplication(
             source_result["input"] = texts[i]
             source_result["is_duplicate"] = True
             source_result["duplicate_of"] = source_idx
+            source_result["time_taken"] = 0  # No API call was made
             
             final_results.append(source_result)
     
     # Sort results by original index to maintain order
-    return sorted(final_results, key=lambda x: x["index"])
+    final_results = sorted(final_results, key=lambda x: x["index"])
+    
+    # Show summary if requested
+    if show_progress:
+        total_time = time.time() - start_time
+        duplicate_count = len(duplicate_map)
+        cache_count = sum(1 for r in unique_results if r.get("from_cache", False))
+        api_call_count = len(unique_texts) - cache_count
+        
+        print(f"\nPerformance Summary:")
+        print(f"- Total texts processed: {len(texts)}")
+        print(f"- Duplicates detected: {duplicate_count} ({duplicate_count/len(texts)*100:.1f}%)")
+        print(f"- Cache hits: {cache_count} ({cache_count/len(unique_texts)*100:.1f}% of unique texts)")
+        print(f"- API calls made: {api_call_count}")
+        print(f"- Total processing time: {total_time:.2f}s")
+        
+        # Calculate the estimated API cost savings
+        if api_call_count > 0:
+            saved_calls = duplicate_count + cache_count
+            saved_percentage = saved_calls / len(texts) * 100
+            print(f"- Estimated API call savings: {saved_calls} calls ({saved_percentage:.1f}%)")
+    
+    return final_results

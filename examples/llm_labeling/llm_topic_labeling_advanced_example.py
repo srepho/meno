@@ -66,17 +66,20 @@ print(f"Generated {len(df)} sample documents")
 
 # 1. Create LLM Labeler with advanced settings
 labeler = LLMTopicLabeler(
-    model_type="openai",
-    model_name="gpt-3.5-turbo",
+    model_name="gpt-3.5-turbo",      # OpenAI model name (or Azure deployment name)
+    api_key="your-openai-api-key",   # Your API key
+    use_azure=False,                 # Use standard OpenAI (use True for Azure)
+    # If using Azure, you'd also specify:
+    # api_endpoint="https://your-resource.openai.azure.com",
     
     # Advanced settings
-    temperature=0.3,           # Lower temperature for more consistent results
-    max_new_tokens=150,        # Allow longer responses
-    enable_cache=True,         # Enable caching
-    deduplicate=True,          # Enable deduplication
-    deduplication_threshold=0.9,  # Higher threshold for stricter deduplication
-    requests_per_minute=40,    # Conservative rate limiting
-    verbose=True,              # Enable verbose logging
+    temperature=0.3,                 # Lower temperature for more consistent results
+    max_new_tokens=150,              # Allow longer responses
+    enable_cache=True,               # Enable caching
+    deduplicate=True,                # Enable deduplication
+    deduplication_threshold=0.9,     # Higher threshold for stricter deduplication
+    requests_per_minute=40,          # Conservative rate limiting
+    verbose=True,                    # Enable verbose logging
 )
 
 # 2. Domain-specific classification with custom prompts

@@ -3,8 +3,15 @@
 This example demonstrates how to use LLM-based topic labeling to generate more 
 descriptive and human-readable topic names for BERTopic models.
 
-It also shows how to use the new generate_text_with_llm utility function for
-direct interaction with Azure OpenAI or standard OpenAI.
+It also shows how to use the generate_text_with_llm utility function for
+direct interaction with Azure OpenAI or standard OpenAI, which provides a simplified
+interface for API interactions without having to create a custom function.
+
+Key features demonstrated:
+- LLM-based topic labeling during model fitting
+- Applying LLM labeling after model fitting
+- Using the unified topic modeler with LLM labeling
+- Direct LLM API usage with the utility function
 """
 
 import pandas as pd

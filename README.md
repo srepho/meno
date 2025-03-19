@@ -46,17 +46,18 @@ print(model.get_topic_info())
 model.visualize_topics().write_html("tfidf_topics.html")
 ```
 
-### Direct LLM API Usage
+### Direct LLM API Usage with Caching and Optimization
 
 ```python
 from meno.modeling.llm_topic_labeling import (
     generate_call_from_text,
     process_texts_with_threadpool,
     identify_fuzzy_duplicates,
-    process_texts_with_deduplication
+    process_texts_with_deduplication,
+    generate_text_with_llm
 )
 
-# Simple direct API call (single text)
+# Simple direct API call with caching
 api_key = "your_api_key_here"
 api_endpoint = "https://api.openai.com/v1/chat/completions"
 system_prompt = "You are a topic labeling assistant."
@@ -66,44 +67,72 @@ result = generate_call_from_text(
     text=text, 
     api_key=api_key, 
     api_endpoint=api_endpoint,
-    system_prompt=system_prompt
+    system_prompt=system_prompt,
+    enable_cache=True,  # Cache responses to avoid duplicate API calls
+    cache_ttl=3600      # Cache time-to-live in seconds (1 hour)
 )
 print(f"Generated topic: {result}")
 
-# Process multiple texts concurrently
+# Process multiple texts concurrently with caching
 texts = ["Sample document 1", "Sample document 2", "Sample document 3"]
 results = process_texts_with_threadpool(
     texts=texts,
     api_key=api_key,
     api_endpoint=api_endpoint,
-    max_workers=3  # Process up to 3 texts simultaneously
+    max_workers=3,      # Process up to 3 texts simultaneously
+    enable_cache=True,  # Automatically use cached responses when available
+    show_progress=True  # Show progress updates
 )
 
-# Print results
+# Print results with cache status
 for r in results:
     print(f"Document: {r['input'][:50]}...")
     print(f"Topic: {r['response']}")
     print(f"Processing time: {r['time_taken']:.2f} seconds")
+    print(f"From cache: {r.get('from_cache', False)}")
 
-# Process with deduplication to save on API costs
+# Process with optimized deduplication to save on API costs
 texts_with_duplicates = [
     "Keywords: finance, investment, banking",
     "Keywords: banking, finance, investment",  # Similar to first text
-    "Keywords: technology, computers, software"
+    "Keywords: finance, markets, stocks",      # Similar to first text
+    "Keywords: technology, computers, software",
+    "Keywords: computer technology, software"  # Similar to fourth text
 ]
 
-# Identify similar texts
-duplicates = identify_fuzzy_duplicates(texts_with_duplicates, threshold=0.85)
-print(f"Found {len(duplicates)} potential duplicates")
-
-# Process with automatic deduplication (only unique texts are sent to the API)
+# Process with advanced deduplication and caching
 results = process_texts_with_deduplication(
     texts=texts_with_duplicates,
     api_key=api_key,
     api_endpoint=api_endpoint,
-    deduplicate=True,
-    deduplication_threshold=0.85
+    deduplicate=True,               # Enable deduplication
+    deduplication_threshold=0.85,   # Similarity threshold
+    enable_cache=True,              # Enable response caching
+    preprocess_for_deduplication=True,  # Pre-process texts for faster comparison
+    show_progress=True              # Show detailed progress and stats
 )
+
+# Generate text using simplified unified API (works with both OpenAI and Azure)
+response = generate_text_with_llm(
+    text="Classify this document by topic",
+    api_key="your_api_key",
+    
+    # For standard OpenAI API:
+    api_endpoint="https://api.openai.com/v1/chat/completions",
+    model_name="gpt-4o",
+    use_azure=False,
+    
+    # For Azure OpenAI API:
+    # api_endpoint="https://your-resource.openai.azure.com",
+    # deployment_id="your-deployment-name",  # Required for Azure
+    # use_azure=True,
+    
+    # Common parameters:
+    system_prompt="You are a topic classification expert.",
+    temperature=0.7,
+    max_tokens=200
+)
+print(f"Response: {response}")
 ```
 
 ### Complete Interactive Workflow

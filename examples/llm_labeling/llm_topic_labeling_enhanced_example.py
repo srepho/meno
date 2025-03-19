@@ -34,11 +34,11 @@ for text in sample_texts[:4]:
 
 # 1. Create the LLM Topic Labeler with enhanced settings
 
-# Azure OpenAI example (default)
+# Azure OpenAI example
 # Note: For Azure OpenAI, model_name should be your deployment name (not the model identifier)
 azure_labeler = LLMTopicLabeler(
     model_name="your-deployment-name",  # Your Azure deployment name (deployment_id)
-    api_key="your-api-key",             # Your Azure OpenAI API key
+    api_key="your-api-key",             # Your Azure OpenAI API key (renamed from openai_api_key)
     api_endpoint="https://your-resource.openai.azure.com", # Your Azure endpoint
     api_version="2023-05-15",           # Azure API version
     use_azure=True,                     # Use Azure OpenAI (default)
@@ -58,7 +58,8 @@ azure_labeler = LLMTopicLabeler(
 # Standard OpenAI example
 openai_labeler = LLMTopicLabeler(
     model_name="gpt-4o",                # OpenAI model name
-    api_key="your-openai-api-key",      # Your OpenAI API key
+    api_key="your-openai-api-key",      # Your OpenAI API key (renamed from openai_api_key)
+    api_endpoint=None,                  # Optional: set custom base URL if needed
     use_azure=False,                    # Use standard OpenAI API
     
     # Rate limiting for API usage efficiency
@@ -76,50 +77,43 @@ openai_labeler = LLMTopicLabeler(
 # (replace with your actual API key to run this example)
 labeler = LLMTopicLabeler(
     model_name="gpt-3.5-turbo",         # Using GPT-3.5 Turbo
+    api_key="your-openai-api-key",      # Your OpenAI API key
     use_azure=False,                    # Use standard OpenAI API
     deduplicate=True,                   # Enable deduplication
     deduplication_threshold=0.85,       # Set similarity threshold (0-1)
     batch_size=10                       # Process up to 10 texts in a single API call
 )
 
-# Standalone example that exactly matches the pattern you've provided
-print("\n# Direct API usage example (Azure OpenAI)")
-print("# ================================")
-print("from openai import AzureOpenAI")
-print("def generate_call_from_text(text, api_endpoint, api_key, api_version, deployment_id):")
-print("    client = AzureOpenAI(")
-print("        azure_endpoint=api_endpoint,")
-print("        api_key=api_key,")
-print("        api_version=api_version")
-print("    )")
-print("    prompt = (")
-print("        # change your user prompt here")
-print("        \"Insert your user prompt followed by the data here:\\n\\n\"")
-print("        f\"{text}\\n\\n\"")
-print("    )")
-print("    response = client.chat.completions.create(")
-print("        deployment_id=deployment_id,  # IMPORTANT: use deployment_id, not model")
-print("        messages=[")
-print("            # change your system prompt here")
-print("            {\"role\": \"system\", \"content\": \"You are a helpful assistant.\"},")
-print("            {\"role\": \"user\", \"content\": prompt}")
-print("        ],")
-print("    )")
-print("    ")
-print("    if not response.choices or len(response.choices) == 0:")
-print("        return \"[No response generated.]\"")
-print("    ")
-print("    return response.choices[0].message.content.strip()")
+# Standalone example using the new utility function
+print("\n# Using the generate_text_with_llm utility function")
+print("# =============================================")
+print("from meno import generate_text_with_llm")
 print("")
-print("# Usage example:")
-print("text = \"Tell me a joke about azure\"")
-print("result = generate_call_from_text(")
-print("    text=text,")
-print("    api_endpoint=\"https://your-resource.openai.azure.com\",")
+print("# Azure OpenAI example")
+print("response = generate_text_with_llm(")
+print("    text=\"Tell me a joke about Azure cloud services\",")
 print("    api_key=\"your-azure-api-key\",")
-print("    api_version=\"2023-05-15\",")
-print("    deployment_id=\"your-deployment-name\"  # This is your deployment name, not the model name")
+print("    api_endpoint=\"https://your-resource.openai.azure.com\",")
+print("    deployment_id=\"your-deployment-name\",  # Required for Azure")
+print("    use_azure=True,")
+print("    system_prompt=\"You are a helpful assistant with a sense of humor.\",")
+print("    temperature=0.7,")
+print("    max_tokens=200")
 print(")")
+print("print(response)")
+print("")
+print("# Standard OpenAI example")
+print("response = generate_text_with_llm(")
+print("    text=\"Explain the benefits of topic modeling in 3 sentences\",")
+print("    api_key=\"your-openai-api-key\",")
+print("    model_name=\"gpt-4o\",  # Standard OpenAI model")
+print("    use_azure=False,")
+print("    system_prompt=\"You are a data science expert.\",")
+print("    temperature=0.7,")
+print("    max_tokens=300")
+print(")")
+print("print(response)")
+print("# No need to manually write the client setup or API call code!")
 print("")
 
 # 2. Demonstrate classification with confidence scores
