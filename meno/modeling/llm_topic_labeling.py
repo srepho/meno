@@ -26,6 +26,7 @@ import pickle
 from collections import deque, defaultdict
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -1819,6 +1820,7 @@ def batch_label_topics_example():
     import pandas as pd
     from meno.modeling.bertopic_model import BERTopicModel
     from meno.modeling.llm_topic_labeling import LLMTopicLabeler
+    from meno import generate_text_with_llm
     
     # 1. Create a topic model and fit it
     # Example assuming you already have a topic model:
@@ -1827,36 +1829,50 @@ def batch_label_topics_example():
     
     # 2. Create LLM topic labeler with token limit, parallel processing, and rate limiting
     labeler = LLMTopicLabeler(
-        model_type="openai",         # Using OpenAI as an example for rate limiting
-        model_name="gpt-3.5-turbo",
-        max_token_limit=4000,        # Will fail if prompts exceed this token count
-        max_parallel_requests=4,     # Process up to 4 topics in parallel
-        enable_fallback=True,        # Fall back to simple labeling if LLM fails
-        requests_per_minute=60,      # Limit to 60 requests per minute (OpenAI rate limit)
-        burst_limit=80,              # Allow short bursts up to 80 requests
-        # Optionally configure custom API settings
-        # api_key="your-api-key",  
-        # api_endpoint="https://your-custom-endpoint.com",  # For custom endpoints
-        # api_version="2023-07-01",  # For specific API versions
+        model_name="gpt-3.5-turbo",     # Model name (for standard OpenAI) or deployment name (for Azure)
+        api_key="your-api-key",         # Your API key for OpenAI or Azure
+        use_azure=False,                # Whether to use Azure OpenAI (True) or standard OpenAI (False)
+        # api_endpoint="https://your-resource.openai.azure.com",  # Required for Azure
+        
+        max_token_limit=4000,           # Will fail if prompts exceed this token count
+        max_parallel_requests=4,        # Process up to 4 topics in parallel
+        enable_fallback=True,           # Fall back to simple labeling if LLM fails
+        requests_per_minute=60,         # Limit to 60 requests per minute (OpenAI rate limit)
+        burst_limit=80,                 # Allow short bursts up to 80 requests
         
         # New parameters
         system_prompt_template="You are a helpful assistant that classifies text into relevant topics.",
         user_prompt_template="Classify the following text into the most appropriate topic: {{text}}",
-        batch_size=20,               # Process up to 20 texts in a single API call
-        deduplicate=True,            # Enable deduplication for similar texts
-        deduplication_threshold=0.92 # Similarity threshold for deduplication
+        batch_size=20,                  # Process up to 20 texts in a single API call
+        deduplicate=True,               # Enable deduplication for similar texts
+        deduplication_threshold=0.92    # Similarity threshold for deduplication
     )
     
     # 3. Alternative: Use the generate_text_with_llm utility directly
-    # from meno.modeling.llm_topic_labeling import generate_text_with_llm
+    # This utility provides a simplified interface for both Azure and standard OpenAI
+    # from meno import generate_text_with_llm
     # 
-    # response = generate_text_with_llm(
+    # # Azure OpenAI example
+    # azure_response = generate_text_with_llm(
     #     text="Tell me about topic modeling",
     #     api_key="your-azure-api-key",
     #     api_endpoint="https://your-resource.openai.azure.com",
-    #     deployment_id="your-deployment-name",
+    #     deployment_id="your-deployment-name",  # Required for Azure OpenAI
+    #     use_azure=True,
     #     system_prompt="You are a data science expert specializing in NLP.",
-    #     temperature=0.7
+    #     temperature=0.7,
+    #     max_tokens=300
+    # )
+    # 
+    # # Standard OpenAI example
+    # openai_response = generate_text_with_llm(
+    #     text="Summarize these keywords into a topic name: finance, stocks, investing, market",
+    #     api_key="your-openai-api-key",
+    #     model_name="gpt-4o",  # Standard OpenAI model name
+    #     use_azure=False,
+    #     system_prompt="You are a topic modeling expert.",
+    #     temperature=0.7,
+    #     max_tokens=100
     # )
     
     # 4. Generate topic names in batches with rate limiting
@@ -1877,14 +1893,14 @@ def batch_label_topics_example():
     # 6. Using different rate limits for different providers
     # For Azure OpenAI (lower rate limits)
     # azure_labeler = LLMTopicLabeler(
-    #     model_type="openai",
-    #     model_name="gpt-4",
+    #     model_name="your-deployment-name",         # Azure deployment name
+    #     api_key="your-azure-api-key",              # Azure API key
+    #     api_endpoint="https://your-resource.openai.azure.com",  # Azure endpoint
+    #     api_version="2023-05-15",                  # Azure API version
+    #     use_azure=True,                            # Use Azure OpenAI
     #     requests_per_minute=20,                    # Lower rate limit for Azure
     #     burst_limit=25,                            # Lower burst limit
-    #     api_key="your_azure_key",          
-    #     api_endpoint="https://your-resource.openai.azure.com",  # Azure endpoint
-    #     api_version="2023-05-15",                 # Azure API version
-    #     max_parallel_requests=2                   # Lower parallelism to respect rate limits
+    #     max_parallel_requests=2                    # Lower parallelism to respect rate limits
     # )
     
     return "See the example code for how to use the LLM topic labeler and utility functions"
@@ -1965,3 +1981,396 @@ def classify_texts_example():
     )
     
     return "See the example code for how to use the classify_texts method"
+
+
+def generate_call_from_text(text: str, api_key: str, api_endpoint: str, 
+                           model: str = "gpt-4o", system_prompt: str = "You are a helpful assistant.",
+                           timeout: int = 60) -> str:
+    """
+    Make a single API call to generate a response from the given text.
+    
+    Args:
+        text: The user input text to process
+        api_key: Your API key for authentication
+        api_endpoint: The API endpoint URL
+        model: The model to use for generation
+        system_prompt: The system prompt to use
+        timeout: Request timeout in seconds
+        
+    Returns:
+        The generated response text or an error message
+    """
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text}
+        ]
+    }
+    
+    try:
+        response = requests.post(
+            api_endpoint, 
+            headers=headers, 
+            json=payload,
+            timeout=timeout
+        )
+        
+        response.raise_for_status()  # Raise an exception for 4XX/5XX responses
+        
+        response_data = response.json()
+        
+        if not response_data.get('choices') or len(response_data['choices']) == 0:
+            return "[No response generated.]"
+            
+        return response_data['choices'][0]['message']['content'].strip()
+        
+    except requests.exceptions.Timeout:
+        return "[Error: Request timed out]"
+    except requests.exceptions.RequestException as e:
+        return f"[Error: {e}]"
+    except ValueError as e:  # JSON parsing error
+        return f"[Error: Invalid response format - {e}]"
+    except Exception as e:
+        return f"[Error: Unexpected error - {e}]"
+
+
+def process_texts_with_threadpool(texts: List[str], api_key: str, api_endpoint: str,
+                                 model: str = "gpt-4o", system_prompt: str = "You are a helpful assistant.",
+                                 max_workers: Optional[int] = None, timeout: int = 60) -> List[Dict[str, Any]]:
+    """
+    Process multiple texts concurrently using a ThreadPoolExecutor.
+    
+    Args:
+        texts: List of text prompts to process
+        api_key: Your API key for authentication
+        api_endpoint: The API endpoint URL
+        model: The model to use for generation
+        system_prompt: The system prompt to use
+        max_workers: Maximum number of worker threads (None = auto-determined)
+        timeout: Request timeout in seconds
+        
+    Returns:
+        List of dictionaries containing the input text, response, and timing information
+    """
+    results = []
+    
+    def process_single_text(text: str, index: int) -> Dict[str, Any]:
+        start_time = time.time()
+        response = generate_call_from_text(
+            text=text,
+            api_key=api_key,
+            api_endpoint=api_endpoint,
+            model=model,
+            system_prompt=system_prompt,
+            timeout=timeout
+        )
+        end_time = time.time()
+        
+        return {
+            "index": index,
+            "input": text,
+            "response": response,
+            "time_taken": end_time - start_time,
+            "success": not response.startswith("[Error:")
+        }
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Create a list of futures
+        futures = [
+            executor.submit(process_single_text, text, i) 
+            for i, text in enumerate(texts)
+        ]
+        
+        # Collect results as they complete
+        for future in futures:
+            try:
+                result = future.result()
+                results.append(result)
+                # Optional: Print progress
+                print(f"Completed {result['index']+1}/{len(texts)}: {'✓' if result['success'] else '✗'}")
+            except Exception as e:
+                results.append({
+                    "index": len(results),
+                    "input": texts[len(results)] if len(results) < len(texts) else "Unknown",
+                    "response": f"[Error: Thread execution failed - {e}]",
+                    "time_taken": 0,
+                    "success": False
+                })
+    
+    # Sort results by original index to maintain order
+    results.sort(key=lambda x: x["index"])
+    return results
+
+
+def format_chat_completion(chat_completion, verbose=True):
+    """
+    Format and print the details of a chat completion response.
+    
+    Args:
+        chat_completion: The chat completion response object
+        verbose: If True, prints all details. If False, prints only message content
+    
+    Returns:
+        None (prints formatted output)
+    """
+    # Handle potential None or invalid input
+    if not chat_completion:
+        print("Error: No chat completion provided")
+        return
+    
+    try:
+        if not verbose:
+            # Simple output mode - just show the message content
+            for choice in chat_completion.choices:
+                if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                    print(choice.message.content)
+            return
+            
+        # Verbose mode with all details
+        print(f"ID: {chat_completion.id}")
+        print(f"Model: {chat_completion.model}")
+        print(f"Created: {chat_completion.created}")
+        
+        print("\n=== Choices ===")
+        for i, choice in enumerate(chat_completion.choices):
+            print(f"\nChoice {i+1}:")
+            print(f"  Index: {choice.index}")
+            print(f"  Finish Reason: {choice.finish_reason}")
+            
+            # Handle message content - could be None in some cases
+            if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                print(f"  Message Content: {choice.message.content}")
+            else:
+                print(f"  Message Content: None")
+            
+            # Handle content filter results safely
+            if hasattr(choice, 'content_filter_results') and choice.content_filter_results:
+                print("\n  Content Filter Results:")
+                for key, value in choice.content_filter_results.items():
+                    filtered = value.get('filtered', 'N/A')
+                    severity = value.get('severity', 'N/A')
+                    print(f"    {key.capitalize()}: Filtered={filtered}, Severity={severity}")
+        
+        # Usage information
+        if hasattr(chat_completion, 'usage') and chat_completion.usage:
+            print("\n=== Usage ===")
+            usage_dict = vars(chat_completion.usage)
+            for key, value in usage_dict.items():
+                if key.startswith('_'):  # Skip private attributes
+                    continue
+                print(f"  {key.replace('_', ' ').capitalize()}: {value}")
+                
+    except AttributeError as e:
+        print(f"Error accessing attributes: {e}")
+        print("The response object may have a different structure than expected.")
+    except Exception as e:
+        print(f"Error formatting chat completion: {e}")
+        
+    print("\n" + "-" * 50)  # Add separator for clarity
+
+
+def identify_fuzzy_duplicates(
+    texts: List[str],
+    threshold: float = 0.92
+) -> Dict[int, int]:
+    """
+    Identify fuzzy duplicates in a list of texts.
+    
+    This utility function finds texts that are similar to each other based on a 
+    similarity threshold. Use this for deduplication before sending texts to LLMs
+    to save on API costs.
+    
+    Parameters
+    ----------
+    texts : List[str]
+        List of text strings to check for duplicates
+    threshold : float, optional
+        Similarity threshold (0.0-1.0), by default 0.92
+        Higher values are more strict (require more similarity to consider duplicates)
+        
+    Returns
+    -------
+    Dict[int, int]
+        Dictionary mapping duplicate indices to their representative index
+    """
+    def _calculate_text_similarity(text1: str, text2: str) -> float:
+        """Calculate text similarity ratio between two strings."""
+        return SequenceMatcher(None, text1, text2).ratio()
+        
+    duplicate_map = {}
+    processed = set()
+    
+    for i, text1 in enumerate(texts):
+        if i in processed:
+            continue
+            
+        processed.add(i)
+        
+        for j in range(i + 1, len(texts)):
+            if j in processed:
+                continue
+                
+            text2 = texts[j]
+            
+            # Calculate similarity
+            similarity = _calculate_text_similarity(text1, text2)
+            
+            # If similar enough, mark as duplicate
+            if similarity >= threshold:
+                duplicate_map[j] = i
+                processed.add(j)
+    
+    return duplicate_map
+
+
+def process_texts_with_deduplication(
+    texts: List[str], 
+    api_key: str, 
+    api_endpoint: str,
+    model: str = "gpt-4o", 
+    system_prompt: str = "You are a helpful assistant.",
+    max_workers: Optional[int] = None, 
+    timeout: int = 60,
+    deduplicate: bool = True,
+    deduplication_threshold: float = 0.92
+) -> List[Dict[str, Any]]:
+    """
+    Process multiple texts with deduplication and parallel execution.
+    
+    This function combines fuzzy deduplication with parallel processing to
+    efficiently handle large sets of texts, potentially saving on API costs
+    by only processing unique content.
+    
+    Parameters
+    ----------
+    texts : List[str]
+        List of text prompts to process
+    api_key : str
+        Your API key for authentication
+    api_endpoint : str
+        The API endpoint URL
+    model : str, optional
+        The model to use for generation, by default "gpt-4o"
+    system_prompt : str, optional
+        The system prompt to use, by default "You are a helpful assistant."
+    max_workers : Optional[int], optional
+        Maximum number of worker threads, by default None
+    timeout : int, optional
+        Request timeout in seconds, by default 60
+    deduplicate : bool, optional
+        Whether to perform deduplication, by default True
+    deduplication_threshold : float, optional
+        Similarity threshold for deduplication, by default 0.92
+        
+    Returns
+    -------
+    List[Dict[str, Any]]
+        List of dictionaries containing the input text, response, and other metadata
+    """
+    if not texts:
+        return []
+    
+    # Deduplication to reduce API calls    
+    if deduplicate:
+        # Identify duplicates
+        duplicate_map = identify_fuzzy_duplicates(texts, deduplication_threshold)
+        
+        # Create a set of unique text indices
+        unique_indices = set(range(len(texts)))
+        for dup_idx in duplicate_map:
+            unique_indices.discard(dup_idx)
+            
+        # Create list of unique texts for processing
+        unique_texts = [texts[idx] for idx in sorted(unique_indices)]
+        
+        print(f"Deduplication reduced {len(texts)} texts to {len(unique_texts)} unique texts")
+    else:
+        unique_texts = texts
+        unique_indices = set(range(len(texts)))
+        duplicate_map = {}
+    
+    # Process unique texts with ThreadPoolExecutor
+    unique_results = []
+    
+    def process_single_text(text: str, index: int) -> Dict[str, Any]:
+        start_time = time.time()
+        response = generate_call_from_text(
+            text=text,
+            api_key=api_key,
+            api_endpoint=api_endpoint,
+            model=model,
+            system_prompt=system_prompt,
+            timeout=timeout
+        )
+        end_time = time.time()
+        
+        return {
+            "index": index,
+            "input": text,
+            "response": response,
+            "time_taken": end_time - start_time,
+            "success": not response.startswith("[Error:")
+        }
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Create a list of futures for unique texts only
+        futures = [
+            executor.submit(process_single_text, text, idx) 
+            for idx, text in zip(sorted(unique_indices), unique_texts)
+        ]
+        
+        # Collect results as they complete
+        for future in futures:
+            try:
+                result = future.result()
+                unique_results.append(result)
+                # Optional: Print progress
+                print(f"Completed {len(unique_results)}/{len(unique_texts)}: {'✓' if result['success'] else '✗'}")
+            except Exception as e:
+                print(f"Error processing text: {e}")
+                # Add a placeholder result
+                unique_results.append({
+                    "index": -1,  # Will be fixed in post-processing
+                    "input": "Error",
+                    "response": f"[Error: Thread execution failed - {e}]",
+                    "time_taken": 0,
+                    "success": False
+                })
+    
+    # If no deduplication was done, return results directly
+    if not deduplicate:
+        # Sort results by original index to maintain order
+        return sorted(unique_results, key=lambda x: x["index"])
+    
+    # Map results back to include duplicates
+    final_results = []
+    
+    # Create a map from unique indices to results
+    index_to_result = {r["index"]: r for r in unique_results}
+    
+    # Fill in results for all original texts
+    for i in range(len(texts)):
+        if i in unique_indices:
+            # This is a unique text, copy its result directly
+            final_results.append(index_to_result[i])
+        else:
+            # This is a duplicate, copy from its source with adjusted metadata
+            source_idx = duplicate_map[i]
+            source_result = index_to_result[source_idx].copy()
+            
+            # Update the metadata for this duplicate
+            source_result["index"] = i
+            source_result["input"] = texts[i]
+            source_result["is_duplicate"] = True
+            source_result["duplicate_of"] = source_idx
+            
+            final_results.append(source_result)
+    
+    # Sort results by original index to maintain order
+    return sorted(final_results, key=lambda x: x["index"])

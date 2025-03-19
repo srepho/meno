@@ -1,4 +1,4 @@
-# Meno: Topic Modeling Toolkit (v1.2.10)
+# Meno: Topic Modeling Toolkit (v1.3.1)
 
 <p align="center">
   <img src="meno.webp" alt="Meno Logo" width="250"/>
@@ -44,6 +44,66 @@ model.fit(documents)
 # Print topics and save visualization
 print(model.get_topic_info())
 model.visualize_topics().write_html("tfidf_topics.html")
+```
+
+### Direct LLM API Usage
+
+```python
+from meno.modeling.llm_topic_labeling import (
+    generate_call_from_text,
+    process_texts_with_threadpool,
+    identify_fuzzy_duplicates,
+    process_texts_with_deduplication
+)
+
+# Simple direct API call (single text)
+api_key = "your_api_key_here"
+api_endpoint = "https://api.openai.com/v1/chat/completions"
+system_prompt = "You are a topic labeling assistant."
+text = "Please analyze this document and suggest a topic"
+
+result = generate_call_from_text(
+    text=text, 
+    api_key=api_key, 
+    api_endpoint=api_endpoint,
+    system_prompt=system_prompt
+)
+print(f"Generated topic: {result}")
+
+# Process multiple texts concurrently
+texts = ["Sample document 1", "Sample document 2", "Sample document 3"]
+results = process_texts_with_threadpool(
+    texts=texts,
+    api_key=api_key,
+    api_endpoint=api_endpoint,
+    max_workers=3  # Process up to 3 texts simultaneously
+)
+
+# Print results
+for r in results:
+    print(f"Document: {r['input'][:50]}...")
+    print(f"Topic: {r['response']}")
+    print(f"Processing time: {r['time_taken']:.2f} seconds")
+
+# Process with deduplication to save on API costs
+texts_with_duplicates = [
+    "Keywords: finance, investment, banking",
+    "Keywords: banking, finance, investment",  # Similar to first text
+    "Keywords: technology, computers, software"
+]
+
+# Identify similar texts
+duplicates = identify_fuzzy_duplicates(texts_with_duplicates, threshold=0.85)
+print(f"Found {len(duplicates)} potential duplicates")
+
+# Process with automatic deduplication (only unique texts are sent to the API)
+results = process_texts_with_deduplication(
+    texts=texts_with_duplicates,
+    api_key=api_key,
+    api_endpoint=api_endpoint,
+    deduplicate=True,
+    deduplication_threshold=0.85
+)
 ```
 
 ### Complete Interactive Workflow
@@ -214,25 +274,25 @@ heatmap.write_html("topic_similarity.html")
 modeler.visualize_topic_words(topic_id=1, output_path="topic1_wordcloud.html")
 ```
 
+## What's New in v1.3.1
+
+- **Enhanced OpenAI Integration**
+  - **New Utility Function** - Added `generate_text_with_llm` utility for simple direct API access
+  - **Improved Parameter Handling** - Consistent API for both Azure and standard OpenAI endpoints
+  - **Simplified API Interface** - Renamed `openai_api_key` to `api_key` for consistency
+  - **Better Documentation** - Enhanced examples for both Azure and standard OpenAI usage
+
+- **Bug Fixes**
+  - Fixed Azure OpenAI integration with proper deployment_id parameter usage
+  - Fixed client initialization for both Azure and standard OpenAI APIs
+  - Improved error messages and parameter validation
+
 ## What's New in v1.2.10
 
 - **Bug Fixes**
   - Fixed critical OpenAI API integration for classification_texts method
   - Improved API parameter handling for OpenAI chat completions
   - Fixed message formatting for both Azure and standard OpenAI endpoints
-
-## What's New in v1.2.9
-
-- **New Features**
-  - **Azure OpenAI Support** - Native integration with Azure OpenAI API for LLM topic labeling
-  - **Endpoint Detection** - Automatic detection of Azure endpoints and appropriate client selection
-  - **Deployment ID Support** - Uses deployment_id parameter correctly for Azure OpenAI models
-
-- **Bug Fixes**
-  - Fixed additional f-string compatibility issues for Python 3.10+
-  - Fixed incompatible `rf"..."` syntax in preprocessing modules
-  - Resolved import issues with SimpleFeedback and TopicFeedbackManager classes
-  - Updated dependency requirements for better cross-platform support
 
 - **Enhanced Features**
   - **Deduplication** - Remove duplicate documents for cleaner topic modeling results
@@ -890,6 +950,7 @@ See the example scripts in the [examples directory](examples/) organized by cate
 from meno.modeling.bertopic_model import BERTopicModel
 from meno.modeling.embeddings import DocumentEmbedding
 from meno.modeling.llm_topic_labeling import LLMTopicLabeler
+from meno import generate_text_with_llm
 import pandas as pd
 
 # Load your data
@@ -930,10 +991,20 @@ print(model.get_topic_info()[["Topic", "Name"]])
 topic_model = BERTopicModel(auto_detect_topics=True)
 topic_model.fit(documents)
 
-# Create LLM labeler
+# Create LLM labeler with Azure OpenAI
 labeler = LLMTopicLabeler(
-    model_type="openai",
-    model_name="gpt-3.5-turbo",
+    model_name="your-deployment-name",  # Azure deployment name
+    api_key="your-api-key",             # Azure API key
+    api_endpoint="https://your-resource.openai.azure.com",
+    use_azure=True,                     # Use Azure OpenAI
+    temperature=0.7
+)
+
+# Or with standard OpenAI
+standard_labeler = LLMTopicLabeler(
+    model_name="gpt-4o",                # Standard OpenAI model name
+    api_key="your-api-key",             # OpenAI API key
+    use_azure=False,                    # Use standard OpenAI
     temperature=0.7
 )
 
@@ -946,6 +1017,28 @@ topic_names = labeler.label_topics(
 
 for topic_id, name in topic_names.items():
     print(f"Topic {topic_id}: {name}")
+
+# Method 4: Direct API interaction using utility function
+response = generate_text_with_llm(
+    text="Summarize these keywords into a topic name: technology, computer, software, AI",
+    api_key="your-api-key",
+    api_endpoint="https://your-resource.openai.azure.com",
+    deployment_id="your-deployment-name",  # Required for Azure
+    use_azure=True,
+    system_prompt="You are a topic naming expert."
+)
+print(f"Generated topic name: {response}")
+
+# With standard OpenAI
+standard_response = generate_text_with_llm(
+    text="Summarize these keywords into a topic name: finance, stocks, investing, market",
+    api_key="your-openai-api-key",
+    api_endpoint=None,
+    model_name="gpt-4o",
+    use_azure=False,
+    system_prompt="You are a topic naming expert."
+)
+print(f"Generated topic name: {standard_response}")
 ```
 
 ## Future Development
