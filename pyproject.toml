@@ -113,7 +113,6 @@ active = [
 additional_models = [
     "bertopic>=0.15.0,<0.16.0",
     "top2vec>=1.0.27,<2.0.0",
-    "nmf-topic-modeling>=0.2.0,<0.3.0",
     "contextualized-topic-models>=2.5.0,<3.0.0",
 ]
 simple_models = [
