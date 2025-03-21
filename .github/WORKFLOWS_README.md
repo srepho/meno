@@ -1,97 +1,143 @@
-# Meno CI/CD and Security Workflows
+# GitHub Workflows for Meno
 
+This directory contains GitHub Actions workflows for continuous integration, testing, and deployment of the Meno package. These workflows help ensure code quality, compatibility, and proper functioning across different environments.
+
+## Available Workflows
+
+### 1. CI Tests (CPU) - `ci-cpu.yml`
+
+The primary CI workflow runs on standard GitHub-hosted runners with CPU-only environments. This workflow:
+
+- Runs on push to `main` and on pull requests
+- Tests on Python 3.8 and 3.10
+- Installs all required dependencies
+- Runs the full test suite
+- Reports code coverage to Codecov
+
+```yaml
+name: CI Tests (CPU)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+```
+
+### 2. CI Tests (GPU) - `ci-gpu.yml`
+
+This workflow tests GPU-specific functionality on self-hosted runners with NVIDIA GPUs:
+
+- Runs on push to `main` and on pull requests
+- Tests on Python 3.10 with CUDA support
+- Verifies CUDA availability and compatibility
+- Runs GPU-specific tests to ensure acceleration works properly
+- Includes alternative Azure ML-based GPU testing
+
+```yaml
+name: CI Tests (GPU)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 3'  # Run weekly on Wednesday at midnight
+```
+
+### 3. Secret Scanning - `secret-scanning.yml`
+
+This security workflow scans the codebase for accidentally committed secrets:
+
+- Uses detect-secrets to scan all files for potential secrets
+- Runs TruffleHog to detect secrets in git history
+- Flags any potential security issues
+- Runs on push, pull request, and weekly schedule
+
+```yaml
+name: Secret Scanning
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly scan on Sunday at midnight
+```
+
+### 4. Scheduled Testing - `scheduled-testing.yml`
+
+This workflow performs comprehensive testing across multiple Python versions and installation configurations:
+
+- Runs weekly on Monday at midnight
+- Tests on Python 3.8, 3.9, 3.10, 3.11, and 3.12
+- Adapts test suite based on Python version
+- Tests different installation options (minimal, CPU-optimized, full)
+- Reports code coverage to Codecov
+
+```yaml
+name: Scheduled Testing
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Run weekly on Monday at midnight
+  workflow_dispatch:  # Allow manual triggering
+```
+
+## Workflow Infrastructure
+
+### Self-Hosted GPU Runners
+
+For GPU testing, we use self-hosted runners with NVIDIA GPUs. See `.github/self-hosted-runner-setup.md` for detailed setup instructions.
+
+### Azure ML GPU Testing
+
+As an alternative to self-hosted runners, we also support GPU testing on Azure ML:
+
+- Configuration in `.azure/gpu-test-job.yml`
+- Triggered manually or on schedule
+- Uses Azure ML GPU compute for running tests
+- Requires `AZURE_CREDENTIALS` secret with appropriate access
+
+## Secret Management
+
+The following secrets are required for these workflows:
+
+- `CODECOV_TOKEN`: Token for uploading coverage reports to Codecov
+- `AZURE_CREDENTIALS`: JSON credentials for Azure ML GPU testing (only if using Azure ML)
+
+## Badges
+
+Workflow status badges can be added to README.md using:
+
+```markdown
 [![Build Status](https://github.com/srepho/meno/actions/workflows/ci-cpu.yml/badge.svg)](https://github.com/srepho/meno/actions)
 [![Code Coverage](https://codecov.io/gh/srepho/meno/branch/main/graph/badge.svg)](https://codecov.io/gh/srepho/meno)
-[![Secret Scanning](https://github.com/srepho/meno/actions/workflows/secret-scanning.yml/badge.svg)](https://github.com/srepho/meno/actions)
+```
 
-This directory contains GitHub Actions workflows for Meno's continuous integration, delivery, and security scanning.
+## Local Workflow Testing
 
-## Workflows
+To test workflows locally before pushing:
 
-### Secret Scanning (`secret-scanning.yml`)
-
-This workflow scans the codebase for accidentally committed credentials, API keys, and other secrets.
-
-Features:
-- Uses multiple scanning tools: detect-secrets, truffleHog, and custom regex patterns
-- Checks for common patterns like API keys, passwords, and AWS credentials
-- Runs on every push and pull request to prevent secrets from being merged
-
-### CI/CD CPU (`ci-cpu.yml`)
-
-This workflow runs tests and builds on CPU environments.
-
-Features:
-- Tests on multiple Python versions (3.8, 3.10, 3.12)
-- Runs code quality checks: ruff, black, mypy
-- Executes the full test suite for CPU compatibility
-- Builds and validates the Python package
-- Generates documentation (when configured)
-
-### CI/CD GPU (`ci-gpu.yml`)
-
-This workflow tests on GPU environments.
-
-Features:
-- Supports multiple GPU testing options:
-  - Self-hosted runners with GPU
-  - Azure ML GPU compute
-- Runs tests that specifically require GPU
-- Generates coverage reports
-- Publishes to PyPI when a tag is created
-
-## Setting Up
-
-### Secret Scanning
-
-No additional setup required. This will run automatically on push and pull requests.
-
-### CPU Testing
-
-No additional setup required beyond ensuring all dependencies are in the repository.
-
-### GPU Testing
-
-Choose one of the following options:
-
-1. **Self-hosted runner with GPU:**
-   - Follow the setup instructions in `self-hosted-runner-setup.md`
-   - Uncomment the appropriate lines in `ci-gpu.yml`
-
-2. **Azure ML for GPU testing:**
-   - Create an Azure ML workspace
-   - Add your Azure credentials to GitHub repository secrets as `AZURE_CREDENTIALS`
-   - Adjust the `.azure/gpu-test-job.yml` file as needed
-
-3. **GitHub-hosted runners with GPU** (additional cost):
-   - Uncomment the appropriate lines in `ci-gpu.yml`
-   - Be aware of the additional costs for GPU runners
-
-### PyPI Publishing
-
-To enable automatic publishing to PyPI:
-1. Generate a PyPI API token
-2. Add the token to GitHub repository secrets as `PYPI_API_TOKEN`
-3. Create a tag to trigger the release:
-   ```bash
-   git tag v1.3.4
-   git push origin v1.3.4
-   ```
-
-## Customizing the Workflows
-
-These workflows are designed to be customizable for specific needs:
-
-- Adjust the Python versions in the matrix strategy
-- Modify the test commands or add additional test groups
-- Change the build and publishing steps
-- Add additional linting or security checks
+1. Install [act](https://github.com/nektos/act)
+2. Run: `act -j test`
 
 ## Troubleshooting
 
-If you encounter issues with the workflows:
+Common issues and solutions:
 
-1. Check the workflow run logs in the GitHub Actions tab
-2. Verify that all required secrets are properly set
-3. For GPU workflows, ensure the compute environment is correctly configured
-4. Test the commands locally before pushing to GitHub
+- **Workflow fails on dependency installation**: Check that all dependencies are correctly specified in `setup.py` and `pyproject.toml`.
+- **GPU tests fail**: Ensure self-hosted runners have correct CUDA configuration. See `.github/self-hosted-runner-setup.md`.
+- **Coverage reporting fails**: Make sure test command includes `--cov=meno --cov-report=xml` and the Codecov token is correctly set.
+- **Secret scanning false positives**: Add exceptions to `detect-secrets` config if needed.
+
+## Making Changes
+
+When modifying workflows:
+
+1. Test changes locally using [act](https://github.com/nektos/act) if possible
+2. Create a separate PR for workflow changes
+3. Document changes in this README
+4. Ensure all workflows pass on your PR before merging

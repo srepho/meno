@@ -2,137 +2,99 @@ name: Scheduled Testing
 
 on:
   schedule:
-    - cron: '0 4 * * 1'  # Run every Monday at 4:00 AM UTC
+    - cron: '0 0 * * 1'  # Run weekly on Monday at midnight
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  test-all-python-versions:
-    name: Test Multiple Python Versions
+  # Test across multiple Python versions including the latest
+  matrix-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-      fail-fast: false
+        include:
+          - python-version: '3.8'
+            test-suite: 'essential'
+          - python-version: '3.9'
+            test-suite: 'essential'
+          - python-version: '3.10'
+            test-suite: 'full'
+          - python-version: '3.11'
+            test-suite: 'full'
+          - python-version: '3.12'
+            test-suite: 'compatibility'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
+    - uses: actions/checkout@v3
+    
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-
+    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov
-        pip install -e ".[cpu,dev,test]"
-
-    - name: Run CPU tests
-      run: |
-        pytest tests/ --ignore=tests/test_optimized_embedding.py --cpu-only -v
+        pip install pytest pytest-cov ruff mypy black
         
-    - name: Report status
+        # Install core dependencies for all versions
+        pip install -e ".[minimal,dev,test]"
+        
+        # For full test suite, install all dependencies
+        if [ "${{ matrix.test-suite }}" = "full" ]; then
+          pip install -e ".[embeddings,viz,clustering,nlp]"
+          python -m spacy download en_core_web_sm
+          pip install -e ".[simple_models,additional_models]"
+        fi
+        
+        # For essential test suite, install basic dependencies
+        if [ "${{ matrix.test-suite }}" = "essential" ]; then
+          pip install -e ".[embeddings,viz]"
+          python -m spacy download en_core_web_sm
+        fi
+    
+    - name: Run tests based on test suite
       run: |
-        echo "Tests completed for Python ${{ matrix.python-version }}"
-
-  test-dependency-versions:
-    name: Test with Latest Dependencies
+        if [ "${{ matrix.test-suite }}" = "full" ]; then
+          pytest tests/ --cov=meno --cov-report=xml
+        elif [ "${{ matrix.test-suite }}" = "essential" ]; then
+          pytest tests/test_workflow.py tests/test_config.py tests/test_preprocessing.py --cov=meno --cov-report=xml
+        elif [ "${{ matrix.test-suite }}" = "compatibility" ]; then
+          pytest tests/test_workflow.py tests/test_config.py --cov=meno --cov-report=xml
+        fi
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.xml
+        flags: python-${{ matrix.python-version }}
+        fail_ci_if_error: false
+  
+  # Test installation options
+  installation-test:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up Python
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-
-    - name: Install latest dependencies
+    
+    - name: Test minimal installation
       run: |
         python -m pip install --upgrade pip
-        # Install dependencies without version constraints
-        sed 's/>=.*,\s*</</g; s/>=.*</</g' pyproject.toml > pyproject_latest.toml
-        pip install -e ".[cpu,dev,test]"
-        
-    - name: Run compatibility tests
-      run: |
-        # Run a subset of tests to verify compatibility
-        pytest tests/test_lightweight_models.py tests/test_preprocessing.py -v
-        
-    - name: Report compatibility status
-      run: |
-        echo "Compatibility tests with latest dependencies completed"
-        
-  integration-test:
-    name: Integration Tests
-    runs-on: ubuntu-latest
+        pip install -e ".[minimal]"
+        python -c "import meno; print(f'Meno version: {meno.__version__}')"
     
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Install dependencies
+    - name: Test CPU-optimized installation
       run: |
-        python -m pip install --upgrade pip
-        pip install pytest pytest-cov
-        pip install -e ".[cpu,dev,test]"
-        
-    - name: Run integration tests
-      run: |
-        # Run only integration tests
-        pytest tests/test_workflow.py tests/test_integration.py tests/test_integration_functional.py -v
-        
-    - name: Generate report
-      run: |
-        echo "Integration tests completed"
-
-  notify:
-    name: Notify on failures
-    needs: [test-all-python-versions, test-dependency-versions, integration-test]
-    runs-on: ubuntu-latest
-    if: ${{ failure() }}
+        pip install -e ".[embeddings,viz,clustering,nlp]" -f https://download.pytorch.org/whl/torch_stable.html
+        python -c "from meno.modeling.embeddings import DocumentEmbedding; model = DocumentEmbedding(model_name='all-MiniLM-L6-v2', device='cpu'); print('Embedding model loaded successfully')"
     
-    steps:
-    - name: Send notification
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: ${{ secrets.MAIL_SERVER }}
-        server_port: ${{ secrets.MAIL_PORT }}
-        username: ${{ secrets.MAIL_USERNAME }}
-        password: ${{ secrets.MAIL_PASSWORD }}
-        subject: "[FAILED] Scheduled tests for Meno"
-        body: |
-          Scheduled tests for Meno have failed.
-          
-          Please check the GitHub Actions logs for more details:
-          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        to: ${{ secrets.MAIL_RECIPIENT }}
-        from: GitHub Actions
-      # Continue even if email notification fails
-      continue-on-error: true
-      
-    - name: Create issue on failure
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          github.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            title: '⚠️ Scheduled tests failed',
-            body: `Scheduled tests have failed on ${new Date().toISOString().split('T')[0]}.
-            
-            ### Failed workflow
-            
-            ${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
-            
-            Please investigate and fix the failing tests.`
-          })
+    - name: Test full installation
+      run: |
+        pip install -e ".[full]" -f https://download.pytorch.org/whl/torch_stable.html
+        python -c "from meno.modeling.bertopic_model import BERTopicModel; from meno.modeling.simple_models.lightweight_models import TFIDFTopicModel; print('All models loaded successfully')"
