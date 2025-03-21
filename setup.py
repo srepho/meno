@@ -29,8 +29,10 @@ setup(
     ],
     python_requires=">=3.8,<3.14",
     install_requires=[
-        "pandas>=2.0.0,<3.0.0",
-        "pyarrow>=11.0.0",
+        "pandas>=1.5.0,<3.0.0;python_version<'3.9'",  # Python 3.8 compatibility
+        "pandas>=2.0.0,<3.0.0;python_version>='3.9'",  # Modern pandas with numpy 2.0+
+        "pyarrow>=11.0.0;python_version>='3.9'",      # Keep version constraint open for NumPy 2.0 compatibility
+        "pyarrow>=11.0.0,<13.0.0;python_version<'3.9'",  # Limited version for Python 3.8
         "scikit-learn>=1.2.0,<2.0.0",
         "pydantic>=2.0.0,<3.0.0",
         "pyyaml>=6.0,<7.0",
@@ -54,7 +56,12 @@ setup(
             "hdbscan>=0.8.29,<0.9.0", 
             "bertopic>=0.15.0,<0.16.0",
             "gensim>=4.3.0,<5.0.0",
-            "spacy>=3.5.0,<4.0.0",
+            "spacy>=3.5.0,<4.0.0;python_version>='3.9'",
+            "spacy>=3.5.0,<3.6.0;python_version<'3.9'",  # Limit spacy version for Python 3.8
+            "blis<1.0.0;python_version<'3.9'",  # Prevent blis pulling in numpy 2.0 on Python 3.8
+            "murmurhash<1.0.5;python_version<'3.9'",  # Prevent dependency on numpy 2.0
+            "preshed<3.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
+            "cymem<2.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
             "wordcloud>=1.9.0,<2.0.0",
             "en_core_web_sm>=3.5.0,<4.0.0",
         ],
@@ -67,7 +74,12 @@ setup(
             "hdbscan>=0.8.29,<0.9.0", 
             "bertopic>=0.15.0,<0.16.0",
             "gensim>=4.3.0,<5.0.0",
-            "spacy>=3.5.0,<4.0.0",
+            "spacy>=3.5.0,<4.0.0;python_version>='3.9'",
+            "spacy>=3.5.0,<3.6.0;python_version<'3.9'",  # Limit spacy version for Python 3.8
+            "blis<1.0.0;python_version<'3.9'",  # Prevent blis pulling in numpy 2.0 on Python 3.8
+            "murmurhash<1.0.5;python_version<'3.9'",  # Prevent dependency on numpy 2.0
+            "preshed<3.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
+            "cymem<2.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
             "wordcloud>=1.9.0,<2.0.0",
             "en_core_web_sm>=3.5.0,<4.0.0",
             "bitsandbytes>=0.41.0,<1.0.0",
@@ -85,7 +97,12 @@ setup(
             "hdbscan>=0.8.29,<0.9.0", 
             "bertopic>=0.15.0,<0.16.0",
             "gensim>=4.3.0,<5.0.0",
-            "spacy>=3.5.0,<4.0.0",
+            "spacy>=3.5.0,<4.0.0;python_version>='3.9'",
+            "spacy>=3.5.0,<3.6.0;python_version<'3.9'",  # Limit spacy version for Python 3.8
+            "blis<1.0.0;python_version<'3.9'",  # Prevent blis pulling in numpy 2.0 on Python 3.8
+            "murmurhash<1.0.5;python_version<'3.9'",  # Prevent dependency on numpy 2.0
+            "preshed<3.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
+            "cymem<2.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
             "wordcloud>=1.9.0,<2.0.0",
         ],
         "spacy_model": [
@@ -99,10 +116,16 @@ setup(
             "plotly>=5.14.0,<6.0.0",
             "umap-learn>=0.5.3,<0.6.0",
             "hdbscan>=0.8.29,<0.9.0",
-            "spacy>=3.5.0,<4.0.0",
+            "spacy>=3.5.0,<4.0.0;python_version>='3.9'",
+            "spacy>=3.5.0,<3.6.0;python_version<'3.9'",  # Limit spacy version for Python 3.8
+            "blis<1.0.0;python_version<'3.9'",  # Prevent blis pulling in numpy 2.0 on Python 3.8
+            "murmurhash<1.0.5;python_version<'3.9'",  # Prevent dependency on numpy 2.0
+            "preshed<3.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
+            "cymem<2.1.0;python_version<'3.9'",  # Pin to working version for Python 3.8
             "en_core_web_sm>=3.5.0,<4.0.0",
             "cleanlab>=2.3.0,<3.0.0",
-            "polars>=1.11.0,<1.15.0",
+            "polars>=1.11.0,<1.15.0;python_version>='3.9'",
+            "polars>=1.11.0,<1.14.0;python_version<'3.9'",  # Limit polars version for Python 3.8
             "bertopic>=0.15.0,<0.16.0",
             "top2vec>=1.0.27,<2.0.0",
             "wordcloud>=1.9.0,<2.0.0",
