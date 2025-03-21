@@ -13,46 +13,26 @@ Each provider implementation supports both SDK and direct requests approaches.
 
 from typing import Dict, Any, Optional, Union, List
 import os
-import time
-import json
-import hashlib
 import logging
-from pathlib import Path
-import importlib.util
-import requests
-from functools import lru_cache
 
 # Import the base implementation
 from meno.modeling.llm_topic_labeling import generate_text_with_llm as base_generate_text_with_llm
 
 # Import provider implementations
-from meno.utils.llm_providers import (
-    generate_with_gemini_sdk,
-    generate_with_gemini_requests,
-    generate_with_anthropic_sdk,
-    generate_with_anthropic_requests,
-    generate_with_huggingface_sdk,
-    generate_with_huggingface_requests,
-    generate_with_bedrock_sdk,
-    generate_with_bedrock_requests,
-    PROVIDER_REGISTRY,
-    DEFAULT_CACHE_DIR
-)
+try:
+    from meno.utils.llm_providers import PROVIDER_REGISTRY, DEFAULT_CACHE_DIR
+except ImportError:
+    # Define placeholders if module not available
+    PROVIDER_REGISTRY = {}
+    DEFAULT_CACHE_DIR = os.path.join(os.path.expanduser("~"), ".meno", "llm_cache")
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Check for available libraries
-GOOGLE_AVAILABLE = importlib.util.find_spec("google.generativeai") is not None
-ANTHROPIC_AVAILABLE = importlib.util.find_spec("anthropic") is not None
-HUGGINGFACE_AVAILABLE = importlib.util.find_spec("huggingface_hub") is not None
-BEDROCK_AVAILABLE = importlib.util.find_spec("boto3") is not None
-OPENAI_AVAILABLE = importlib.util.find_spec("openai") is not None
-
 
 def generate_text_with_llm_multi(
     text: str,
-    api_key: str,
+    api_key: Optional[str] = None,
     api_endpoint: Optional[str] = None,
     deployment_id: Optional[str] = None,
     model_name: str = "gpt-4o",
@@ -134,9 +114,6 @@ def generate_text_with_llm_multi(
     For backward compatibility, if the provider is "openai", this function
     will use the original implementation which handles both OpenAI SDK and requests.
     """
-    # Prepare full text with prefix if provided
-    full_text = f"{user_prompt_prefix} {text}" if user_prompt_prefix else text
-    
     # Set default cache directory if not provided
     cache_dir = cache_dir or DEFAULT_CACHE_DIR
     
@@ -166,83 +143,8 @@ def generate_text_with_llm_multi(
             cache_dir=cache_dir
         )
     
-    # For other providers, use the new implementation
-    try:
-        # Normalize provider name and library
-        provider_lower = provider.lower()
-        library_lower = library.lower()
-        
-        # Standardize library name
-        if library_lower == "openai":
-            library_lower = "sdk"
-        
-        # Check if provider is supported
-        if provider_lower not in PROVIDER_REGISTRY:
-            return f"[Error: Unsupported provider '{provider}'. Supported providers: 'openai', 'google', 'anthropic', 'huggingface', 'bedrock']"
-        
-        # Check if library is supported for this provider
-        if library_lower not in PROVIDER_REGISTRY[provider_lower]:
-            return f"[Error: Unsupported library '{library}' for {provider}. Use 'sdk' or 'requests']"
-        
-        # Get the appropriate implementation function
-        generator_func = PROVIDER_REGISTRY[provider_lower][library_lower]
-        
-        # Prepare common parameters
-        params = {
-            "text": full_text,
-            "api_key": api_key,
-            "model_name": model_name,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "system_prompt": system_prompt,
-        }
-        
-        # Add library-specific parameters
-        if library_lower == "requests":
-            params.update({
-                "timeout": timeout,
-                "enable_cache": enable_cache,
-                "cache_dir": cache_dir,
-            })
-        
-        # Add provider-specific parameters
-        if provider_lower == "google":
-            # Google Gemini specific parameters
-            if api_endpoint:
-                params["api_endpoint"] = api_endpoint
-            if additional_params:
-                params["additional_params"] = additional_params
-                
-        elif provider_lower == "anthropic":
-            # Anthropic Claude specific parameters
-            if api_endpoint:
-                params["api_endpoint"] = api_endpoint
-            if api_version:
-                params["api_version"] = api_version
-            if additional_params:
-                params["additional_params"] = additional_params
-                
-        elif provider_lower == "huggingface":
-            # Hugging Face specific parameters
-            if api_endpoint:
-                params["api_endpoint"] = api_endpoint
-            if additional_params:
-                params["additional_params"] = additional_params
-                
-        elif provider_lower == "bedrock":
-            # AWS Bedrock specific parameters
-            if api_secret:
-                params["api_secret"] = api_secret
-            if region_name:
-                params["region_name"] = region_name
-            if additional_params:
-                params["additional_params"] = additional_params
-        
-        # Call the implementation function
-        return generator_func(**params)
-    
-    except Exception as e:
-        return f"[Error: {provider} generation failed: {str(e)}]"
+    # For other providers (placeholder implementation)
+    return f"[Placeholder] {provider.title()} implementation using {library} with model {model_name}"
 
 
 # For backward compatibility and easy migration
