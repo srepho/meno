@@ -46,7 +46,7 @@ from meno.modeling.llm_topic_labeling_extended import generate_text_with_llm_mul
 # Generate text with OpenAI (original functionality)
 response = generate_text_with_llm_multi(
     text="What are three key benefits of topic modeling?",
-    api_key="your-openai-api-key",
+    api_key="OPENAI_API_KEY_PLACEHOLDER",
     provider="openai",
     model_name="gpt-3.5-turbo"
 )
@@ -54,7 +54,7 @@ response = generate_text_with_llm_multi(
 # Generate text with Google Gemini
 response = generate_text_with_llm_multi(
     text="What are three key benefits of topic modeling?",
-    api_key="your-google-api-key",
+    api_key="GOOGLE_API_KEY_PLACEHOLDER",
     provider="google",
     model_name="gemini-pro"
 )
@@ -62,7 +62,7 @@ response = generate_text_with_llm_multi(
 # Generate text with Anthropic Claude
 response = generate_text_with_llm_multi(
     text="What are three key benefits of topic modeling?",
-    api_key="your-anthropic-api-key",
+    api_key="ANTHROPIC_API_KEY_PLACEHOLDER",
     provider="anthropic",
     model_name="claude-3-haiku-20240307"
 )
@@ -76,7 +76,7 @@ For each provider, you can choose between using the official SDK or direct HTTP 
 # Using Google Gemini with SDK
 response = generate_text_with_llm_multi(
     text="Compare and contrast different topic modeling approaches.",
-    api_key="your-google-api-key",
+    api_key="GOOGLE_API_KEY_PLACEHOLDER",
     provider="google",
     library="sdk",
     model_name="gemini-pro"
@@ -85,7 +85,7 @@ response = generate_text_with_llm_multi(
 # Using Google Gemini with direct requests
 response = generate_text_with_llm_multi(
     text="Compare and contrast different topic modeling approaches.",
-    api_key="your-google-api-key",
+    api_key="GOOGLE_API_KEY_PLACEHOLDER",
     provider="google",
     library="requests",
     model_name="gemini-pro"
@@ -100,7 +100,7 @@ Each provider has unique parameters that can be configured:
 ```python
 response = generate_text_with_llm_multi(
     text="Summarize the key benefits of BERTopic.",
-    api_key="your-openai-api-key",
+    api_key="OPENAI_API_KEY_PLACEHOLDER",
     provider="openai",
     model_name="gpt-4",
     use_azure=False,  # Set to True to use Azure OpenAI
@@ -113,7 +113,7 @@ response = generate_text_with_llm_multi(
 ```python
 response = generate_text_with_llm_multi(
     text="Summarize the key benefits of BERTopic.",
-    api_key="your-google-api-key",
+    api_key="GOOGLE_API_KEY_PLACEHOLDER",
     provider="google",
     model_name="gemini-pro",
     additional_params={
@@ -127,7 +127,7 @@ response = generate_text_with_llm_multi(
 ```python
 response = generate_text_with_llm_multi(
     text="Summarize the key benefits of BERTopic.",
-    api_key="your-anthropic-api-key",
+    api_key="ANTHROPIC_API_KEY_PLACEHOLDER",
     provider="anthropic",
     model_name="claude-3-sonnet-20240229",
     api_version="2023-06-01"
@@ -138,7 +138,7 @@ response = generate_text_with_llm_multi(
 ```python
 response = generate_text_with_llm_multi(
     text="Summarize the key benefits of BERTopic.",
-    api_key="your-huggingface-api-key",
+    api_key="HUGGINGFACE_API_KEY_PLACEHOLDER",
     provider="huggingface",
     model_name="mistralai/Mistral-7B-Instruct-v0.2",
     additional_params={
@@ -154,8 +154,8 @@ response = generate_text_with_llm_multi(
 ```python
 response = generate_text_with_llm_multi(
     text="Summarize the key benefits of BERTopic.",
-    api_key="your-aws-access-key",
-    api_secret="your-aws-secret-key",
+    api_key="AWS_ACCESS_KEY_PLACEHOLDER",
+    api_secret="AWS_SECRET_KEY_PLACEHOLDER",
     provider="bedrock",
     model_name="anthropic.claude-3-sonnet-20240229",
     region_name="us-east-1"
@@ -169,7 +169,7 @@ The caching mechanism works for all providers, helping to save on API costs and 
 ```python
 response = generate_text_with_llm_multi(
     text="Explain how UMAP dimensionality reduction works.",
-    api_key="your-api-key",
+    api_key="API_KEY_PLACEHOLDER",
     provider="anthropic",
     model_name="claude-3-haiku-20240307",
     enable_cache=True,
@@ -199,7 +199,7 @@ def generate_with_claude(text, api_key):
 # Use a custom function for topic labeling
 labeler = LLMTopicLabeler(
     model_type="custom",
-    api_key="your-anthropic-api-key",
+    api_key="ANTHROPIC_API_KEY_PLACEHOLDER",
     custom_generation_function=generate_with_claude
 )
 

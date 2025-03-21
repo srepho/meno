@@ -53,7 +53,7 @@ from meno.modeling.llm_topic_labeling import generate_text_with_llm
 
 response = generate_text_with_llm(
     text="What are three interesting facts about machine learning?",
-    api_key="your-openai-api-key",
+    api_key="OPENAI_API_KEY_PLACEHOLDER",
     model_name="gpt-4",
     library="openai"  # Use OpenAI SDK (default)
 )
@@ -68,7 +68,7 @@ from meno.modeling.llm_topic_labeling import generate_text_with_llm
 
 response = generate_text_with_llm(
     text="What are three interesting facts about machine learning?",
-    api_key="your-openai-api-key",
+    api_key="OPENAI_API_KEY_PLACEHOLDER",
     api_endpoint="https://api.openai.com/v1/chat/completions",
     model_name="gpt-3.5-turbo",
     library="requests",  # Use direct requests
@@ -86,9 +86,9 @@ from meno.modeling.llm_topic_labeling import generate_text_with_llm
 
 response = generate_text_with_llm(
     text="What are three interesting facts about machine learning?",
-    api_key="your-azure-api-key",
-    api_endpoint="https://your-resource.openai.azure.com",
-    deployment_id="your-deployment-name",
+    api_key="AZURE_OPENAI_API_KEY_PLACEHOLDER",
+    api_endpoint="https://RESOURCE_NAME.openai.azure.com",
+    deployment_id="DEPLOYMENT_NAME_PLACEHOLDER",
     api_version="2023-05-15",
     use_azure=True,
     library="openai"  # Use OpenAI SDK
@@ -103,13 +103,13 @@ print(response)
 from meno.modeling.llm_topic_labeling import generate_text_with_llm
 
 # Construct Azure endpoint
-endpoint = "https://your-resource.openai.azure.com"
-deployment = "your-deployment-name"
+endpoint = "https://RESOURCE_NAME.openai.azure.com"
+deployment = "DEPLOYMENT_NAME_PLACEHOLDER"
 full_endpoint = f"{endpoint}/openai/deployments/{deployment}/chat/completions"
 
 response = generate_text_with_llm(
     text="What are three interesting facts about machine learning?",
-    api_key="your-azure-api-key",
+    api_key="AZURE_OPENAI_API_KEY_PLACEHOLDER",
     api_endpoint=full_endpoint,
     deployment_id=deployment,
     api_version="2023-05-15",

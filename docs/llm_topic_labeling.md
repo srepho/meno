@@ -56,7 +56,7 @@ import os
 from meno.modeling import BERTopicModel, LLMTopicLabeler
 
 # Set your API key
-os.environ["OPENAI_API_KEY"] = "your-api-key"
+os.environ["OPENAI_API_KEY"] = "OPENAI_API_KEY_PLACEHOLDER"
 
 # Train a topic model
 model = BERTopicModel(num_topics=12)
