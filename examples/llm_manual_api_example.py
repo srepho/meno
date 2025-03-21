@@ -25,6 +25,7 @@ from pathlib import Path
 # If you want to try this example, replace with your actual API key
 API_KEY = "your_openai_api_key_here"
 API_ENDPOINT = "https://api.openai.com/v1/chat/completions"
+MODEL = "gpt-3.5-turbo"  # Default model, can be changed
 
 # Cache directory for demonstration (uncomment to use custom path)
 # os.environ["MENO_CACHE_DIR"] = str(Path.home() / ".meno" / "custom_cache")
@@ -44,7 +45,7 @@ def demo_direct_api_call():
         text=text,
         api_key=API_KEY,
         api_endpoint=API_ENDPOINT,
-        model="gpt-3.5-turbo",  # Using a lower-cost model for this example
+        model=MODEL,  # Using a lower-cost model for this example
         system_prompt=system_prompt,
         enable_cache=True,      # Enable caching (default)
         cache_ttl=3600          # Cache for 1 hour (default is 24 hours)
@@ -62,7 +63,7 @@ def demo_direct_api_call():
         text=text,
         api_key=API_KEY,
         api_endpoint=API_ENDPOINT,
-        model="gpt-3.5-turbo",
+        model=MODEL,
         system_prompt=system_prompt,
         enable_cache=True
     )
@@ -93,7 +94,7 @@ def demo_concurrent_processing():
         texts=texts,
         api_key=API_KEY,
         api_endpoint=API_ENDPOINT,
-        model="gpt-3.5-turbo",
+        model=MODEL,
         system_prompt=system_prompt,
         max_workers=4,       # Process all texts simultaneously
         enable_cache=True,   # Enable caching
@@ -108,7 +109,7 @@ def demo_concurrent_processing():
         texts=texts,
         api_key=API_KEY,
         api_endpoint=API_ENDPOINT,
-        model="gpt-3.5-turbo",
+        model=MODEL,
         system_prompt=system_prompt,
         max_workers=4,
         enable_cache=True,
@@ -238,7 +239,7 @@ def demo_integrated_deduplication_and_caching():
         texts=texts,
         api_key=API_KEY,
         api_endpoint=API_ENDPOINT,
-        model="gpt-3.5-turbo",
+        model=MODEL,
         system_prompt=system_prompt,
         deduplicate=True,                  # Enable deduplication
         deduplication_threshold=0.8,       # Similarity threshold (lower = more aggressive)
@@ -253,7 +254,7 @@ def demo_integrated_deduplication_and_caching():
         texts=texts,
         api_key=API_KEY,
         api_endpoint=API_ENDPOINT,
-        model="gpt-3.5-turbo",
+        model=MODEL,
         system_prompt=system_prompt,
         deduplicate=True,
         deduplication_threshold=0.8,
@@ -274,7 +275,7 @@ def demo_structured_api_interface():
         text=text,
         api_key=API_KEY,
         api_endpoint=API_ENDPOINT,
-        model_name="gpt-3.5-turbo",
+        model_name=MODEL,
         use_azure=False,
         system_prompt="You are a topic labeling assistant specialized in generating concise topic names.",
         temperature=0.3,  # More deterministic output
