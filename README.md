@@ -5,7 +5,7 @@
 </p>
 
 [![License](https://img.shields.io/github/license/srepho/meno)](https://github.com/srepho/meno/blob/main/LICENSE)
-[![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org)
+[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org)
 [![PyPI version](https://img.shields.io/pypi/v/meno.svg)](https://pypi.org/project/meno/)
 [![Build Status](https://github.com/srepho/meno/actions/workflows/ci-cpu.yml/badge.svg)](https://github.com/srepho/meno/actions)
 [![Code Coverage](https://codecov.io/gh/srepho/meno/branch/main/graph/badge.svg)](https://codecov.io/gh/srepho/meno)
@@ -847,7 +847,7 @@ The package follows a modular design:
 
 ## Dependencies
 
-- **Python:** 3.8-3.12 (primary target: 3.10)
+- **Python:** 3.9-3.13 (primary target: 3.10)
 - **Core Libraries:** pandas, scikit-learn, thefuzz, pydantic, PyYAML
 - **Optional Libraries:** sentence-transformers, transformers, torch, umap-learn, hdbscan, plotly, bertopic
 
