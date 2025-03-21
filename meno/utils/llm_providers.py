@@ -6,6 +6,7 @@ This module provides integrations with multiple LLM providers:
 - Anthropic Claude
 - Hugging Face
 - AWS Bedrock
+- Azure OpenAI
 - OpenAI (via the base implementation)
 
 Each provider implementation supports both SDK and direct requests approaches.
@@ -42,5 +43,9 @@ PROVIDER_REGISTRY = {
     "bedrock": {
         "sdk": lambda **kwargs: "[Placeholder] AWS Bedrock SDK implementation",
         "requests": lambda **kwargs: "[Placeholder] AWS Bedrock requests implementation"
+    },
+    "azure": {
+        "sdk": lambda **kwargs: "[Placeholder] Azure OpenAI SDK implementation",
+        "requests": lambda **kwargs: "[Placeholder] Azure OpenAI requests implementation"
     }
 }

@@ -8,21 +8,26 @@ The multi-provider LLM integration supports the following providers:
 
 1. **OpenAI** (original implementation)
    - GPT-4o, GPT-3.5 Turbo, and other OpenAI models
-   - Support for both standard OpenAI API and Azure OpenAI
+   - Support for both SDK and direct API requests
 
-2. **Google Gemini**
+2. **Azure OpenAI** (dedicated provider)
+   - Deploy and use OpenAI models in Azure
+   - Uses deployment_id instead of model_name
+   - Support for both SDK and direct API requests
+
+3. **Google Gemini**
    - Gemini Pro, Gemini Pro Vision
    - Support for both SDK and direct API requests
 
-3. **Anthropic Claude**
+4. **Anthropic Claude**
    - Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku
    - Support for both SDK and direct API requests
 
-4. **Hugging Face**
+5. **Hugging Face**
    - Any model available through the Hugging Face Inference API
    - Support for both SDK and direct API requests
 
-5. **AWS Bedrock**
+6. **AWS Bedrock**
    - Amazon Titan, Anthropic Claude, Cohere, AI21, Meta Llama
    - Support for both SDK and direct API requests
 
@@ -39,6 +44,17 @@ openai_response = generate_text_with_llm_multi(
     api_key="your-openai-api-key",
     provider="openai",
     model_name="gpt-3.5-turbo"
+)
+
+# Use Azure OpenAI (dedicated provider)
+azure_response = generate_text_with_llm_multi(
+    text="Summarize the key benefits of topic modeling",
+    api_key="your-azure-api-key",
+    api_endpoint="https://your-resource.openai.azure.com",
+    deployment_id="your-deployment-name",
+    api_version="2023-05-15",
+    provider="azure",
+    library="sdk"  # Use the OpenAI SDK for Azure
 )
 
 # Use Google Gemini
@@ -81,16 +97,16 @@ bedrock_response = generate_text_with_llm_multi(
 
 ## Feature Comparison
 
-| Feature                | OpenAI | Google | Anthropic | HuggingFace | AWS Bedrock |
-|------------------------|--------|--------|-----------|-------------|-------------|
-| API Key Authentication | ✅     | ✅     | ✅        | ✅          | ✅          |
-| System Prompts         | ✅     | ✅     | ✅        | ✅          | ✅          |
-| Temperature Control    | ✅     | ✅     | ✅        | ✅          | ✅          |
-| Max Tokens Control     | ✅     | ✅     | ✅        | ✅          | ✅          |
-| Response Caching       | ✅     | ✅     | ✅        | ✅          | ✅          |
-| SDK Implementation     | ✅     | ✅     | ✅        | ✅          | ✅          |
-| Direct Requests        | ✅     | ✅     | ✅        | ✅          | ✅          |
-| Azure Support          | ✅     | ❌     | ❌        | ❌          | ❌          |
+| Feature                | OpenAI | Azure  | Google | Anthropic | HuggingFace | AWS Bedrock |
+|------------------------|--------|--------|--------|-----------|-------------|-------------|
+| API Key Authentication | ✅     | ✅     | ✅     | ✅        | ✅          | ✅          |
+| System Prompts         | ✅     | ✅     | ✅     | ✅        | ✅          | ✅          |
+| Temperature Control    | ✅     | ✅     | ✅     | ✅        | ✅          | ✅          |
+| Max Tokens Control     | ✅     | ✅     | ✅     | ✅        | ✅          | ✅          |
+| Response Caching       | ✅     | ✅     | ✅     | ✅        | ✅          | ✅          |
+| SDK Implementation     | ✅     | ✅     | ✅     | ✅        | ✅          | ✅          |
+| Direct Requests        | ✅     | ✅     | ✅     | ✅        | ✅          | ✅          |
+| Deployment ID Support  | ❌     | ✅     | ❌     | ❌        | ❌          | ❌          |
 
 ## Implementation Details
 
@@ -124,6 +140,7 @@ Response caching is supported for all providers:
 Different providers require different dependencies:
 
 - OpenAI: `pip install openai`
+- Azure OpenAI: `pip install openai`
 - Google Gemini: `pip install google-generativeai`
 - Anthropic Claude: `pip install anthropic`
 - Hugging Face: `pip install huggingface_hub`
@@ -138,7 +155,7 @@ pip install "meno[llm_all_providers]"
 Or install individual provider dependencies:
 
 ```bash
-pip install "meno[llm_openai]"  # OpenAI only
+pip install "meno[llm_openai]"  # OpenAI and Azure OpenAI
 pip install "meno[llm_google]"  # Google only
 pip install "meno[llm_anthropic]"  # Anthropic only
 pip install "meno[llm_huggingface]"  # Hugging Face only

@@ -3,6 +3,7 @@
 This module provides an enhanced version of the generate_text_with_llm function
 that supports multiple LLM providers:
 - OpenAI (original implementation)
+- Azure OpenAI (dedicated provider)
 - Google Gemini 
 - Anthropic Claude
 - Hugging Face
@@ -124,7 +125,7 @@ def generate_text_with_llm_multi(
         if library == "sdk":
             openai_library = "openai"
             
-        # Use the original implementation for OpenAI and Azure
+        # Use the original implementation for OpenAI
         return base_generate_text_with_llm(
             text=text,
             api_key=api_key,
@@ -132,12 +133,74 @@ def generate_text_with_llm_multi(
             deployment_id=deployment_id,
             model_name=model_name,
             api_version=api_version,
-            use_azure=use_azure,
+            use_azure=use_azure,  # This can still be True for backward compatibility
             system_prompt=system_prompt,
             user_prompt_prefix=user_prompt_prefix,
             temperature=temperature,
             max_tokens=max_tokens,
             library=openai_library,
+            timeout=timeout,
+            enable_cache=enable_cache,
+            cache_dir=cache_dir
+        )
+    
+    # Dedicated Azure OpenAI provider
+    elif provider.lower() == "azure":
+        # Force use_azure to True for the Azure provider
+        azure_use_azure = True
+        
+        # Ensure we have the required parameters
+        if not deployment_id:
+            logger.warning("deployment_id is required for Azure OpenAI but was not provided")
+            
+        if not api_endpoint:
+            logger.warning("api_endpoint is required for Azure OpenAI but was not provided")
+        
+        # Map "sdk" or "requests" to appropriate library for Azure
+        azure_library = library
+        if library == "sdk":
+            azure_library = "openai"
+        
+        # Check if we have provider-specific implementation
+        if azure_library in PROVIDER_REGISTRY.get("azure", {}):
+            try:
+                # Try to use provider-specific implementation if available
+                provider_func = PROVIDER_REGISTRY["azure"][azure_library]
+                return provider_func(
+                    text=text,
+                    api_key=api_key,
+                    api_endpoint=api_endpoint,
+                    deployment_id=deployment_id,
+                    model_name=model_name,  
+                    api_version=api_version,
+                    system_prompt=system_prompt,
+                    user_prompt_prefix=user_prompt_prefix,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=timeout,
+                    enable_cache=enable_cache,
+                    cache_dir=cache_dir,
+                    **additional_params or {}
+                )
+            except Exception as e:
+                logger.warning(f"Error using Azure provider-specific implementation: {e}. Falling back to base implementation.")
+                # Fall back to base implementation
+                pass
+                
+        # Use the original implementation with Azure settings
+        return base_generate_text_with_llm(
+            text=text,
+            api_key=api_key,
+            api_endpoint=api_endpoint,
+            deployment_id=deployment_id,
+            model_name=model_name,  # Note: For Azure, model_name is ignored, deployment_id is used
+            api_version=api_version,
+            use_azure=azure_use_azure,  # Always True for the Azure provider
+            system_prompt=system_prompt,
+            user_prompt_prefix=user_prompt_prefix,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            library=azure_library,
             timeout=timeout,
             enable_cache=enable_cache,
             cache_dir=cache_dir
