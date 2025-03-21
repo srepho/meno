@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Meno Documentation
+    url: https://github.com/srepho/meno/tree/main/docs
+    about: Check the documentation before opening an issue
+  - name: Meno Examples
+    url: https://github.com/srepho/meno/tree/main/examples
+    about: See examples of how to use Meno
+  - name: Other Questions or Discussions
+    url: https://github.com/srepho/meno/discussions
+    about: Please ask and answer questions here

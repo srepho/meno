@@ -1,4 +1,4 @@
-# Meno: Topic Modeling Toolkit (v1.3.1)
+# Meno: Topic Modeling Toolkit (v1.3.4)
 
 <p align="center">
   <img src="meno.webp" alt="Meno Logo" width="250"/>
@@ -44,6 +44,57 @@ model.fit(documents)
 # Print topics and save visualization
 print(model.get_topic_info())
 model.visualize_topics().write_html("tfidf_topics.html")
+```
+
+### Multi-Provider LLM Integration (NEW!)
+
+```python
+from meno.modeling.llm_topic_labeling_extended import generate_text_with_llm_multi
+
+# Use OpenAI (original functionality)
+openai_response = generate_text_with_llm_multi(
+    text="Summarize the key benefits of topic modeling",
+    api_key="your-openai-api-key",
+    provider="openai",
+    model_name="gpt-3.5-turbo"
+)
+
+# Use Google Gemini
+gemini_response = generate_text_with_llm_multi(
+    text="Summarize the key benefits of topic modeling",
+    api_key="your-google-api-key",
+    provider="google",
+    model_name="gemini-pro",
+    library="sdk"  # Use the official SDK
+)
+
+# Use Anthropic Claude
+claude_response = generate_text_with_llm_multi(
+    text="Summarize the key benefits of topic modeling",
+    api_key="your-anthropic-api-key",
+    provider="anthropic",
+    model_name="claude-3-haiku-20240307",
+    library="requests",  # Use direct HTTP requests
+    enable_cache=True    # Enable caching for all providers
+)
+
+# Use Hugging Face Inference API
+hf_response = generate_text_with_llm_multi(
+    text="Summarize the key benefits of topic modeling",
+    api_key="your-huggingface-api-key",
+    provider="huggingface",
+    model_name="mistralai/Mistral-7B-Instruct-v0.2"
+)
+
+# Use AWS Bedrock
+bedrock_response = generate_text_with_llm_multi(
+    text="Summarize the key benefits of topic modeling",
+    api_key="your-aws-access-key",
+    api_secret="your-aws-secret-key",
+    provider="bedrock",
+    model_name="anthropic.claude-3-sonnet-20240229",
+    region_name="us-east-1"
+)
 ```
 
 ### Direct LLM API Usage with Caching and Optimization
@@ -188,6 +239,40 @@ pip install "meno[gpu]"
 ```
 
 For more installation options, see our [Simplified Installation Guide](SIMPLIFIED_INSTALL.md).
+
+### Continuous Integration and GPU Testing
+
+Meno uses GitHub Actions for continuous integration and testing:
+
+```bash
+# The repository includes workflows for:
+├── .github/workflows/
+│   ├── secret-scanning.yml     # Scans code for accidentally committed credentials
+│   ├── ci-cpu.yml              # Runs tests on CPU environments
+│   ├── ci-gpu.yml              # Executes GPU-specific tests
+│   └── scheduled-testing.yml   # Weekly tests across Python versions
+```
+
+The secret scanning workflow automatically detects and prevents:
+- API keys and tokens
+- Passwords and credentials
+- AWS access keys
+- Other sensitive information
+
+GPU tests run on:
+- Self-hosted runners with GPU (see `.github/self-hosted-runner-setup.md`)
+- Azure ML GPU compute (see `.azure/gpu-test-job.yml`)
+- GitHub-hosted runners with GPU support
+
+For local GPU testing:
+
+```bash
+# Ensure CUDA is available
+python -c "import torch; print(torch.cuda.is_available())"
+
+# Run GPU-specific tests
+pytest tests/test_optimized_embedding.py -v
+```
 
 ### Offline Installation (Air-gapped Environments)
 

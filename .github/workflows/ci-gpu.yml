@@ -1,0 +1,128 @@
+name: CI/CD (GPU)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+  schedule:
+    - cron: '0 2 * * 1'  # Run weekly on Mondays at 2am UTC
+
+jobs:
+  test-gpu:
+    name: Test on GPU
+    # Use GitHub-hosted runner with GPU
+    runs-on: ubuntu-latest
+    
+    # Comment out the above and uncomment below to use self-hosted runner with GPU
+    # runs-on: [self-hosted, linux, gpu]
+    
+    # Or use GitHub Actions with GPU support (extra cost)
+    # runs-on: ubuntu-latest
+    # container:
+    #   image: nvidia/cuda:11.8.0-base-ubuntu22.04
+    #   options: --gpus all
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # For GitHub-hosted runners, we'll use Azure ML for GPU tests
+    - name: Set up Azure ML
+      if: ${{ !contains(runner.labels, 'gpu') }}
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}  # Set this up in your GitHub secrets
+      continue-on-error: true  # Allow workflow to continue if Azure credentials not set
+
+    - name: Create Azure ML job
+      if: ${{ !contains(runner.labels, 'gpu') && success() }}
+      uses: azure/CLI@v1
+      with:
+        inlineScript: |
+          # Create compute cluster if it doesn't exist
+          az ml compute create -n gpu-cluster -s Standard_NC6 --min-instances 0 --max-instances 1 -g MyResourceGroup -w MyWorkspace
+          
+          # Create and submit job
+          az ml job create --file .azure/gpu-test-job.yml
+      continue-on-error: true  # Allow workflow to continue if Azure ML not set up
+        
+    # For self-hosted runner with GPU
+    - name: Set up Python on GPU runner
+      if: ${{ contains(runner.labels, 'gpu') }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Check GPU availability
+      if: ${{ contains(runner.labels, 'gpu') }}
+      run: |
+        nvidia-smi || echo "No GPU detected!"
+
+    - name: Install dependencies on GPU
+      if: ${{ contains(runner.labels, 'gpu') }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        pip install -e ".[gpu,dev,test]"
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+    - name: Run GPU tests
+      if: ${{ contains(runner.labels, 'gpu') }}
+      run: |
+        python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
+        # Run tests that require GPU
+        pytest tests/test_optimized_embedding.py -v
+        # Run selected tests with GPU requirements
+        pytest tests/test_bertopic_model.py tests/test_embedding_functional.py -v
+
+    - name: Run all tests on GPU
+      if: ${{ contains(runner.labels, 'gpu') }}
+      run: |
+        pytest tests/ -v --cov=meno
+        coverage report
+        coverage xml
+
+    - name: Upload coverage from GPU
+      if: ${{ contains(runner.labels, 'gpu') }}
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  upload-to-pypi:
+    name: Upload to PyPI
+    runs-on: ubuntu-latest
+    needs: [test-gpu]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && startsWith(github.ref, 'refs/tags')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+        
+    - name: Build package
+      run: |
+        python -m build
+        
+    - name: Check package
+      run: |
+        twine check dist/*
+        
+    - name: Upload to PyPI
+      if: startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        skip_existing: true

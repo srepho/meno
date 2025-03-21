@@ -11,17 +11,37 @@ from .simple_models import SimpleTopicModel, TFIDFTopicModel, NMFTopicModel, LSA
 # Import LLM topic labeling if available
 try:
     from .llm_topic_labeling import LLMTopicLabeler
-    __all__ = [
-        "LDAModel",
-        "EmbeddingClusterModel",
-        "TopicMatcher",
-        "DocumentEmbedding",
-        "SimpleTopicModel",
-        "TFIDFTopicModel",
-        "NMFTopicModel",
-        "LSATopicModel",
-        "LLMTopicLabeler",
-    ]
+    # Import extended LLM functions
+    try:
+        from .llm_topic_labeling_extended import (
+            generate_text_with_llm_multi,
+            generate_text_with_llm_extended
+        )
+        __all__ = [
+            "LDAModel",
+            "EmbeddingClusterModel",
+            "TopicMatcher",
+            "DocumentEmbedding",
+            "SimpleTopicModel",
+            "TFIDFTopicModel",
+            "NMFTopicModel",
+            "LSATopicModel",
+            "LLMTopicLabeler",
+            "generate_text_with_llm_multi",
+            "generate_text_with_llm_extended",
+        ]
+    except ImportError:
+        __all__ = [
+            "LDAModel",
+            "EmbeddingClusterModel",
+            "TopicMatcher",
+            "DocumentEmbedding",
+            "SimpleTopicModel",
+            "TFIDFTopicModel",
+            "NMFTopicModel",
+            "LSATopicModel",
+            "LLMTopicLabeler",
+        ]
 except ImportError:
     __all__ = [
         "LDAModel",

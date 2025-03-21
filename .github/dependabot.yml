@@ -1,0 +1,48 @@
+version: 2
+updates:
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "ci"
+      - "dependencies"
+      
+  # Maintain dependencies for Python
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    # Group updates to minimize PR noise
+    groups:
+      development:
+        patterns:
+          - "black"
+          - "ruff"
+          - "mypy"
+          - "pytest*"
+      modeling:
+        patterns:
+          - "transformers"
+          - "torch*"
+          - "sentence-transformers"
+          - "bertopic"
+      visualization:
+        patterns:
+          - "plotly"
+          - "dash*"
+    # Define version update strategy
+    versioning-strategy:
+      increase: "patch"
+    # Ignore certain dependencies
+    ignore:
+      # These require careful manual testing before upgrading
+      - dependency-name: "transformers"
+        versions: ["5.x"]  # Stay on v4.x for compatibility
+      - dependency-name: "bertopic"
+        versions: ["0.16.x"]  # Stay on 0.15.x for now
