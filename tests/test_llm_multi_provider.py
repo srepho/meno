@@ -3,11 +3,11 @@
 import os
 import unittest
 from unittest.mock import patch, MagicMock
+from pathlib import Path
 
 import pytest
 import sys
 import importlib
-import pathlib
 
 
 class TestMultiProviderLLM(unittest.TestCase):
@@ -59,7 +59,7 @@ class TestMultiProviderLLM(unittest.TestCase):
         ]
         
         # Get the project root directory (parent of the tests directory)
-        project_root = pathlib.Path(__file__).parent.parent
+        project_root = Path(__file__).parent.parent
         
         found = False
         for doc_file in doc_files:
