@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/github/license/srepho/meno)](https://github.com/srepho/meno/blob/main/LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org)
 [![PyPI version](https://badge.fury.io/py/meno.svg)](https://pypi.org/project/meno/)
-[![Build Status](https://github.com/srepho/meno/workflows/ci-cpu/badge.svg)](https://github.com/srepho/meno/actions)
+[![Build Status](https://github.com/srepho/meno/actions/workflows/ci-cpu.yml/badge.svg)](https://github.com/srepho/meno/actions)
 [![Code Coverage](https://codecov.io/gh/srepho/meno/branch/main/graph/badge.svg)](https://codecov.io/gh/srepho/meno)
 [![Downloads](https://static.pepy.tech/badge/meno)](https://pepy.tech/project/meno)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/srepho/meno/main?filepath=examples/notebooks)
