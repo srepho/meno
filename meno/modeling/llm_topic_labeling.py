@@ -1689,11 +1689,15 @@ def generate_text_with_llm(
     user_prompt_prefix: str = "Insert your user prompt followed by the data here:\n\n",
     temperature: float = 0.7,
     max_tokens: int = 1000,
+    library: str = "openai",  # New parameter for selecting implementation library
+    timeout: int = 60,        # New parameter for requests timeout 
+    enable_cache: bool = True # New parameter for caching with requests library
 ) -> str:
     """Generate text using OpenAI or Azure OpenAI APIs with a simple, consistent interface.
     
     This utility function makes it easy to generate text using either the standard OpenAI API
-    or Azure OpenAI, with proper parameter configurations for each.
+    or Azure OpenAI, with proper parameter configurations for each. It supports both the OpenAI
+    SDK and direct requests via the requests library.
     
     Parameters
     ----------
@@ -1703,7 +1707,7 @@ def generate_text_with_llm(
         The API key for OpenAI or Azure OpenAI
     api_endpoint : str
         For Azure: The azure_endpoint (e.g., "https://your-resource.openai.azure.com")
-        For OpenAI: Optional base URL, usually not needed for standard OpenAI
+        For OpenAI: Optional base URL (e.g., "https://api.openai.com/v1/chat/completions" for direct requests)
     deployment_id : str, optional
         Azure deployment name, required when use_azure=True
     model_name : str, optional
@@ -1721,6 +1725,14 @@ def generate_text_with_llm(
         Temperature for response generation, by default 0.7
     max_tokens : int, optional
         Maximum tokens in the response, by default 1000
+    library : str, optional
+        Which library to use for the API request: "openai" (OpenAI SDK) or "requests" (direct HTTP requests),
+        by default "openai"
+    timeout : int, optional
+        Timeout in seconds for the API request when using the requests library, by default 60
+    enable_cache : bool, optional
+        Whether to use response caching to avoid duplicate API calls when using the requests library,
+        by default True
         
     Returns
     -------
@@ -1729,85 +1741,226 @@ def generate_text_with_llm(
         
     Examples
     --------
-    # Azure OpenAI example:
+    # Azure OpenAI example using the SDK:
     >>> response = generate_text_with_llm(
     ...     text="Tell me a joke about Azure cloud services",
     ...     api_key="your-azure-api-key",
     ...     api_endpoint="https://your-resource.openai.azure.com",
     ...     deployment_id="your-deployment-name",
-    ...     use_azure=True
+    ...     use_azure=True,
+    ...     library="openai"  # Use the OpenAI SDK
     ... )
     
-    # Standard OpenAI example:
+    # Standard OpenAI example using the SDK:
     >>> response = generate_text_with_llm(
     ...     text="Explain the benefits of Python 3.10",
     ...     api_key="your-openai-api-key",
     ...     api_endpoint=None,
     ...     model_name="gpt-4o",
-    ...     use_azure=False
+    ...     use_azure=False,
+    ...     library="openai"  # Use the OpenAI SDK
+    ... )
+    
+    # Standard OpenAI example using requests:
+    >>> response = generate_text_with_llm(
+    ...     text="Explain the benefits of Python 3.10",
+    ...     api_key="your-openai-api-key",
+    ...     api_endpoint="https://api.openai.com/v1/chat/completions",
+    ...     model_name="gpt-4o",
+    ...     use_azure=False,
+    ...     library="requests",  # Use direct HTTP requests
+    ...     enable_cache=True    # Enable caching of responses
     ... )
     """
-    try:
-        # Import the necessary client
-        if use_azure:
-            from openai import AzureOpenAI as ClientClass
-            if not deployment_id:
-                raise ValueError("deployment_id is required when using Azure OpenAI")
+    # Prepare the full user prompt
+    user_prompt = f"{user_prompt_prefix}{text}"
+    
+    # Import necessary modules
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Use the OpenAI SDK implementation
+    if library.lower() == "openai":
+        try:
+            # Import the necessary client
+            if use_azure:
+                from openai import AzureOpenAI as ClientClass
+                if not deployment_id:
+                    raise ValueError("deployment_id is required when using Azure OpenAI")
+                    
+                # Create Azure OpenAI client
+                client = ClientClass(
+                    api_key=api_key,
+                    azure_endpoint=api_endpoint,
+                    api_version=api_version
+                )
                 
-            # Create Azure OpenAI client
-            client = ClientClass(
-                api_key=api_key,
-                azure_endpoint=api_endpoint,
-                api_version=api_version
-            )
-            
-            # Prepare the full user prompt
-            user_prompt = f"{user_prompt_prefix}{text}"
-            
-            # Make the API call with deployment_id
-            response = client.chat.completions.create(
-                deployment_id=deployment_id,  # Azure uses deployment_id
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-        else:
-            from openai import OpenAI as ClientClass
-            
-            # Create standard OpenAI client
-            client_kwargs = {"api_key": api_key}
-            if api_endpoint:
-                client_kwargs["base_url"] = api_endpoint
+                # Make the API call with deployment_id
+                response = client.chat.completions.create(
+                    deployment_id=deployment_id,  # Azure uses deployment_id
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+            else:
+                from openai import OpenAI as ClientClass
                 
-            client = ClientClass(**client_kwargs)
+                # Create standard OpenAI client
+                client_kwargs = {"api_key": api_key}
+                if api_endpoint:
+                    client_kwargs["base_url"] = api_endpoint
+                    
+                client = ClientClass(**client_kwargs)
+                
+                # Make the API call with model
+                response = client.chat.completions.create(
+                    model=model_name,  # Standard OpenAI uses model
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
             
-            # Prepare the full user prompt
-            user_prompt = f"{user_prompt_prefix}{text}"
+            # Extract and return the response content
+            if response.choices and len(response.choices) > 0:
+                return response.choices[0].message.content.strip()
+            else:
+                return "[No response generated]"
+                
+        except Exception as e:
+            logger.error(f"Error generating text with OpenAI SDK: {e}")
+            return f"[Error: {str(e)}]"
             
-            # Make the API call with model
-            response = client.chat.completions.create(
-                model=model_name,  # Standard OpenAI uses model
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
+    # Use the requests library implementation
+    elif library.lower() == "requests":
+        import requests
+        import json
+        import time
+        import os
+        import hashlib
+        from pathlib import Path
         
-        # Extract and return the response content
-        if response.choices and len(response.choices) > 0:
-            return response.choices[0].message.content.strip()
+        # Implement caching if enabled
+        cache_result = None
+        cache_file = None
+        cache_dir = None
+        
+        if enable_cache:
+            try:
+                # Set up cache directory
+                cache_dir = Path.home() / ".meno" / "llm_cache"
+                os.makedirs(cache_dir, exist_ok=True)
+                
+                # Generate a cache key
+                cache_key = f"{user_prompt}|{model_name if not use_azure else deployment_id}|{system_prompt}"
+                cache_hash = hashlib.md5(cache_key.encode()).hexdigest()
+                cache_file = cache_dir / f"{cache_hash}.json"
+                
+                # Check if we have a cached result
+                if cache_file.exists():
+                    with open(cache_file, 'r') as f:
+                        cached_data = json.load(f)
+                    
+                    # Check if the cache is still valid (default: 24 hours)
+                    if cached_data.get('expires', 0) > time.time():
+                        logger.debug(f"Using cached result for: {text[:30]}...")
+                        return cached_data['value']
+            except (json.JSONDecodeError, KeyError, IOError, Exception) as e:
+                # If there's any issue with caching, just log and continue without it
+                logger.warning(f"Cache issue, proceeding without cache: {e}")
+                cache_file = None
+        
+        # Prepare headers based on whether we're using Azure or standard OpenAI
+        if use_azure:
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": api_key
+            }
         else:
-            return "[No response generated]"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+        
+        # Prepare the messages payload
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        # Prepare the request payload
+        payload = {
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        # Add model for standard OpenAI (not Azure)
+        if not use_azure:
+            payload["model"] = model_name
+        
+        # Prepare the endpoint URL
+        request_endpoint = api_endpoint
+        if use_azure and "api-version" not in request_endpoint and "api_version" not in request_endpoint:
+            # Add api-version if using Azure and it's not already in the URL
+            if "?" in request_endpoint:
+                request_endpoint = f"{request_endpoint}&api-version={api_version}"
+            else:
+                request_endpoint = f"{request_endpoint}?api-version={api_version}"
+        
+        try:
+            # Make the API request
+            response = requests.post(
+                request_endpoint,
+                headers=headers,
+                json=payload,
+                timeout=timeout
+            )
             
-    except Exception as e:
-        import logging
-        logging.error(f"Error generating text with LLM: {e}")
-        return f"[Error: {str(e)}]"
+            response.raise_for_status()  # Raise an exception for 4XX/5XX responses
+            
+            response_data = response.json()
+            
+            if not response_data.get('choices') or len(response_data['choices']) == 0:
+                result = "[No response generated]"
+            else:
+                result = response_data['choices'][0]['message']['content'].strip()
+            
+            # Cache the result if caching is enabled
+            if enable_cache and cache_file and cache_dir:
+                try:
+                    # Cache for 24 hours by default
+                    expires = time.time() + (24 * 60 * 60)
+                    cache_data = {
+                        'value': result,
+                        'expires': expires,
+                        'created': time.time()
+                    }
+                    with open(cache_file, 'w') as f:
+                        json.dump(cache_data, f)
+                except Exception as e:
+                    logger.warning(f"Failed to write to cache file: {e}")
+            
+            return result
+        
+        except requests.exceptions.Timeout:
+            return "[Error: Request timed out]"
+        except requests.exceptions.RequestException as e:
+            return f"[Error: {e}]"
+        except json.JSONDecodeError:
+            return "[Error: Invalid JSON response]"
+        except Exception as e:
+            logger.error(f"Error generating text with requests: {e}")
+            return f"[Error: {str(e)}]"
+    
+    # Handle unsupported library
+    else:
+        raise ValueError(f"Unsupported library: {library}. Supported options are 'openai' and 'requests'.")
 
 
 def batch_label_topics_example():
