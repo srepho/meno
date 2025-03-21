@@ -41,7 +41,7 @@ from meno.modeling.llm_topic_labeling_extended import generate_text_with_llm_mul
 # Use OpenAI (original functionality)
 openai_response = generate_text_with_llm_multi(
     text="Summarize the key benefits of topic modeling",
-    api_key="your-openai-api-key",
+    api_key="OPENAI_API_KEY_PLACEHOLDER",
     provider="openai",
     model_name="gpt-3.5-turbo"
 )
@@ -49,9 +49,9 @@ openai_response = generate_text_with_llm_multi(
 # Use Azure OpenAI (dedicated provider)
 azure_response = generate_text_with_llm_multi(
     text="Summarize the key benefits of topic modeling",
-    api_key="your-azure-api-key",
-    api_endpoint="https://your-resource.openai.azure.com",
-    deployment_id="your-deployment-name",
+    api_key="AZURE_OPENAI_API_KEY_PLACEHOLDER",
+    api_endpoint="https://RESOURCE_NAME.openai.azure.com",
+    deployment_id="DEPLOYMENT_NAME_PLACEHOLDER",
     api_version="2023-05-15",
     provider="azure",
     library="sdk"  # Use the OpenAI SDK for Azure
@@ -60,7 +60,7 @@ azure_response = generate_text_with_llm_multi(
 # Use Google Gemini
 gemini_response = generate_text_with_llm_multi(
     text="Summarize the key benefits of topic modeling",
-    api_key="your-google-api-key",
+    api_key="GOOGLE_API_KEY_PLACEHOLDER",
     provider="google",
     model_name="gemini-pro",
     library="sdk"  # Use the official SDK
@@ -69,7 +69,7 @@ gemini_response = generate_text_with_llm_multi(
 # Use Anthropic Claude
 claude_response = generate_text_with_llm_multi(
     text="Summarize the key benefits of topic modeling",
-    api_key="your-anthropic-api-key",
+    api_key="ANTHROPIC_API_KEY_PLACEHOLDER",
     provider="anthropic",
     model_name="claude-3-haiku-20240307",
     library="requests",  # Use direct HTTP requests
@@ -79,7 +79,7 @@ claude_response = generate_text_with_llm_multi(
 # Use Hugging Face Inference API
 hf_response = generate_text_with_llm_multi(
     text="Summarize the key benefits of topic modeling",
-    api_key="your-huggingface-api-key",
+    api_key="HUGGINGFACE_API_KEY_PLACEHOLDER",
     provider="huggingface",
     model_name="mistralai/Mistral-7B-Instruct-v0.2"
 )
@@ -87,8 +87,8 @@ hf_response = generate_text_with_llm_multi(
 # Use AWS Bedrock
 bedrock_response = generate_text_with_llm_multi(
     text="Summarize the key benefits of topic modeling",
-    api_key="your-aws-access-key",
-    api_secret="your-aws-secret-key",
+    api_key="AWS_ACCESS_KEY_PLACEHOLDER",
+    api_secret="AWS_SECRET_KEY_PLACEHOLDER",
     provider="bedrock",
     model_name="anthropic.claude-3-sonnet-20240229",
     region_name="us-east-1"
