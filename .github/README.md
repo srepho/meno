@@ -1,5 +1,9 @@
 # Meno CI/CD and Security Workflows
 
+[![Build Status](https://github.com/srepho/meno/actions/workflows/ci-cpu.yml/badge.svg)](https://github.com/srepho/meno/actions)
+[![Code Coverage](https://codecov.io/gh/srepho/meno/branch/main/graph/badge.svg)](https://codecov.io/gh/srepho/meno)
+[![Secret Scanning](https://github.com/srepho/meno/actions/workflows/secret-scanning.yml/badge.svg)](https://github.com/srepho/meno/actions)
+
 This directory contains GitHub Actions workflows for Meno's continuous integration, delivery, and security scanning.
 
 ## Workflows
