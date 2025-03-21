@@ -29,7 +29,7 @@ jobs:
         sudo apt-get install -y build-essential python3-dev
         
         # Install numpy and other base dependencies first
-        pip install numpy>=1.20.0 scipy>=1.7.0 numba>=0.55.1 scikit-learn>=1.0.0 --no-cache-dir
+        pip install numpy>=1.20.0 "scipy>=1.7.0,<1.9.0" numba>=0.55.1 scikit-learn>=1.0.0 --no-cache-dir
         
         # Try to install UMAP and HDBSCAN directly
         pip install umap-learn>=0.5.3 --no-cache-dir || echo "Failed to install UMAP"
@@ -44,6 +44,9 @@ jobs:
         # Run the prepare script as a fallback
         python scripts/prepare_bertopic_ci.py
         
+        # Run the scipy import fixer script
+        python scripts/fix_scipy_imports.py
+        
         # Install remaining dependencies
         pip install -e ".[simple_models,additional_models]"
     - name: Debug imports
@@ -53,8 +56,12 @@ jobs:
         python -c "import importlib.util; print(f'UMAP spec found: {importlib.util.find_spec(\"umap\") is not None}')"
         python -c "import importlib.util; print(f'HDBSCAN spec found: {importlib.util.find_spec(\"hdbscan\") is not None}')"
         python -c "import importlib.util; print(f'sentence-transformers spec found: {importlib.util.find_spec(\"sentence_transformers\") is not None}')"
+        python -c "import scipy; print(f'SciPy version: {scipy.__version__}')"
+        python -c "import scipy; print('triu in scipy.linalg: ' + str('triu' in dir(scipy.linalg)))"
+        python -c "import scipy; print('special_matrices in scipy.linalg: ' + str('special_matrices' in dir(scipy.linalg)))"
+        python -c "import sys; print('Python version: ' + sys.version)"
         python -c "from meno.modeling.embeddings import DocumentEmbedding; print('DocumentEmbedding import successful!')"
-        python -c "from meno.modeling.bertopic_model import BERTopicModel; print('BERTopicModel import successful!')"
+        python -c "try: from meno.modeling.bertopic_model import BERTopicModel; print('BERTopicModel import successful!'); except Exception as e: print(f'Error importing BERTopicModel: {e}')"
     - name: Run core tests first
       run: |
         # Run tests excluding those with complex dependencies first

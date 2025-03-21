@@ -42,7 +42,7 @@ def main():
     # Install base dependencies first
     base_dependencies = [
         "numpy>=1.20.0",
-        "scipy>=1.7.0",
+        "scipy>=1.7.0,<1.9.0",  # Specific version range to avoid triu import error
         "scikit-learn>=1.0.0",
         "pynndescent>=0.5.7",
         "numba>=0.55.1",
