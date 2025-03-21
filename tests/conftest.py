@@ -6,9 +6,44 @@ import pandas as pd
 import os
 from typing import List, Dict, Any, Optional
 import tempfile
+import importlib.util
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Set fixed random seed for reproducibility
 np.random.seed(42)
+
+# Dependency checking helpers
+def check_dependency(module_name):
+    """Check if a module is available."""
+    spec = importlib.util.find_spec(module_name)
+    return spec is not None
+
+def check_bertopic_dependencies():
+    """Check if all required BERTopic dependencies are available."""
+    deps = {
+        "bertopic": "BERTopic",
+        "umap": "UMAP",
+        "hdbscan": "HDBSCAN",
+        "sentence_transformers": "Sentence Transformers"
+    }
+    
+    missing = []
+    for module, name in deps.items():
+        if not check_dependency(module):
+            missing.append(name)
+            
+    if missing:
+        logger.warning(f"Missing dependencies for BERTopic tests: {', '.join(missing)}")
+        return False
+    return True
+
+# Global flags for availability
+BERTOPIC_AVAILABLE = check_bertopic_dependencies()
+logger.info(f"BERTopic available: {BERTOPIC_AVAILABLE}")
 
 
 @pytest.fixture(scope="session")

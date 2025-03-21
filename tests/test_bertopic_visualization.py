@@ -7,14 +7,19 @@ from pathlib import Path
 import tempfile
 import os
 
-try:
-    from bertopic import BERTopic
-    from bertopic.vectorizers import ClassTfidfTransformer
-    from bertopic.representation import KeyBERTInspired
-    from plotly.graph_objects import Figure
-    BERTOPIC_AVAILABLE = True
-except ImportError:
-    BERTOPIC_AVAILABLE = False
+# Import from conftest
+from conftest import BERTOPIC_AVAILABLE
+
+# Import dependencies only if available
+if BERTOPIC_AVAILABLE:
+    try:
+        from bertopic import BERTopic
+        from bertopic.vectorizers import ClassTfidfTransformer
+        from bertopic.representation import KeyBERTInspired
+        from plotly.graph_objects import Figure
+    except ImportError as e:
+        print(f"Error importing BERTopic visualization dependencies: {e}")
+        BERTOPIC_AVAILABLE = False
 
 from meno.modeling.bertopic_model import BERTopicModel
 from meno.visualization.bertopic_viz import (

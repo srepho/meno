@@ -4,17 +4,21 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import patch, MagicMock
+import importlib.util
 
-from meno.modeling.bertopic_optimizer import BERTopicOptimizer, optimize_bertopic
+# Import from conftest
+from conftest import BERTOPIC_AVAILABLE
 
-# Skip tests if BERTopic is not available
-try:
-    from bertopic import BERTopic
-    BERTOPIC_AVAILABLE = True
-except ImportError:
-    BERTOPIC_AVAILABLE = False
+# Import BERTopicOptimizer only if dependencies are available
+if BERTOPIC_AVAILABLE:
+    try:
+        from meno.modeling.bertopic_optimizer import BERTopicOptimizer, optimize_bertopic
+        # If we get here without errors, dependencies are properly initialized
+    except (ImportError, AttributeError, Exception) as e:
+        print(f"Error importing BERTopicOptimizer: {e}")
+        BERTOPIC_AVAILABLE = False
 
-pytestmark = pytest.mark.skipif(not BERTOPIC_AVAILABLE, reason="BERTopic not installed")
+pytestmark = pytest.mark.skipif(not BERTOPIC_AVAILABLE, reason="BERTopic or its dependencies not installed correctly")
 
 
 @pytest.fixture

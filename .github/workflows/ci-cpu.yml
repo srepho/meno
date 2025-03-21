@@ -23,15 +23,36 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-cov ruff mypy black
-        # Install package without Spacy model first
+        # Install package without third-party dependencies first
         pip install -e ".[embeddings,viz,clustering,nlp,dev,test]"
-        # Install spaCy model separately
+        # Install spaCy model
         python -m spacy download en_core_web_sm
+        # Install proper BERTopic dependencies
+        python scripts/prepare_bertopic_ci.py
         # Install remaining dependencies
         pip install -e ".[simple_models,additional_models]"
-    - name: Run tests
+    - name: Debug imports
       run: |
-        pytest tests/ --cov=meno --cov-report=xml
+        echo "Testing imports..."
+        python -c "import importlib.util; print(f'BERTopic spec found: {importlib.util.find_spec(\"bertopic\") is not None}')"
+        python -c "import importlib.util; print(f'UMAP spec found: {importlib.util.find_spec(\"umap\") is not None}')"
+        python -c "import importlib.util; print(f'HDBSCAN spec found: {importlib.util.find_spec(\"hdbscan\") is not None}')"
+        python -c "import importlib.util; print(f'sentence-transformers spec found: {importlib.util.find_spec(\"sentence_transformers\") is not None}')"
+        python -c "from meno.modeling.embeddings import DocumentEmbedding; print('DocumentEmbedding import successful!')"
+        python -c "from meno.modeling.bertopic_model import BERTopicModel; print('BERTopicModel import successful!')"
+    - name: Run non-BERTopic tests first
+      run: |
+        # Run tests excluding bertopic-related tests first
+        pytest tests/ -k "not bertopic" --cov=meno
+        
+    - name: Run BERTopic tests
+      run: |
+        # Run bertopic-related tests separately
+        pytest tests/ -k "bertopic" --cov=meno --cov-append
+        
+    - name: Generate coverage report
+      run: |
+        coverage xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:

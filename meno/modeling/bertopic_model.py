@@ -8,66 +8,81 @@ from pathlib import Path
 import json
 import pickle
 
-try:
-    # Import BERTopic core
-    from bertopic import BERTopic
-    BERTOPIC_AVAILABLE = True
-    
-    # Try importing components - different versions have different import paths
+# Create logger
+logger = logging.getLogger(__name__)
+
+# Check for BERTopic availability
+import importlib.util
+
+# Direct import check using importlib
+bertopic_spec = importlib.util.find_spec("bertopic")
+BERTOPIC_AVAILABLE = bertopic_spec is not None
+
+if BERTOPIC_AVAILABLE:
     try:
-        # BERTopic 0.15+ structure
-        from bertopic.representation import KeyBERTInspired
-        from bertopic.vectorizers import ClassTfidfTransformer
-        from bertopic.dimensionality import UMAPReducer
-    except ImportError:
-        # BERTopic 0.14 and below structure
-        from umap import UMAP
-        # Create UMAPReducer class for backward compatibility
-        class UMAPReducer:
-            def __init__(self, n_neighbors=15, n_components=5, min_dist=0.0, metric="cosine", low_memory=False):
-                self.n_neighbors = n_neighbors
-                self.n_components = n_components
-                self.min_dist = min_dist
-                self.metric = metric
-                self.low_memory = low_memory
-                self.umap_model = UMAP(
-                    n_neighbors=n_neighbors,
-                    n_components=n_components,
-                    min_dist=min_dist,
-                    metric=metric,
-                    low_memory=low_memory
-                )
-            
-            def fit_transform(self, X):
-                return self.umap_model.fit_transform(X)
-                
-        # Try to import remaining components directly
+        # Import BERTopic core
+        from bertopic import BERTopic
+        
+        # Try importing components for BERTopic 0.15+
         try:
-            from sklearn.feature_extraction.text import CountVectorizer
+            from bertopic.representation import KeyBERTInspired
             from bertopic.vectorizers import ClassTfidfTransformer
-            from bertopic.backend._mmr import mmr
-            # Define a compatible KeyBERTInspired class
-            class KeyBERTInspired:
-                def extract_topics(self, documents, embeddings, topic_model):
-                    topic_words = topic_model.get_topics()
-                    return topic_words
+            from bertopic.dimensionality import UMAPReducer
+            logger.info("Using BERTopic 0.15+ components")
         except ImportError:
-            # If still failing, set to basic implementations
-            from sklearn.feature_extraction.text import CountVectorizer as ClassTfidfTransformer
-            KeyBERTInspired = lambda: None  # Dummy class
-except (ImportError, AttributeError) as e:
-    import importlib
-    BERTOPIC_AVAILABLE = False
-    # Try direct import check using importlib as a fallback
-    try:
-        bertopic_spec = importlib.util.find_spec("bertopic")
-        if bertopic_spec is not None:
-            # Module exists but may have import issues, try to load it
-            bertopic = importlib.import_module("bertopic")
-            if hasattr(bertopic, "BERTopic"):
-                BERTOPIC_AVAILABLE = True
-    except (ImportError, AttributeError):
-        pass
+            # Handle BERTopic 0.14 and below structure
+            logger.info("Using BERTopic 0.14 compatibility mode")
+            
+            # Import UMAP directly
+            try:
+                from umap import UMAP
+                
+                # Create a compatible UMAPReducer class
+                class UMAPReducer:
+                    def __init__(self, n_neighbors=15, n_components=5, min_dist=0.0, metric="cosine", low_memory=False):
+                        self.n_neighbors = n_neighbors
+                        self.n_components = n_components
+                        self.min_dist = min_dist
+                        self.metric = metric
+                        self.low_memory = low_memory
+                        self.umap_model = UMAP(
+                            n_neighbors=n_neighbors,
+                            n_components=n_components,
+                            min_dist=min_dist,
+                            metric=metric,
+                            low_memory=low_memory
+                        )
+                    
+                    def fit(self, X, y=None):
+                        self.umap_model.fit(X, y=y)
+                        return self
+                    
+                    def fit_transform(self, X, y=None):
+                        return self.umap_model.fit_transform(X, y=y)
+                
+                # Import remaining components
+                from sklearn.feature_extraction.text import CountVectorizer
+                
+                # Import ClassTfidfTransformer if available, otherwise use CountVectorizer as fallback
+                try:
+                    from bertopic.vectorizers import ClassTfidfTransformer
+                except ImportError:
+                    logger.warning("ClassTfidfTransformer not found, using CountVectorizer as fallback")
+                    ClassTfidfTransformer = CountVectorizer
+                
+                # Create a compatible KeyBERTInspired class
+                class KeyBERTInspired:
+                    def extract_topics(self, documents, embeddings, topic_model):
+                        topic_words = topic_model.get_topics()
+                        return topic_words
+                        
+            except ImportError as e:
+                logger.error(f"Failed to import UMAP: {e}")
+                BERTOPIC_AVAILABLE = False
+                
+    except ImportError as e:
+        logger.error(f"Failed to import BERTopic: {e}")
+        BERTOPIC_AVAILABLE = False
 
 from meno.modeling.embeddings import DocumentEmbedding
 from meno.modeling.base import BaseTopicModel
