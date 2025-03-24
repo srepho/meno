@@ -1,208 +1,296 @@
 """
-Deduplication Example
+Deduplication Example for Meno
 
-This example demonstrates how to use Meno's document deduplication feature 
-to optimize topic modeling by processing only unique documents.
+This example demonstrates how to use deduplication functionality in Meno,
+including both exact and fuzzy deduplication methods, and how to process
+the deduplicated texts with an external LLM.
 """
 
 import pandas as pd
 import numpy as np
-import time
-
 from meno import MenoWorkflow
+from meno.preprocessing.deduplication import TextDeduplicator, deduplicate_text
 
 
-def create_dataset_with_duplicates(num_unique=500, duplicates_per_doc=3, seed=42):
-    """Create a synthetic dataset with duplicated documents."""
-    np.random.seed(seed)
+def create_sample_dataset(n_unique=100, n_duplicates=30, n_fuzzy=20):
+    """Create a sample dataset with exact and fuzzy duplicates."""
+    np.random.seed(42)
     
     # Create unique documents
-    unique_docs = []
     topics = ["technology", "health", "finance", "sports", "entertainment"]
+    texts = []
     
-    for i in range(num_unique):
+    for i in range(n_unique):
         topic = topics[i % len(topics)]
-        words = f"{topic} document with specific terms about {topic}."
-        words += f" This is unique document number {i}."
-        unique_docs.append({
-            "text": words,
+        text = f"This is a document about {topic}. "
+        text += f"It contains specific information about {topic} sector trends. "
+        text += f"Document ID: {i}"
+        texts.append(text)
+    
+    # Create DataFrame
+    data = []
+    
+    # Add originals
+    for i, text in enumerate(texts):
+        data.append({
+            "text": text,
             "id": f"doc_{i}",
-            "true_topic": topic
+            "is_duplicate": False,
+            "duplicate_type": "original",
+            "original_id": f"doc_{i}"
         })
     
-    # Create duplicate documents with some randomization
-    all_docs = []
-    for doc in unique_docs:
-        # Add the original
-        all_docs.append(doc)
+    # Add exact duplicates
+    for i in range(n_duplicates):
+        idx = np.random.randint(0, len(texts))
+        data.append({
+            "text": texts[idx],
+            "id": f"exact_dup_{i}",
+            "is_duplicate": True,
+            "duplicate_type": "exact",
+            "original_id": f"doc_{idx}"
+        })
+    
+    # Add fuzzy duplicates
+    for i in range(n_fuzzy):
+        idx = np.random.randint(0, len(texts))
+        text = texts[idx]
+        # Add some random noise
+        words = text.split()
+        # Add, modify, or remove 1-3 words
+        ops = np.random.randint(1, 4)
+        for _ in range(ops):
+            op = np.random.choice(["add", "modify", "remove"])
+            if op == "add" or len(words) < 5:
+                pos = np.random.randint(0, len(words) + 1)
+                words.insert(pos, f"additional_{np.random.randint(0, 100)}")
+            elif op == "modify" and words:
+                pos = np.random.randint(0, len(words))
+                words[pos] = f"modified_{np.random.randint(0, 100)}"
+            elif op == "remove" and len(words) > 5:
+                pos = np.random.randint(0, len(words))
+                words.pop(pos)
         
-        # Add duplicates
-        for j in range(duplicates_per_doc):
-            # Small random variation in some duplicates (20% chance)
-            if np.random.random() < 0.2:
-                text = doc["text"] + f" Slight variation {j+1}."
-            else:
-                text = doc["text"]
-                
-            duplicate = {
-                "text": text,
-                "id": f"{doc['id']}_dup_{j+1}",
-                "true_topic": doc["true_topic"]
-            }
-            all_docs.append(duplicate)
+        fuzzy_text = " ".join(words)
+        data.append({
+            "text": fuzzy_text,
+            "id": f"fuzzy_dup_{i}",
+            "is_duplicate": True,
+            "duplicate_type": "fuzzy",
+            "original_id": f"doc_{idx}"
+        })
     
-    # Shuffle the documents
-    np.random.shuffle(all_docs)
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(all_docs)
-    
-    return df
+    # Create DataFrame and shuffle
+    df = pd.DataFrame(data)
+    return df.sample(frac=1, random_state=42).reset_index(drop=True)
 
 
-def run_with_deduplication():
-    """Run topic modeling with deduplication."""
-    print("Creating dataset with duplicates...")
-    data = create_dataset_with_duplicates(num_unique=500, duplicates_per_doc=5)
+def run_exact_deduplication_workflow():
+    """Run a workflow with exact deduplication."""
+    print("\n=== EXACT DEDUPLICATION WITH MENO WORKFLOW ===\n")
     
-    print(f"Dataset size: {len(data)} documents")
+    # Create sample dataset
+    data = create_sample_dataset()
+    print(f"Original dataset size: {len(data)} documents")
     
-    # Count true duplicates (exact matches)
-    duplicates = data.duplicated(subset=["text"]).sum()
-    print(f"Exact duplicates: {duplicates} documents")
-    
-    # Run with deduplication
-    print("\nRunning topic modeling WITH deduplication...")
-    start_time = time.time()
-    
-    workflow_dedup = MenoWorkflow()
-    workflow_dedup.load_data(
-        data=data, 
+    # Create workflow with exact deduplication
+    workflow = MenoWorkflow()
+    workflow.load_data(
+        data=data,
         text_column="text",
-        deduplicate=True  # Enable deduplication
+        deduplicate=True  # Enable exact deduplication
     )
-    workflow_dedup.preprocess_documents()
-    dedup_results = workflow_dedup.discover_topics(method="bertopic", num_topics=5)
     
-    dedup_time = time.time() - start_time
+    print(f"After exact deduplication: {len(workflow.documents)} documents")
+    print(f"Removed {len(data) - len(workflow.documents)} exact duplicates")
     
-    print(f"Completed in {dedup_time:.2f} seconds")
-    print(f"Result size: {len(dedup_results)} documents (should match original dataset size)")
+    # Continue normal workflow
+    workflow.preprocess_documents()
+    results = workflow.discover_topics(method="bertopic", num_topics=5)
     
-    # Count topics
-    dedup_topic_counts = dedup_results["topic"].value_counts().sort_index()
-    print("\nTopic distribution with deduplication:")
-    print(dedup_topic_counts)
+    # Results already include topics mapped back to all documents
+    print(f"\nAssigned {len(pd.unique(results['topic']))} topics to all {len(results)} documents (including duplicates)")
     
-    return dedup_results, dedup_time
+    # Count documents per topic
+    topic_counts = results['topic'].value_counts().to_dict()
+    print("\nDocuments per topic:")
+    for topic, count in sorted(topic_counts.items()):
+        print(f"  Topic {topic}: {count} documents")
+    
+    return results
 
 
-def run_without_deduplication():
-    """Run topic modeling without deduplication."""
-    print("Creating dataset with duplicates...")
-    data = create_dataset_with_duplicates(num_unique=500, duplicates_per_doc=5)
+def run_fuzzy_deduplication():
+    """Run a workflow with fuzzy deduplication."""
+    print("\n=== FUZZY DEDUPLICATION WITH TEXT DEDUPLICATOR ===\n")
     
-    # Run without deduplication
-    print("\nRunning topic modeling WITHOUT deduplication...")
-    start_time = time.time()
+    # Create sample dataset
+    data = create_sample_dataset()
+    print(f"Original dataset size: {len(data)} documents")
     
-    workflow_standard = MenoWorkflow()
-    workflow_standard.load_data(
-        data=data, 
+    # Create deduplicator
+    deduplicator = TextDeduplicator(similarity_threshold=0.8)
+    
+    # Run fuzzy deduplication
+    deduplicated_data, duplicate_map, fuzzy_groups = deduplicator.deduplicate(
+        data, 
         text_column="text",
-        deduplicate=False  # Disable deduplication (default)
+        method="fuzzy",
+        threshold=0.85
     )
-    workflow_standard.preprocess_documents()
-    standard_results = workflow_standard.discover_topics(method="bertopic", num_topics=5)
     
-    standard_time = time.time() - start_time
+    print(f"After fuzzy deduplication: {len(deduplicated_data)} documents")
+    print(f"Removed {len(data) - len(deduplicated_data)} duplicates and near-duplicates")
+    print(f"Found {len(fuzzy_groups)} groups of similar documents")
     
-    print(f"Completed in {standard_time:.2f} seconds")
-    print(f"Result size: {len(standard_results)} documents")
+    # Display a sample fuzzy group
+    if fuzzy_groups:
+        print("\nSample fuzzy duplicate group:")
+        sample_group = fuzzy_groups[0]
+        for i, (idx, row) in enumerate(sample_group.iterrows()):
+            print(f"  Doc {i+1}: {row['text'][:50]}...")
     
-    # Count topics
-    standard_topic_counts = standard_results["topic"].value_counts().sort_index()
-    print("\nTopic distribution without deduplication:")
-    print(standard_topic_counts)
+    # Run topic modeling on deduplicated data
+    workflow = MenoWorkflow()
+    workflow.load_data(
+        data=deduplicated_data,
+        text_column="text"
+    )
+    workflow.preprocess_documents()
+    results = workflow.discover_topics(method="bertopic", num_topics=5)
     
-    return standard_results, standard_time
+    # Map topics back to all documents
+    index_to_topic = dict(zip(results['original_index'], results['topic']))
+    
+    # Apply to original dataset
+    topics_for_all = []
+    for idx in data.index:
+        if idx in index_to_topic:
+            # This document was kept in the deduplicated set
+            topics_for_all.append(index_to_topic[idx])
+        else:
+            # This document was removed as a duplicate - get topic from its representative
+            rep_idx = duplicate_map[idx]
+            topics_for_all.append(index_to_topic[rep_idx])
+    
+    data['topic'] = topics_for_all
+    
+    # Count documents per topic
+    topic_counts = data['topic'].value_counts().to_dict()
+    print("\nDocuments per topic after mapping back:")
+    for topic, count in sorted(topic_counts.items()):
+        print(f"  Topic {topic}: {count} documents")
+    
+    return data
 
 
-def compare_results():
-    """Compare topic modeling with and without deduplication."""
-    # Run both approaches
-    print("\n=== COMPARING TOPIC MODELING WITH AND WITHOUT DEDUPLICATION ===\n")
+def simulate_llm_processing(texts, prompt="Assign a category to this text: "):
+    """Simulate processing texts with an LLM."""
+    # This function simulates what you would do with an actual LLM API
+    # In a real scenario, you would send these texts to an API like OpenAI, Anthropic, etc.
     
-    # Create consistent dataset
-    np.random.seed(42)
-    data = create_dataset_with_duplicates(num_unique=500, duplicates_per_doc=5)
-    print(f"Dataset size: {len(data)} documents ({len(data.drop_duplicates(subset=['text']))} unique)")
+    categories = ["Technology", "Healthcare", "Finance", "Sports", "Entertainment"]
+    results = []
     
-    # Run with deduplication
-    print("\n--- WITH DEDUPLICATION ---")
-    start_time = time.time()
+    for text in texts:
+        # Simulate LLM category assignment
+        word_counts = {}
+        for category in categories:
+            word_counts[category] = text.lower().count(category.lower())
+        
+        # Pick the category with the most mentions, or random if none
+        max_count = max(word_counts.values())
+        if max_count > 0:
+            category = [c for c, count in word_counts.items() if count == max_count][0]
+        else:
+            category = np.random.choice(categories)
+        
+        # Create a summary (in reality, this would come from the LLM)
+        summary = f"This text is about {category.lower()}."
+        
+        results.append({
+            "category": category,
+            "summary": summary,
+            "confidence": np.random.uniform(0.7, 0.95)
+        })
     
-    workflow_dedup = MenoWorkflow()
-    workflow_dedup.load_data(data=data, text_column="text", deduplicate=True)
-    workflow_dedup.preprocess_documents()
-    dedup_results = workflow_dedup.discover_topics(method="bertopic", num_topics=5)
+    return pd.DataFrame(results)
+
+
+def run_deduplication_for_llm():
+    """Run deduplication and process with simulated LLM."""
+    print("\n=== DEDUPLICATION FOR EXTERNAL LLM PROCESSING ===\n")
     
-    dedup_time = time.time() - start_time
+    # Create sample dataset
+    data = create_sample_dataset()
+    print(f"Original dataset size: {len(data)} documents")
     
-    # Run without deduplication
-    print("\n--- WITHOUT DEDUPLICATION ---")
-    start_time = time.time()
+    # Create deduplicator
+    deduplicator = TextDeduplicator(similarity_threshold=0.85)
     
-    workflow_standard = MenoWorkflow()
-    workflow_standard.load_data(data=data, text_column="text", deduplicate=False)
-    workflow_standard.preprocess_documents()
-    standard_results = workflow_standard.discover_topics(method="bertopic", num_topics=5)
+    # Run deduplication
+    deduplicated_data, duplicate_map, _ = deduplicator.deduplicate(
+        data, 
+        text_column="text",
+        method="fuzzy",  # Could also use "exact"
+        threshold=0.85
+    )
     
-    standard_time = time.time() - start_time
+    print(f"After deduplication: {len(deduplicated_data)} documents")
+    print(f"Removed {len(data) - len(deduplicated_data)} duplicates and near-duplicates")
     
-    # Compare results
-    print("\n=== RESULTS COMPARISON ===")
-    print(f"Time with deduplication:    {dedup_time:.2f} seconds")
-    print(f"Time without deduplication: {standard_time:.2f} seconds")
-    print(f"Speedup: {(standard_time / dedup_time):.2f}x")
+    # Simulate LLM processing on deduplicated data
+    print(f"\nProcessing {len(deduplicated_data)} unique documents with simulated LLM...")
+    llm_results = simulate_llm_processing(deduplicated_data['text'])
     
-    # Compare topic distributions
-    dedup_topics = dedup_results["topic"].value_counts().sort_index()
-    standard_topics = standard_results["topic"].value_counts().sort_index()
+    # Add results to deduplicated data
+    for col in llm_results.columns:
+        deduplicated_data[col] = llm_results[col].values
     
-    print("\nTopic distribution comparison:")
-    comparison_df = pd.DataFrame({
-        "With Deduplication": dedup_topics,
-        "Without Deduplication": standard_topics
-    })
-    print(comparison_df)
+    # Map LLM results back to all documents
+    print("\nMapping LLM results back to all documents...")
+    full_results = deduplicator.map_results_to_full_dataset(
+        data,
+        deduplicated_data,
+        duplicate_map,
+        ['category', 'summary', 'confidence']
+    )
     
-    # Calculate consistency
-    consistency = (dedup_results["id"] == standard_results["id"]).mean() * 100
-    print(f"\nID consistency between methods: {consistency:.2f}%")
+    # Verify results
+    print(f"\nAll {len(full_results)} documents have LLM results:")
+    print(f"  - Categories assigned: {sorted(full_results['category'].unique())}")
+    print(f"  - Avg. confidence: {full_results['confidence'].mean():.2f}")
     
-    # Calculate topic assignment consistency
-    topic_consistency = (dedup_results["topic"] == standard_results["topic"]).mean() * 100
-    print(f"Topic assignment consistency: {topic_consistency:.2f}%")
+    # Show some stats
+    category_counts = full_results['category'].value_counts()
+    print("\nCategory distribution:")
+    for category, count in category_counts.items():
+        print(f"  {category}: {count} documents ({count/len(full_results)*100:.1f}%)")
+    
+    return full_results
 
 
 def main():
-    """Main function demonstrating the deduplication feature."""
-    print("==== MENO DEDUPLICATION EXAMPLE ====\n")
-    print("This example demonstrates how to use Meno's document deduplication feature")
-    print("to optimize topic modeling when your dataset contains duplicate documents.\n")
+    """Run all deduplication examples."""
+    print("=== MENO DEDUPLICATION EXAMPLES ===")
+    print("This script demonstrates how to use deduplication in Meno for:")
+    print("1. Exact deduplication with MenoWorkflow")
+    print("2. Fuzzy deduplication with TextDeduplicator")
+    print("3. Processing deduplicated texts with an external LLM")
     
-    # Compare with and without deduplication
-    compare_results()
+    # Run examples
+    run_exact_deduplication_workflow()
+    run_fuzzy_deduplication()
+    run_deduplication_for_llm()
     
-    print("\nExplanation of results:")
-    print("1. Deduplication typically provides a significant speedup")
-    print("2. The final dataset size is still the same (all documents get topic assignments)")
-    print("3. Topic distributions may vary slightly due to duplicate documents")
-    print("   having less influence on the model with deduplication")
-    print("\nTo use deduplication in your workflow, simply add deduplicate=True to load_data():")
-    print("workflow = MenoWorkflow()")
-    print("workflow.load_data(data=your_data, text_column='text', deduplicate=True)")
+    print("\n=== COMPLETED DEDUPLICATION EXAMPLES ===")
+    print("""
+Key takeaways:
+1. Use exact deduplication (deduplicate=True in workflow.load_data()) for identical documents
+2. Use fuzzy deduplication from meno.preprocessing.deduplication for similar but not identical texts
+3. Deduplication can significantly reduce processing time for LLMs
+4. Always map results back to all documents to maintain the original dataset structure
+    """)
 
 
 if __name__ == "__main__":
